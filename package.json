@@ -1,0 +1,40 @@
+{
+  "name": "xms-api",
+  "version": "1.0.0",
+  "description": "xms api and database system",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "\\"
+  },
+  "author": "pouriya khorami",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/joi": "^17.1.1",
+    "bcryptjs": "^2.4.3",
+    "body-parser": "^1.19.1",
+    "cookie-parser": "^1.4.5",
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "fs": "^0.0.1-security",
+    "install": "^0.13.0",
+    "jalali-moment": "^3.3.10",
+    "joi": "^17.4.2",
+    "jsonwebtoken": "^8.5.1",
+    "jwt-decode": "^3.1.2",
+    "mongoose": "^5.10.0",
+    "mongoose-fuzzy-searching": "^2.0.2",
+    "multer": "^1.4.3",
+    "nodemailer": "^6.7.3",
+    "nodemailer-smtp-transport": "^2.7.4",
+    "nodemon": "^2.0.15",
+    "request": "^2.88.2",
+    "sitemap": "^7.1.1",
+    "xmlbuilder2": "^3.0.2"
+  }
+}
