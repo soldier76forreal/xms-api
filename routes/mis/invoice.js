@@ -28,6 +28,26 @@ router.post('/newPreInvoice' , async(req , res)=>{
     }
 })
 
+router.post('/completeInvoice' , async(req , res)=>{
+    const newPreInvoice = new invoice ({
+        preInvoice:{
+            productName:req.body.productName,
+            meterage:req.body.meterage,
+            destination:req.body.destination,
+            companyName:req.body.companyName,
+            logsStatus:{status:'created' , msg:'new pre invoice created!'}
+            // generatedBy:req.body.generatedBy
+        }
+    })
+    try{
+        const response =await newPreInvoice.save();
+        res.status(200).send(response);
+    }catch(err){
+        res.status(401).send('error!');
+
+    }
+})
+
 
 router.get('/getInvoices' , async(req , res)=>{
     try{

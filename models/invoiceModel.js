@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
 
-// var moment = require('jalali-moment');
-
 var preInvoiceSchema = new mongoose.Schema({
     productName:{ type: String , require:true},
     meterage:{ type: Number , require:true },
@@ -13,21 +11,20 @@ var preInvoiceSchema = new mongoose.Schema({
     logsStatus:{status:{type:String} , msg:{type:String}},
     logs:mongoose.Mixed
   });
-
-//   var phoneNumberSchema = new mongoose.Schema({
-//     countryCode:{ type: String , require:true},
-//     personTitle:{ type: String , require:true},
-//     number:{ type: Number , require:true },
-//     deleteDate : {type:Date , default:null },
-//     logsStatus:{status:{type:String} , msg:{type:String}},
-//     insertDate : {type:Date , default:Date.now},
-//     logs:mongoose.Mixed,
-//     lastUpdater:{ type: mongoose.Schema.Types.ObjectId , require:true },
-//     updateDate:{type: Date , require:true },
-//     deleteDate:{type:Date},
-//     updatedBy:{ type: mongoose.Schema.Types.ObjectId  }
-//   });
-
+  var completeInvoiceSchema = new mongoose.Schema({
+    invoiceDate:{ type: Date , require:true},
+    costCnf:{ type: Number , require:true},
+    costFob:{ type: Number , require:true},
+    factoryPrice:{ type: Number , require:true},
+    stoneThickness:{ type: String , require:true},
+    stoneRate:{ type: String , require:true},
+    dateOfShipment:{ type: Date , require:true},
+    generatedBy:{ type: mongoose.Schema.Types.ObjectId , require:true },
+    updateDate:{type:Date},
+    updatedBy:{ type: mongoose.Schema.Types.ObjectId},
+    logsStatus:{status:{type:String} , msg:{type:String}},
+    logs:mongoose.Mixed
+  });
 //   var emailSchema = new mongoose.Schema({
 //     email:{ type: String , require:true},
 //     deleteDate : {type:Date , default:null},
@@ -59,6 +56,7 @@ var preInvoiceSchema = new mongoose.Schema({
 //   })
 const invoice = new mongoose.Schema ({
     preInvoice:preInvoiceSchema,
+    completeInvoice:completeInvoiceSchema,
     sharedTo:[{to:{type:mongoose.Schema.Types.ObjectId} , by:{type:mongoose.Schema.Types.ObjectId} , date:{type:Date}}],
     status:{type:Number , default:0},
     inisialInsert : {type: mongoose.Schema.Types.ObjectId },
