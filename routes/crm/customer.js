@@ -176,14 +176,16 @@ router.get("/getAllCustomerForSelect"  , async (req , res , next)=>{
     }
 
 });
-router.get("/getAllCustomer"  , async (req , res , next)=>{
+router.get("/getAllCustomer"  , verify  , async (req , res , next)=>{
     var customer = [];
+    
     try{
-        const getAllCustomerData = await customers.find({deleteDate:null});
+        var decoded = jwt_decode(req.headers.authorization);
+        const getAllCustomerData = await customers.find({deleteDate:null , inisialInsert:decoded.id});
         for(var i = 0 ; getAllCustomerData.length > i ; i++){
             customer.push({customer:getAllCustomerData[i] , invoice:await invoice.find({deleteDate:null , 'preInvoice.companyName' : getAllCustomerData[i]._id})})
         }
-
+        
         res.status(200).send(customer);
     }catch(error){
         res.status(400).send({error:error , msg:"error!!there is a problem"});
@@ -204,7 +206,7 @@ router.post("/deletePerson"  , async (req , res , next)=>{
 });
 
 
-router.post("/saveNewCall"  , async (req , res , next)=>{
+router.post("/saveNewCall"  , verify , async (req , res , next)=>{
     try{
 
         const addNewCall = await customers.findOneAndUpdate({_id:req.body.docId},
