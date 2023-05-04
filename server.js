@@ -48,7 +48,6 @@ app.use('/users' , require('./routes/users/users') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
 
-server.timeout = 80000;
 
 server.listen(3001 , connect =>{
     console.log("server running on port 3001.");

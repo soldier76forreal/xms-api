@@ -49,13 +49,15 @@ const router = express.Router()
           socket.on("sendRequest", async({ to ,from, document, type}) => {
             to.forEach(async element => {
                 var receiver = getUser(element);
-                try{
+                if(receiver !== undefined){
+                  try{
                     await io.to(receiver.socketId).emit("newPing", {
-                    ping:Math.random()
-                  });
-                }catch(err){
-                  console.log(err);
-                }
+                      ping:Math.random()
+                    });   
+                  }catch(err){
+                    console.log(err);
+                  }
+                } 
             });
           });
         
@@ -65,29 +67,34 @@ const router = express.Router()
         
         });
         
-        router.post('/saveNotif' , verify , async(req , res)=>{
+        router.post('/saveNotif' , verify , async(req , res  , next)=>{
           const document = await invoice.findOne({_id:req.body.document})
           const from = await user.findOne({_id:req.body.from})
         
           try{
-            req.body.to.forEach(async(element) => {
+            for(var i=0 ; req.body.to.length>i ; i++){
               newPreInvoice = new notfication ({
-                from:req.body.from,
-                document:req.body.document,
-                to:element,
-                type:req.body.type
-            })
-              const response =await newPreInvoice.save();
-              const payload = JSON.stringify({sendFrom:`${from.firstName} ${from.lastName}` , document:`${document.preInvoice.productName}-${document.preInvoice.meterage} متر` , status:document.status , type:req.body.type})
-              const subscriptions = await pwaSubscription.findOne({userId:element});
-              subscriptions.subscription.forEach(async(element) => {
-                return await webpush.sendNotification(JSON.parse(element),payload);
-              });
-
-            });
- 
-            }catch(err){
-                console.log(err)
+                  from:req.body.from,
+                  document:req.body.document,
+                  to:req.body.to[i],
+                  type:req.body.type
+              })
+                const response =await newPreInvoice.save();
+                const payload = JSON.stringify({sendFrom:`${from.firstName} ${from.lastName}` , document:`${document.preInvoice.productName}-${document.preInvoice.meterage} متر` , status:document.status , type:req.body.type})
+                const subscriptions = await pwaSubscription.findOne({userId:req.body.to[i]});
+                if(subscriptions !== null){
+                  for(var j=0 ; subscriptions.subscription.length>j ; j++){
+                    try{
+                      await webpush.sendNotification(JSON.parse(subscriptions.subscription[j]),payload);
+                      res.status(200).send('notif sent!')
+                    }catch(err){
+                      res.status(403).send(err)
+                    }
+                  }
+                }
+            }
+            }catch{
+              
             }
         })
         router.post('/saveSubsToDb' , verify  , async(req , res)=>{

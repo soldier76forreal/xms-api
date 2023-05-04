@@ -97,25 +97,55 @@ router.get('/getInvoices' , verify , async(req , res)=>{
     var temp =[];
     var finalArr =[];
     var reserved = '';
+    var length;
+    var response;
+    var recived;
+    var removedDeletedRecords;
+    var filteredArr;
+    var tempArr= [];
     try{
-        const length = await invoice.countDocuments({deleteDate:null});
-        const response = await invoice.find({deleteDate:null , "preInvoice.generatedBy":req.query.id});
-        const recived = await user.findOne({deleteDate:null , _id:req.query.id});
-        var tempArr= [];
-        var filteredArr;
-
-        const removedDeletedRecords = recived.recivedRequests.filter(item => item.deleteDate === null);
-    if(recived.recivedRequests !== null){
-
-        filteredArr = removedDeletedRecords.reduce((acc, current) => {
-            const x = acc.find(item => JSON.stringify(item.document) === JSON.stringify(current.document));
-            if (!x) {
-              return acc.concat([current]);
-            } else {
-              return acc;
+        var decoded = jwt_decode(req.headers.authorization);
+        
+        //check if the user is super admin or not
+        if(decoded.access.includes('sa')){
+            length = await invoice.countDocuments({deleteDate:null}); 
+            response = await invoice.find({deleteDate:null});
+            recived = await user.find({deleteDate:null});
+            var exrtactedRecived =[];
+            for(var s = 0 ; recived.length>s ; s++){
+                
+                exrtactedRecived= exrtactedRecived.concat(recived[s].recivedRequests)
             }
-          }, []);
-    }
+            
+            removedDeletedRecords = exrtactedRecived.filter(item => item.deleteDate === null);
+            if(exrtactedRecived !== null){
+                filteredArr = removedDeletedRecords.reduce((acc, current) => {
+                    const x = acc.find(item => JSON.stringify(item.document) === JSON.stringify(current.document));
+                    if (!x) {
+                      return acc.concat([current]);
+                    } else {
+                      return acc;
+                    }
+                  }, []);
+            }
+        }else{
+            length = await invoice.countDocuments({deleteDate:null}); 
+            response = await invoice.find({deleteDate:null , "preInvoice.generatedBy":req.query.id});
+            recived = await user.findOne({deleteDate:null , _id:req.query.id});
+            removedDeletedRecords = recived.recivedRequests.filter(item => item.deleteDate === null);
+            if(recived.recivedRequests !== null){
+                filteredArr = removedDeletedRecords.reduce((acc, current) => {
+                    const x = acc.find(item => JSON.stringify(item.document) === JSON.stringify(current.document));
+                    if (!x) {
+                      return acc.concat([current]);
+                    } else {
+                      return acc;
+                    }
+                  }, []);
+            }
+        }
+
+        
         filteredArr.forEach(async el => {
             reserved=el.document;
             removedDeletedRecords.forEach(async el1 => {
@@ -137,7 +167,6 @@ router.get('/getInvoices' , verify , async(req , res)=>{
             })
         }
         // for(var b = 0 ; response.length > b ; b++){
- 
         //     finalArr.push({
         //         date:response[b].preInvoice.insertDate,
         //         doc: response[b],
@@ -146,7 +175,6 @@ router.get('/getInvoices' , verify , async(req , res)=>{
         //     })
         // }
         for(var b = 0 ; response.length > b ; b++){
- 
             finalArr.push({
                 date:response[b].preInvoice.insertDate,
                 doc: response[b],

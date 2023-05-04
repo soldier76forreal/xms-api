@@ -16,7 +16,6 @@ var personalInformationSchema = new mongoose.Schema({
 
   var phoneNumberSchema = new mongoose.Schema({
     countryCode:{ type: String , require:true},
-    personTitle:{ type: String , require:true},
     number:{ type: Number , require:true },
     whatsApp:{ type: Boolean}
   });

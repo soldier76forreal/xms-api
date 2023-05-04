@@ -6,7 +6,8 @@ const router = express.Router()
 const invoiceModel = require("../../models/invoiceModel");
 const invoice = dbConnection.model('invoice' , invoiceModel);
 const jwt_decode = require('jwt-decode');
-
+const userModel = require("../../models/userModel");
+const user = dbConnection.model('user' , userModel);
             
 const verify = require('../users/verifyToken');
 
@@ -16,7 +17,6 @@ router.post("/getTheBlogForMain" , verify  , async (req , res , next)=>{
         phoneNumbers.push(
             {
                 countryCode:req.body.phoneNumberInformation[i].countryCode,
-                personTitle:req.body.phoneNumberInformation[i].title,
                 number:req.body.phoneNumberInformation[i].number,
                 whatsApp:req.body.phoneNumberInformation[i].whatsApp,
                 logsStatus:{status:'created' , msg:'customer phone number document created!'}
@@ -91,7 +91,6 @@ router.post("/editCustomer"  , verify , async (req , res , next)=>{
         phoneNumbers.push(
             {
                 countryCode:req.body.phoneNumberInformation[i].countryCode,
-                personTitle:req.body.phoneNumberInformation[i].title,
                 number:req.body.phoneNumberInformation[i].number,
                 whatsApp:req.body.phoneNumberInformation[i].whatsApp,
                 logsStatus:{status:'created' , msg:'customer phone number document created!'}
@@ -181,9 +180,9 @@ router.get("/getAllCustomer"  , verify  , async (req , res , next)=>{
     
     try{
         var decoded = jwt_decode(req.headers.authorization);
-        const getAllCustomerData = await customers.find({deleteDate:null , inisialInsert:decoded.id});
+        const getAllCustomerData = await customers.find({deleteDate:null});
         for(var i = 0 ; getAllCustomerData.length > i ; i++){
-            customer.push({customer:getAllCustomerData[i] , invoice:await invoice.find({deleteDate:null , 'preInvoice.companyName' : getAllCustomerData[i]._id})})
+            customer.push({customer:getAllCustomerData[i] , generatedBy:await user.findOne({_id:getAllCustomerData[i].inisialInsert}), invoice:await invoice.find({deleteDate:null , 'preInvoice.companyName' : getAllCustomerData[i]._id})})
         }
         
         res.status(200).send(customer);
