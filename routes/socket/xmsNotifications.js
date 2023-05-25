@@ -9,6 +9,7 @@ const pwaSubscriptionModel = require('../../models/pwaSubscriptionModel');
 const dotenv = require("dotenv");
 dotenv.config();
 ; 
+const multer = require('multer');
 
 const dbConnection = require("../../connections/xmsPr");
 const user = dbConnection.model('user' , userModel);
@@ -21,6 +22,14 @@ const { query } = require('express');
 const { id } = require('@hapi/joi/lib/base');
 //webpush
 webpush.setVapidDetails('mailto:test@test.com' , process.env.PublicVapidKey , process.env.PrivateVapidKey);
+
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  },
+});
+const upload = multer({ storage });
 
 const router = express.Router()
 

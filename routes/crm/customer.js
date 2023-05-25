@@ -71,7 +71,8 @@ router.post("/getTheBlogForMain" , verify  , async (req , res , next)=>{
                 phoneNumbers:phoneNumbers.length === 0 ? null : phoneNumbers,
                 emails:emails.length === 0 ? null :emails 
             },
-            address:address.length === 0 ? null : address
+            address:address.length === 0 ? null : address,
+            explanations:req.body.explanations
     })
 
     try{
@@ -137,6 +138,7 @@ router.post("/editCustomer"  , verify , async (req , res , next)=>{
 
         const editCustomer = await customers.updateOne({_id:req.body.id},{
             updateDate:Date.now(),
+            explanations:req.body.explanations,
             updatedBy:decoded.id ,
             logsStatus:{status:'updated' , msg:'customer document updated!'},
             logs:lastVersion,

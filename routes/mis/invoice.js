@@ -25,9 +25,7 @@ router.post('/newPreInvoice' , verify , async(req , res)=>{
                 generatedBy:req.body.generatedBy
             },
             inisialInsert:req.body.generatedBy,
-           
         })
-
     }else if(req.body.insertFactor === false){
          newPreInvoice = new invoice ({
             preInvoice:{

@@ -7,6 +7,7 @@ const multer  = require('multer')
 const upload = multer({ dest: 'public/files' })
 const webpush = require('web-push');
 const dotenv = require("dotenv");
+
 //express middlewear
 const app = express();
 var server = require('http').createServer(app);
@@ -43,6 +44,8 @@ app.use('/mis' , require('./routes/mis/invoice') )
 app.use('/notfication' , require('./routes/socket/xmsNotifications')(io))
 app.use('/users' , require('./routes/users/users') )
 
+app.use('/files' , require('./routes/fileManager/main') )
+app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 // app.use('/comment' , require("./routes/controlPanel/comment"));
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));

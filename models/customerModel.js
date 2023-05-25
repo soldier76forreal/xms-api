@@ -50,6 +50,7 @@ var personalInformationSchema = new mongoose.Schema({
        Status:{status:{type:String} , msg:{type:String}},
       insertDate : {type:Date , default:Date.now},
       logs:mongoose.Mixed,
+      explanations:{ type: String},
       updateDate:{type: Date},
       phoneCalls : [phoneCallsSchema],
       updatedBy:{ type: mongoose.Schema.Types.ObjectId },
@@ -61,6 +62,7 @@ var personalInformationSchema = new mongoose.Schema({
         dateOfBirth:{dateType:{type:String} , date:{type:Date}},
         customerType:{type: String },
         attractedBy:{ type: String},
+        
         favoriteProducts : [{ type: mongoose.Schema.Types.ObjectId }],
         gender:{ type: String}
       },
