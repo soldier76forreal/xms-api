@@ -128,8 +128,8 @@ router.get('/getInvoices' , verify , async(req , res)=>{
             }
         }else{
             length = await invoice.countDocuments({deleteDate:null}); 
-            response = await invoice.find({deleteDate:null , "preInvoice.generatedBy":req.query.id});
-            recived = await user.findOne({deleteDate:null , _id:req.query.id});
+            response = await invoice.find({deleteDate:null , "preInvoice.generatedBy":decoded.id});
+            recived = await user.findOne({deleteDate:null , _id:decoded.id});
             removedDeletedRecords = recived.recivedRequests.filter(item => item.deleteDate === null);
             if(recived.recivedRequests !== null){
                 filteredArr = removedDeletedRecords.reduce((acc, current) => {

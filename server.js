@@ -19,8 +19,8 @@ var io = require('socket.io')(server , {
   });
 // app.use(cors());
 app.use(cors({credentials: true, origin:['http://localhost:3000' , 'http://localhost:3001', 'http://192.168.1.124:3000']}));
-//dotenv middlewear
 
+//dotenv middlewear
 dotenv.config();
 //bodyParser middlewear
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -40,6 +40,8 @@ app.use(cookieParser());
 // app.use('/users' , require("./routes/controlPanel/users"));
 // app.use('/blog' , require("./routes/controlPanel/blogPost"));
 app.use('/crm' , require("./routes/crm/customer"));
+app.use('/filter' , require("./routes/filters"));
+
 app.use('/mis' , require('./routes/mis/invoice') )
 app.use('/notfication' , require('./routes/socket/xmsNotifications')(io))
 app.use('/users' , require('./routes/users/users') )
@@ -47,7 +49,7 @@ app.use('/users' , require('./routes/users/users') )
 app.use('/files' , require('./routes/fileManager/main') )
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
-// app.use('/comment' , require("./routes/controlPanel/comment"));
+app.use('/jobReport' , require("./routes/jobReport/main"));
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
 

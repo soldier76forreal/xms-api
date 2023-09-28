@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema ({
     oldPasswords:{type:Array},
     passwordReset:{type:Array},
     savedPost:{type:Array},
+    filterMemory:{
+        crm:{sort:{type:String , default:null},filter:{country:{type:String , default:null},attractedBy:{type:String , default:null},whatsApp:{type:Boolean , default:null},havingAdderss:{type:Boolean , default:null}}},
+        mis:{sort:{type:String , default:null},filter:{requestType:{type:String , default:null},sentTo:{type:Array , default:null},sentBy:{type:Array , default:null}}}
+    },
     insertDate : {type:Date , default:Date.now},
     updateDate : {type:Date , default:null},
     deleteDate : {type:Date , default:null}

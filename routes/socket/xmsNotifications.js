@@ -94,7 +94,9 @@ const router = express.Router()
                 if(subscriptions !== null){
                   for(var j=0 ; subscriptions.subscription.length>j ; j++){
                     try{
-                      await webpush.sendNotification(JSON.parse(subscriptions.subscription[j]),payload);
+                      const notif = await webpush.sendNotification(JSON.parse(subscriptions.subscription[j]),payload);
+                    
+                      console.log(notif)
                       res.status(200).send('notif sent!')
                     }catch(err){
                       res.status(403).send(err)

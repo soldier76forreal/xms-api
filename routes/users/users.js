@@ -60,7 +60,7 @@ const router = express.Router()
         }catch(err){
             console.log(err)
         }
-  })
+    })
 
 
   router.post('/changeValidation' , verify , async(req , res)=>{
@@ -94,6 +94,15 @@ const router = express.Router()
       }
   })
 
+  router.get('/getFilter' , verify , async(req , res)=>{
+    var decoded = jwt_decode(req.headers.authorization);
+    try{ 
+        const theUser = await user.findOne({_id:decoded.id}).select('filterMemory');
+        res.status(200).send(theUser)
+      }catch(err){
+          console.log(err)
+      }
+  })
 
 module.exports = router;
 

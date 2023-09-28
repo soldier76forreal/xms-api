@@ -23,7 +23,15 @@ var personalInformationSchema = new mongoose.Schema({
   var emailSchema = new mongoose.Schema({
     email:{type: String}
   });
-
+  var instagramSchema = new mongoose.Schema({
+    instagram:{type: String}
+  });
+  var linkedInSchema = new mongoose.Schema({
+    linkedIn:{type: String}
+  });
+  var websiteSchema = new mongoose.Schema({
+    website:{type: String}
+  });
   var addressSchema = new mongoose.Schema({
     country:{ type: String  },
     city:{ type: String },
@@ -35,6 +43,7 @@ var personalInformationSchema = new mongoose.Schema({
     explanations : {type: String },
     mapLink : {type: String }
   })
+  
   var phoneCallsSchema = new mongoose.Schema({
     countryCode:{ type: String},
     phoneNumber:{type:String},
@@ -66,7 +75,7 @@ var personalInformationSchema = new mongoose.Schema({
         favoriteProducts : [{ type: mongoose.Schema.Types.ObjectId }],
         gender:{ type: String}
       },
-      contactInfo:{phoneNumbers:[phoneNumberSchema] , emails:[emailSchema]},
+      contactInfo:{phoneNumbers:[phoneNumberSchema] , emails:[emailSchema] , instagrams:[instagramSchema] , linkedIns:[linkedInSchema] , websites:[websiteSchema]},
       address:[addressSchema],
   });
 
