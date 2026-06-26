@@ -13,7 +13,19 @@ var fileSchema = new mongoose.Schema({
     updatedBy:{ type: mongoose.Schema.Types.ObjectId},
     logsStatus:{status:{type:String} , msg:{type:String}},
     logs:[mongoose.Mixed],
-    thumbnail: { type: String, default: null }, 
-    deleteDate:{type:Date , default:null}
+    thumbnail: { type: String, default: null },
+    deleteDate: { type: Date, default: null },
+    scope: {
+      type: String,
+      enum: ['file_manager', 'inventory', 'crm', 'mis', 'jobReport', 'projectManager'],
+      default: 'file_manager',
+    },
+    attachedTo: {
+      type: {
+        type: String,
+        enum: ['inventoryProduct', 'inventoryVariant', 'customer', 'invoice', 'jobReport'],
+      },
+      id: { type: mongoose.Schema.Types.ObjectId },
+    },
   });
 module.exports = fileSchema;

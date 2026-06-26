@@ -456,7 +456,8 @@ const router = express.Router()
     router.get('/getAllFileAndFolders', verify   , async(req , res)=>{
         try{
             const findFolders = await folder.find({deleteDate:null});
-            const findFiles = await file.find({deleteDate:null,hidden:false , hidden:undefined});
+            // Only show files that belong to the file manager (not inventory/crm/etc. media)
+            const findFiles = await file.find({deleteDate:null, hidden:{$in:[false,undefined,null]}, $or:[{scope:'file_manager'},{scope:{$exists:false}}]});
             var mixedRes = [];
             var tempFiles = []
             for(var i = 0 ; findFolders.length > i ; i++){
@@ -547,6 +548,11 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
         }
     }
 
+    const fileScope = req.body.scope || 'file_manager';
+    const attachedTo = req.body.attachedToType && req.body.attachedToId
+      ? { type: req.body.attachedToType, id: req.body.attachedToId }
+      : undefined;
+
     var newFile = new file({
         name: req.file.originalname.split(".", 1).pop(),
         supFolder: req.body.supFolder,
@@ -555,10 +561,9 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
         insertDate: Date.now(),
         logsStatus: { status: 'created', msg: 'file created!' },
         generatedBy: decoded.id,
-        
-        // 3. Save the thumbnail path to the database
-        // Make sure you add "thumbnail: String" to your Mongoose Schema!
-        thumbnail: thumbnailPath 
+        thumbnail: thumbnailPath,
+        scope: fileScope,
+        attachedTo,
     });
 
     try {

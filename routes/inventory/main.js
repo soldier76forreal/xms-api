@@ -1,16 +1,32 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const sharp = require('sharp');
+const jwt_decode = require('jwt-decode');
 const dbConnection = require('../../connections/xmsPr');
-const inventoryProductSchema  = require('../../models/inventoryProductModel');
-const inventoryVariantSchema  = require('../../models/inventoryVariantModel');
+const inventoryProductSchema   = require('../../models/inventoryProductModel');
+const inventoryVariantSchema   = require('../../models/inventoryVariantModel');
 const inventoryChangeLogSchema = require('../../models/inventoryChangeLogModel');
+const fileSchema = require('../../models/fileModel');
 const verify = require('../users/verifyToken');
 const { parseStoneCode } = require('../../utils/stoneCodeParser');
 const { stoneTypes, grades, units, quarries } = require('./lookups');
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'public/uploads'),
+  filename:    (req, file, cb) => {
+    const ext = file.originalname.match(/\..*$/)?.[0] || '';
+    cb(null, `inv-${Date.now()}${ext}`);
+  },
+});
+const upload = multer({ storage });
+
 const InvProduct   = dbConnection.model('inventoryProduct',   inventoryProductSchema);
 const InvVariant   = dbConnection.model('inventoryVariant',   inventoryVariantSchema);
 const InvChangeLog = dbConnection.model('inventoryChangeLog', inventoryChangeLogSchema);
+const File         = dbConnection.model('file',               fileSchema);
 
 const router = express.Router();
 
@@ -313,6 +329,304 @@ router.get('/products/:id/logs', verify, async (req, res) => {
   ]);
 
   res.json({ data: logs, total });
+});
+
+// ─── update variant (spec / status) ──────────────────────────────────────────
+
+router.put('/variants/:id', verify, async (req, res) => {
+  const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+
+  const allowed = ['unit', 'status'];
+  const updates = { updateDate: new Date(), updatedBy: req.user?._id };
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  // Allow re-parsing if a new code is provided
+  if (req.body.code) {
+    const parsed = parseStoneCode(req.body.code);
+    if (!parsed.valid) {
+      return res.status(400).json({ message: 'Could not parse stone code', warnings: parsed.parseWarnings });
+    }
+    updates.code = parsed.raw.trim().toUpperCase();
+    updates.spec = {
+      stoneType: parsed.stoneType, stoneTypeName: parsed.stoneTypeName,
+      quarryCode: parsed.quarryCode, grade: parsed.grade, gradeName: parsed.gradeName,
+      gradeRank: parsed.gradeRank, lengthCm: parsed.lengthCm, widthCm: parsed.widthCm,
+      thicknessMm: parsed.thicknessMm, unsized: parsed.unsized,
+      cut: parsed.cut, cutName: parsed.cutName, fill: parsed.fill, fillName: parsed.fillName,
+      finish: parsed.finish, finishName: parsed.finishName,
+      raw: parsed.raw, parseWarnings: parsed.parseWarnings,
+    };
+    await InvChangeLog.create({
+      subjectType: 'variant', subjectId: variant._id, productId: variant.productId,
+      changeType: 'spec', field: 'code',
+      oldValue: variant.code, newValue: updates.code,
+      source: 'manual', changedBy: req.user?._id,
+    });
+  }
+
+  const updated = await InvVariant.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+  if (updates.status) await recomputeRollup(variant.productId);
+
+  res.json({ data: updated });
+});
+
+// ─── soft-delete variant ──────────────────────────────────────────────────────
+
+router.delete('/variants/:id', verify, async (req, res) => {
+  const variant = await InvVariant.findOneAndUpdate(
+    { _id: req.params.id, deleteDate: null },
+    { $set: { deleteDate: new Date(), status: 'archived', updatedBy: req.user?._id } },
+    { new: true }
+  );
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+
+  await recomputeRollup(variant.productId);
+  res.json({ message: 'Variant archived' });
+});
+
+// ─── stock adjust ─────────────────────────────────────────────────────────────
+
+router.post('/variants/:id/adjust', verify, async (req, res) => {
+  const { delta, reason, source = 'manual' } = req.body;
+
+  if (delta === undefined || delta === null) {
+    return res.status(400).json({ message: 'delta is required (positive to add, negative to subtract)' });
+  }
+
+  const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+
+  const oldQty = variant.quantity;
+  const newQty = parseFloat((oldQty + Number(delta)).toFixed(4));
+
+  if (newQty < 0) {
+    return res.status(400).json({ message: `Adjustment would result in negative stock (${newQty})` });
+  }
+
+  await InvVariant.findByIdAndUpdate(req.params.id, {
+    $set: { quantity: newQty, updateDate: new Date(), updatedBy: req.user?._id },
+  });
+
+  await InvChangeLog.create({
+    subjectType:   'variant',
+    subjectId:     variant._id,
+    productId:     variant.productId,
+    changeType:    'quantity',
+    field:         'quantity',
+    oldValue:      oldQty,
+    newValue:      newQty,
+    delta:         Number(delta),
+    unit:          variant.unit,
+    reason:        reason || null,
+    source,
+    changedBy:     req.user?._id,
+    changedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : undefined,
+  });
+
+  await recomputeRollup(variant.productId);
+
+  res.json({ data: { oldQuantity: oldQty, newQuantity: newQty, delta: Number(delta), unit: variant.unit } });
+});
+
+// ─── price update ─────────────────────────────────────────────────────────────
+
+router.put('/variants/:id/price', verify, async (req, res) => {
+  const { price, currency = 'AED' } = req.body;
+
+  if (price === undefined || price === null) {
+    return res.status(400).json({ message: 'price is required' });
+  }
+
+  const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+
+  const oldPrice = variant.price;
+  const newPrice = Number(price);
+
+  await InvVariant.findByIdAndUpdate(req.params.id, {
+    $set: { price: newPrice, currency, updateDate: new Date(), updatedBy: req.user?._id },
+  });
+
+  await InvChangeLog.create({
+    subjectType:   'variant',
+    subjectId:     variant._id,
+    productId:     variant.productId,
+    changeType:    'price',
+    field:         'price',
+    oldValue:      oldPrice,
+    newValue:      newPrice,
+    currency,
+    source:        'manual',
+    changedBy:     req.user?._id,
+    changedByName: req.user?.firstName ? `${req.user.firstName} ${req.user.lastName}` : undefined,
+  });
+
+  await recomputeRollup(variant.productId);
+
+  res.json({ data: { oldPrice, newPrice, currency } });
+});
+
+// ─── upload media for a variant ───────────────────────────────────────────────
+
+router.post('/variants/:id/media', verify, upload.single('file'), async (req, res) => {
+  const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+
+  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+  const decoded = jwt_decode(req.headers.authorization);
+
+  let thumbnailPath = null;
+  if (req.file.mimetype.startsWith('image/')) {
+    try {
+      const thumbFilename = `thumb-${req.file.filename}`;
+      const thumbPath = path.join('public/uploads', thumbFilename);
+      await sharp(req.file.path).resize(300).jpeg({ quality: 80 }).toFile(thumbPath);
+      thumbnailPath = thumbFilename;
+    } catch (e) {
+      // thumbnail failure is non-fatal
+    }
+  }
+
+  const ext = req.file.originalname.slice(req.file.originalname.lastIndexOf('.') + 1);
+
+  const fileDoc = await File.create({
+    name:      req.file.originalname.split('.')[0],
+    supFolder: null,
+    metaData:  req.file,
+    format:    ext,
+    generatedBy: decoded.id,
+    thumbnail: thumbnailPath,
+    scope:     'inventory',
+    attachedTo: { type: 'inventoryVariant', id: variant._id },
+  });
+
+  await InvChangeLog.create({
+    subjectType: 'variant',
+    subjectId:   variant._id,
+    productId:   variant.productId,
+    changeType:  'media',
+    mediaRef:    { fileId: fileDoc._id, action: 'added', name: fileDoc.name },
+    source:      'manual',
+    changedBy:   decoded.id,
+  });
+
+  // Set as product cover if none set yet
+  const product = await InvProduct.findById(variant.productId);
+  if (product && !product.coverMediaId && req.file.mimetype.startsWith('image/')) {
+    await InvProduct.findByIdAndUpdate(variant.productId, { $set: { coverMediaId: fileDoc._id } });
+  }
+
+  res.status(201).json({ data: fileDoc });
+});
+
+// ─── upload media for a product (cover / product-level gallery) ───────────────
+
+router.post('/products/:id/media', verify, upload.single('file'), async (req, res) => {
+  const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null });
+  if (!product) return res.status(404).json({ message: 'Product not found' });
+
+  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+  const decoded = jwt_decode(req.headers.authorization);
+
+  let thumbnailPath = null;
+  if (req.file.mimetype.startsWith('image/')) {
+    try {
+      const thumbFilename = `thumb-${req.file.filename}`;
+      const thumbPath = path.join('public/uploads', thumbFilename);
+      await sharp(req.file.path).resize(300).jpeg({ quality: 80 }).toFile(thumbPath);
+      thumbnailPath = thumbFilename;
+    } catch (e) {}
+  }
+
+  const ext = req.file.originalname.slice(req.file.originalname.lastIndexOf('.') + 1);
+
+  const fileDoc = await File.create({
+    name:      req.file.originalname.split('.')[0],
+    supFolder: null,
+    metaData:  req.file,
+    format:    ext,
+    generatedBy: decoded.id,
+    thumbnail: thumbnailPath,
+    scope:     'inventory',
+    attachedTo: { type: 'inventoryProduct', id: product._id },
+  });
+
+  await InvChangeLog.create({
+    subjectType: 'product',
+    subjectId:   product._id,
+    productId:   product._id,
+    changeType:  'media',
+    mediaRef:    { fileId: fileDoc._id, action: 'added', name: fileDoc.name },
+    source:      'manual',
+    changedBy:   decoded.id,
+  });
+
+  // Auto-set as cover if none exists
+  if (!product.coverMediaId && req.file.mimetype.startsWith('image/')) {
+    await InvProduct.findByIdAndUpdate(product._id, { $set: { coverMediaId: fileDoc._id } });
+  }
+
+  res.status(201).json({ data: fileDoc });
+});
+
+// ─── get media for a product or variant ───────────────────────────────────────
+
+router.get('/media', verify, async (req, res) => {
+  const { attachedToType, attachedToId } = req.query;
+  if (!attachedToType || !attachedToId) {
+    return res.status(400).json({ message: 'attachedToType and attachedToId are required' });
+  }
+
+  const files = await File.find({
+    scope: 'inventory',
+    'attachedTo.type': attachedToType,
+    'attachedTo.id':   attachedToId,
+    deleteDate:        null,
+  }).sort({ insertDate: -1 }).lean();
+
+  res.json({ data: files });
+});
+
+// ─── delete media ─────────────────────────────────────────────────────────────
+
+router.delete('/media/:fileId', verify, async (req, res) => {
+  const fileDoc = await File.findOne({ _id: req.params.fileId, deleteDate: null });
+  if (!fileDoc) return res.status(404).json({ message: 'File not found' });
+
+  if (fileDoc.scope !== 'inventory') {
+    return res.status(403).json({ message: 'File does not belong to inventory' });
+  }
+
+  await File.findByIdAndUpdate(req.params.fileId, { $set: { deleteDate: new Date() } });
+
+  const productId = fileDoc.attachedTo?.type === 'inventoryVariant'
+    ? (await InvVariant.findById(fileDoc.attachedTo.id))?.productId
+    : fileDoc.attachedTo?.id;
+
+  if (productId) {
+    await InvChangeLog.create({
+      subjectType: fileDoc.attachedTo.type === 'inventoryVariant' ? 'variant' : 'product',
+      subjectId:   fileDoc.attachedTo.id,
+      productId,
+      changeType:  'media',
+      mediaRef:    { fileId: fileDoc._id, action: 'removed', name: fileDoc.name },
+      source:      'manual',
+      changedBy:   req.user?._id,
+    });
+
+    // Clear coverMediaId if this was the cover
+    await InvProduct.updateOne(
+      { _id: productId, coverMediaId: fileDoc._id },
+      { $set: { coverMediaId: null } }
+    );
+  }
+
+  res.json({ message: 'Media removed' });
 });
 
 module.exports = router;
