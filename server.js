@@ -51,6 +51,8 @@ app.use('/notfication' , require('./routes/socket/xmsNotifications')(io))
 app.use('/users' , require('./routes/users/users') )
 
 app.use('/files' , require('./routes/fileManager/main') )
+app.use('/inventory' , require('./routes/inventory/main') )
+
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/jobReport' , require("./routes/jobReport/main"));
