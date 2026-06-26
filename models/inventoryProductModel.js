@@ -12,6 +12,7 @@ const inventoryProductSchema = new mongoose.Schema({
   category:      { type: String, trim: true },
   defaultUnit:   { type: String, enum: ['M2', 'ML', 'PCS', 'SQFT', 'LNFT'], default: 'M2' },
   coverMediaId:  { type: mongoose.Schema.Types.ObjectId, default: null },
+  coverThumbnail: { type: String, default: null },  // denormalized thumbnail filename for list-page display
   status:        { type: String, enum: ['active', 'archived'], default: 'active' },
   totalsByUnit:  { type: mongoose.Schema.Types.Mixed, default: {} },
   variantCount:  { type: Number, default: 0 },

@@ -177,6 +177,15 @@ router.put('/products/:id', verify, async (req, res) => {
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
   }
+
+  // When setting coverMediaId explicitly, also denormalize the thumbnail filename
+  if (req.body.coverMediaId) {
+    const coverFile = await File.findById(req.body.coverMediaId).lean();
+    if (coverFile?.thumbnail) updates.coverThumbnail = coverFile.thumbnail;
+  } else if (req.body.coverMediaId === null) {
+    updates.coverThumbnail = null;
+  }
+
   updates.updateDate = new Date();
   updates.updatedBy  = req.user?._id;
 
@@ -514,10 +523,12 @@ router.post('/variants/:id/media', verify, upload.single('file'), async (req, re
     changedBy:   decoded.id,
   });
 
-  // Set as product cover if none set yet
+  // Auto-set as product cover if none set yet
   const product = await InvProduct.findById(variant.productId);
   if (product && !product.coverMediaId && req.file.mimetype.startsWith('image/')) {
-    await InvProduct.findByIdAndUpdate(variant.productId, { $set: { coverMediaId: fileDoc._id } });
+    await InvProduct.findByIdAndUpdate(variant.productId, {
+      $set: { coverMediaId: fileDoc._id, coverThumbnail: thumbnailPath || null },
+    });
   }
 
   res.status(201).json({ data: fileDoc });
@@ -568,7 +579,9 @@ router.post('/products/:id/media', verify, upload.single('file'), async (req, re
 
   // Auto-set as cover if none exists
   if (!product.coverMediaId && req.file.mimetype.startsWith('image/')) {
-    await InvProduct.findByIdAndUpdate(product._id, { $set: { coverMediaId: fileDoc._id } });
+    await InvProduct.findByIdAndUpdate(product._id, {
+      $set: { coverMediaId: fileDoc._id, coverThumbnail: thumbnailPath || null },
+    });
   }
 
   res.status(201).json({ data: fileDoc });
@@ -619,10 +632,10 @@ router.delete('/media/:fileId', verify, async (req, res) => {
       changedBy:   req.user?._id,
     });
 
-    // Clear coverMediaId if this was the cover
+    // Clear coverMediaId + coverThumbnail if this was the cover
     await InvProduct.updateOne(
       { _id: productId, coverMediaId: fileDoc._id },
-      { $set: { coverMediaId: null } }
+      { $set: { coverMediaId: null, coverThumbnail: null } }
     );
   }
 
