@@ -64,7 +64,43 @@ async function recomputeRollup(productId) {
 // ─── lookups ──────────────────────────────────────────────────────────────────
 
 router.get('/lookups', verify, async (req, res) => {
-  res.json({ stoneTypes, grades, units, quarries });
+  const categorySchema = require('../../models/categoryModel');
+  const Category = dbConnection.model('inventoryCategory', categorySchema);
+  const categories = await Category.find({ deleteDate: null }).sort({ name: 1 }).lean();
+  res.json({ stoneTypes, grades, units, quarries, categories });
+});
+
+// ─── weekly/overall stats ─────────────────────────────────────────────────────
+router.get('/stats', verify, async (req, res) => {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [productCount, variantCount, variants, weekLogs] = await Promise.all([
+    InvProduct.countDocuments({ deleteDate: null, status: 'active' }),
+    InvVariant.countDocuments({ deleteDate: null, status: 'active' }),
+    InvVariant.find({ deleteDate: null, status: 'active' }, 'unit quantity').lean(),
+    InvChangeLog.find({ changeType: 'quantity', date: { $gte: weekAgo } }, 'delta').lean(),
+  ]);
+
+  const totalByUnit = {};
+  for (const v of variants) {
+    totalByUnit[v.unit] = parseFloat(((totalByUnit[v.unit] || 0) + (v.quantity || 0)).toFixed(4));
+  }
+
+  let addedThisWeek = 0;
+  let soldThisWeek  = 0;
+  for (const log of weekLogs) {
+    const d = Number(log.delta);
+    if (d > 0) addedThisWeek += d;
+    else soldThisWeek += Math.abs(d);
+  }
+
+  res.json({
+    productCount,
+    variantCount,
+    totalByUnit,
+    addedThisWeek: parseFloat(addedThisWeek.toFixed(2)),
+    soldThisWeek:  parseFloat(soldThisWeek.toFixed(2)),
+  });
 });
 
 // ─── parse-code ───────────────────────────────────────────────────────────────
@@ -346,7 +382,7 @@ router.put('/variants/:id', verify, async (req, res) => {
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
 
-  const allowed = ['unit', 'status'];
+  const allowed = ['unit', 'status', 'categories'];
   const updates = { updateDate: new Date(), updatedBy: req.user?._id };
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];

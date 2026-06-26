@@ -23,6 +23,7 @@ const inventoryVariantSchema = new mongoose.Schema({
     raw:           String,
     parseWarnings: [String],
   },
+  categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'inventoryCategory' }],
   unit:     { type: String, enum: ['M2', 'ML', 'PCS', 'SQFT', 'LNFT'], default: 'M2' },
   quantity: { type: Number, default: 0 },
   price:    { type: Number, default: null },

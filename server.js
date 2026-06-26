@@ -52,6 +52,7 @@ app.use('/users' , require('./routes/users/users') )
 
 app.use('/files' , require('./routes/fileManager/main') )
 app.use('/inventory' , require('./routes/inventory/main') )
+app.use('/inventory/categories' , require('./routes/inventory/categories') )
 
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
