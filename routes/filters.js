@@ -1,7 +1,7 @@
 const express = require('express');
 const dbConnection = require("../connections/xmsPr");
 const customerModel = require("../models/customerModel");
-const customers = dbConnection.model('customer' , customerModel);
+const customers = dbConnection.models.customer || dbConnection.model('customer', customerModel);
 const router = express.Router()
 const invoiceModel = require("../models/invoiceModel");
 const invoice = dbConnection.model('invoice' , invoiceModel);

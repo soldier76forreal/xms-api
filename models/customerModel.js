@@ -76,16 +76,36 @@ var personalInformationSchema = new mongoose.Schema({
         firstName:{ type: String},
         lastName:{ type: String},
         companyName:{ type: String},
+        contactPerson:{ type: String },
         dateOfBirth:{dateType:{type:String} , date:{type:Date}},
         customerType:{type: String },
         personOrCompany:{type: String },
         attractedBy:{ type: String},
-        
         favoriteProducts : [{ type: mongoose.Schema.Types.ObjectId }],
         gender:{ type: String}
       },
       contactInfo:{phoneNumbers:[phoneNumberSchema] , emails:[emailSchema] , instagrams:[instagramSchema] , linkedIns:[linkedInSchema] , websites:[websiteSchema] ,  botims:[botimSchema] , facebooks:[facebookSchema]},
       address:[addressSchema],
+      // Phase 5 — additive fields (do NOT remove existing fields above)
+      phoneNumber: { type: String },      // natural key for duplicate guard
+      phoneCountryCode: { type: String }, // ISO2 code (e.g. 'AE', 'IR') — drives flag display
+      commChannels: [{ type: String }],
+      commHandles: { type: mongoose.Schema.Types.Mixed, default: {} },
+      status: { type: String, enum: ['new','active','follow_up','won','lost'], default: 'new' },
+      tags: [{ type: String }],
+      lastCallAt: { type: Date },
+      nextFollowUpAt: { type: Date },
+      owner: { type: mongoose.Schema.Types.ObjectId },
+      assignedTo: [{ type: mongoose.Schema.Types.ObjectId }],
+      interestedProducts: [{
+        productId: { type: mongoose.Schema.Types.ObjectId },
+        variantId: { type: mongoose.Schema.Types.ObjectId },
+        note: { type: String },
+      }],
+      createdBy: { type: mongoose.Schema.Types.ObjectId },
+      // Phase 6 — additive: customer VAT number (ب.ضـ) for the MIS tax-invoice
+      // customer block; snapshotted into invoice.customerSnapshot at issue-time.
+      trn: { type: String },
   });
 
 

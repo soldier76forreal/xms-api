@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 
 const inventoryProductSchema = new mongoose.Schema({
-  code:          { type: String, required: true, unique: true, uppercase: true, trim: true },
+  // Branches are fully isolated catalogs — every product belongs to exactly
+  // one branch; the same code CAN repeat across different branches (the
+  // unique index below is scoped per-branch, not global).
+  branchId:      { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  code:          { type: String, required: true, uppercase: true, trim: true },
   stoneType:     { type: String, required: true, uppercase: true, trim: true },
   stoneTypeName: { type: String, trim: true },
   quarryCode:    { type: String, required: true, trim: true },
@@ -27,5 +31,8 @@ const inventoryProductSchema = new mongoose.Schema({
   createdBy:  { type: mongoose.Schema.Types.ObjectId },
   updatedBy:  { type: mongoose.Schema.Types.ObjectId },
 });
+
+// Code is unique WITHIN a branch, not globally — different branches can reuse the same code.
+inventoryProductSchema.index({ branchId: 1, code: 1 }, { unique: true });
 
 module.exports = inventoryProductSchema;

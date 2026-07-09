@@ -17,15 +17,21 @@ var fileSchema = new mongoose.Schema({
     deleteDate: { type: Date, default: null },
     scope: {
       type: String,
-      enum: ['file_manager', 'inventory', 'crm', 'mis', 'jobReport', 'projectManager'],
+      enum: ['file_manager', 'inventory', 'users', 'crm', 'mis', 'jobReport', 'projectManager', 'digitalMarketing'],
       default: 'file_manager',
     },
     attachedTo: {
       type: {
         type: String,
-        enum: ['inventoryProduct', 'inventoryVariant', 'customer', 'invoice', 'jobReport'],
+        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload'],
       },
       id: { type: mongoose.Schema.Types.ObjectId },
     },
+    // Variant media batch (Inventory) — groups files uploaded together as one
+    // replaceable set; batchId is shared by every file in the same batch.
+    batchId:        { type: mongoose.Schema.Types.ObjectId, default: null },
+    uploadDate:      { type: Date, default: Date.now },
+    expirationDate:  { type: Date, default: null },
+    uploadedByName:  { type: String },
   });
 module.exports = fileSchema;

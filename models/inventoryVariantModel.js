@@ -1,8 +1,12 @@
 const mongoose = require('mongoose');
 
 const inventoryVariantSchema = new mongoose.Schema({
+  // Denormalized from the parent product at creation time (never changes
+  // independently) — lets variant-level routes (stock adjust, price, list)
+  // scope by branch without a product lookup on every query.
+  branchId:  { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   productId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'inventoryProduct' },
-  code:      { type: String, required: true, unique: true, uppercase: true, trim: true },
+  code:      { type: String, required: true, uppercase: true, trim: true },
   spec: {
     stoneType:     String,
     stoneTypeName: String,
@@ -35,5 +39,13 @@ const inventoryVariantSchema = new mongoose.Schema({
   createdBy:  { type: mongoose.Schema.Types.ObjectId },
   updatedBy:  { type: mongoose.Schema.Types.ObjectId },
 });
+
+// Partial unique index — only active (non-deleted) variants must have unique codes
+// WITHIN a branch (soft-deleted variants excluded so a code can be reused after
+// deletion; different branches can independently reuse the same code).
+inventoryVariantSchema.index(
+  { branchId: 1, code: 1 },
+  { unique: true, partialFilterExpression: { deleteDate: null } }
+);
 
 module.exports = inventoryVariantSchema;
