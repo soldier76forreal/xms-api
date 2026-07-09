@@ -34,7 +34,10 @@ const folder = dbConnection.model('folder' , folderModel);
 const file = dbConnection.model('file' , fileModal);
 const filesFoldersTags = dbConnection.model('fileFoldersTag' , filesFoldersTagsModel);
 const link = dbConnection.model('link' , linkModel);
-const { generateApiKey } = require('generate-api-key');
+const crypto = require('crypto');
+// per-link JWT secret — random hex via built-in crypto (replaced the vulnerable
+// 'generate-api-key' package; existing links are unaffected, their secret is stored on the doc)
+const generateApiKey = () => crypto.randomBytes(32).toString('hex');
 const jwt = require("jsonwebtoken");
 const sizeOf = require('image-size')
 var AdmZip = require("adm-zip");
