@@ -69,7 +69,6 @@ app.use('/inventory/categories' , require('./routes/inventory/categories') )
 
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
-app.use('/jobReport' , require("./routes/jobReport/main"));
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 

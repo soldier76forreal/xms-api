@@ -584,28 +584,6 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
     }
 });
 
-      router.post("/jobReportUpload"  , verify , upload.single("files"), async (req , res , next)=>{
-        var decoded = jwt_decode(req.headers.authorization);
-        var newFile = new file({
-            name:req.file.originalname.split("." ,1).pop(),
-            supFolder:req.body.supFolder,
-            metaData:req.file,
-            hidden:true,
-            format:getFileExtension(req.file),
-            insertDate:Date.now(),
-            logsStatus:{status:'created' , msg:'file created!'},
-            generatedBy:decoded.id
-        })
-        try{
-            const result = await newFile.save();   
-            res.status(200).send(result);
-        }catch(error){
-            res.status(500).send("مشکلی رخ داده است");
-        }
-    });
-
-
-
       router.get('/getAllFileAndFoldersTags', verify  , async(req , res)=>{
         try{
             const findFolders = await filesFoldersTags.find({deleteDate:null});

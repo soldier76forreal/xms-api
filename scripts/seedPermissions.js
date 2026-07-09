@@ -77,15 +77,9 @@ const PERMISSIONS = [
   { key: 'files:upload',               module: 'files', description: 'آپلود فایل' },
   { key: 'files:delete',               module: 'files', description: 'حذف فایل' },
   { key: 'files:share',                module: 'files', description: 'اشتراک‌گذاری فایل' },
-  // Job Report
-  { key: 'jobReport:view',             module: 'jobReport', description: 'مشاهده گزارش‌ها' },
-  { key: 'jobReport:create',           module: 'jobReport', description: 'ثبت گزارش' },
-  { key: 'jobReport:edit',             module: 'jobReport', description: 'ویرایش گزارش' },
-  // Projects
-  { key: 'projects:view',              module: 'projects', description: 'مشاهده پروژه‌ها' },
-  { key: 'projects:create',            module: 'projects', description: 'ایجاد پروژه' },
-  { key: 'projects:edit',              module: 'projects', description: 'ویرایش پروژه' },
-  { key: 'projects:delete',            module: 'projects', description: 'حذف پروژه' },
+  // Job Report + Projects modules were removed 2026-07-09 — their keys are
+  // deleted from the catalog and cleaned from roles/groups/userAccess by
+  // scripts/removeRetiredModules.js (permission keys are otherwise append-only).
   // Tasks
   { key: 'tasks:view',                 module: 'tasks', description: 'مشاهده وظایف' },
   { key: 'tasks:create',               module: 'tasks', description: 'ایجاد و تخصیص وظیفه' },
