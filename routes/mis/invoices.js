@@ -1052,8 +1052,8 @@ router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission
     const newlyAdded = validIds.filter((id) => !prev.includes(id));
 
     const update = validIds.length
-      ? { assignedTo: validIds, assignedBy: userId, assignedAt: new Date(), updateDate: new Date(), updatedBy: userId }
-      : { assignedTo: [], assignedBy: null, assignedAt: null, updateDate: new Date(), updatedBy: userId };
+      ? { assignedTo: validIds, assignedBy: userId, assignedByName: actorName, assignedAt: new Date(), updateDate: new Date(), updatedBy: userId }
+      : { assignedTo: [], assignedBy: null, assignedByName: null, assignedAt: null, updateDate: new Date(), updatedBy: userId };
 
     const updated = await MisInvoice.findOneAndUpdate({ _id: doc._id }, { $set: update }, { new: true }).lean();
 

@@ -17,7 +17,7 @@ const invoiceActivitySchema    = require('../../models/invoiceActivityModel');
 const misInvoiceSchema         = require('../../models/misInvoiceModel');
 const dbConnection        = require('../../connections/xmsPr');
 const verify              = require('./verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, UserAccess, Role } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, UserAccess, Role } = require('../../utils/rbac');
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -84,11 +84,21 @@ router.get('/userProfileData', verify, async (req, res) => {
 // ── GET /users — list (search / filter / sort) ────────────────────────────────
 router.get('/', verify, requirePermission('users:view'), async (req, res) => {
   try {
-    const { search = '', sort = '-insertDate', limit = 50, skip = 0 } = req.query;
+    const { search = '', sort = '-insertDate', limit = 50, skip = 0, branchId = '' } = req.query;
     const query = { deleteDate: null };
     if (search) {
       const re = new RegExp(search, 'i');
       query.$or = [{ firstName: re }, { lastName: re }, { phoneNumber: re }];
+    }
+
+    // Optional branch filter (e.g. the invoice "Send to" picker) — only users
+    // assigned to this branch. Caller must hold the branch themselves.
+    if (branchId) {
+      if (!(await assertBranchAccess(req.user.id, branchId))) {
+        return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+      }
+      const branchAccess = await UserAccess.find({ branches: branchId }).select('userId').lean();
+      query._id = { $in: branchAccess.map(a => a.userId) };
     }
     const [users, total] = await Promise.all([
       userM.find(query)

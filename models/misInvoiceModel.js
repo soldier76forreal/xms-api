@@ -50,6 +50,7 @@ const misInvoiceSchema = new mongoose.Schema({
   // didn't create, as long as they're an assignee (see the scope filter).
   assignedTo:   [{ type: mongoose.Schema.Types.ObjectId }],
   assignedBy:   { type: mongoose.Schema.Types.ObjectId },
+  assignedByName: { type: String },              // snapshot — recipients see who sent it without a user lookup
   assignedAt:   { type: Date },
   status: {
     type: String,
