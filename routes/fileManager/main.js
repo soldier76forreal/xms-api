@@ -6,6 +6,7 @@ const userModel = require("../../models/userModel");
 const invoiceModel = require("../../models/invoiceModel");
 const verify = require('../users/verifyToken');
 const verifyLink = require('../users/verifyLinks');
+const { requirePermission } = require('../../utils/rbac');
 const path = require('path');
 const pwaSubscriptionModel = require('../../models/pwaSubscriptionModel');
 const dotenv = require("dotenv");
@@ -89,7 +90,7 @@ async function logFileActivity(req, fields) {
 const router = express.Router()
 
 // ── POST /files/togglePin — pin/unpin a file or folder for the CURRENT user ──
-router.post('/togglePin', verify, async (req, res) => {
+router.post('/togglePin', verify, requirePermission('files:upload'), async (req, res) => {
   try {
     const decoded = jwt_decode(req.headers.authorization);
     const { itemId, kind } = req.body;   // kind: 'file' | 'folder'
@@ -113,7 +114,7 @@ router.post('/togglePin', verify, async (req, res) => {
 });
 
 // ── GET /files/activity — the Activity feed (File Manager scope only) ────────
-router.get('/activity', verify, async (req, res) => {
+router.get('/activity', verify, requirePermission('files:view'), async (req, res) => {
   try {
     const { itemId = '', limit = 40 } = req.query;
     const query = itemId ? { itemId } : {};
@@ -127,7 +128,7 @@ router.get('/activity', verify, async (req, res) => {
   }
 });
 
-    router.post('/newFolder' , verify  , async(req , res)=>{
+    router.post('/newFolder' , verify , requirePermission('files:upload') , async(req , res)=>{
         var newCustomer;
         var decoded = jwt_decode(req.headers.authorization);
         try{
@@ -178,7 +179,7 @@ router.get('/activity', verify, async (req, res) => {
 
 
 
-    router.post('/deleteFolderFile' , verify  , async(req , res)=>{
+    router.post('/deleteFolderFile' , verify , requirePermission('files:delete') , async(req , res)=>{
         const data = req.body
         try{
             for(var i = 0 ; data.length > i ; i++){
@@ -217,7 +218,7 @@ router.get('/activity', verify, async (req, res) => {
     })
 
 
-    router.post('/folderRename' , verify  , async(req , res)=>{
+    router.post('/folderRename' , verify , requirePermission('files:upload') , async(req , res)=>{
         if(req.body.typeId.type === 'folder'){
             try{
                 const theDoc = await folder.findOne({_id:req.body.typeId.id});
@@ -321,7 +322,7 @@ router.get('/activity', verify, async (req, res) => {
     }
 
 
-    router.post('/folderMove' , verify  , async(req , res)=>{
+    router.post('/folderMove' , verify , requirePermission('files:upload') , async(req , res)=>{
         try{
             var decoded = jwt_decode(req.headers.authorization);
             for(var i = 0 ; req.body.dataArr.length>i ; i++){
@@ -425,7 +426,7 @@ router.get('/activity', verify, async (req, res) => {
     }
     
     
-    router.post('/folderCopy' , verify  , async(req , res)=>{
+    router.post('/folderCopy' , verify , requirePermission('files:upload') , async(req , res)=>{
         try{
             var decoded = jwt_decode(req.headers.authorization);
                 
@@ -534,7 +535,7 @@ router.get('/activity', verify, async (req, res) => {
     
 
 
-    router.get('/getAllFileAndFolders', verify   , async(req , res)=>{
+    router.get('/getAllFileAndFolders', verify , requirePermission('files:view') , async(req , res)=>{
         try{
             const findFolders = await folder.find({deleteDate:null});
             // Only show files that belong to the file manager (not inventory/crm/etc. media)
@@ -596,7 +597,7 @@ router.get('/activity', verify, async (req, res) => {
     function getFileExtension(fileName) {
         return fileName.originalname.slice((fileName.originalname.lastIndexOf(".") - 1 >>> 0) + 2);
       }
-router.post("/uploadFile", verify, upload.single("files"), async (req, res, next) => {
+router.post("/uploadFile", verify, requirePermission('files:upload'), upload.single("files"), async (req, res, next) => {
     var decoded = jwt_decode(req.headers.authorization);
 
     // 1. Prepare to generate thumbnail
@@ -664,7 +665,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
     }
 });
 
-      router.get('/getAllFileAndFoldersTags', verify  , async(req , res)=>{
+      router.get('/getAllFileAndFoldersTags', verify , requirePermission('files:view') , async(req , res)=>{
         try{
             const findFolders = await filesFoldersTags.find({deleteDate:null});
             res.status(200).send(findFolders);
@@ -676,7 +677,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
 
 
 
-    router.post('/addTag', verify   , async(req , res)=>{
+    router.post('/addTag', verify , requirePermission('files:upload') , async(req , res)=>{
         try{
             const theTag = req.body.tag
             const selected = req.body.selected;
@@ -764,7 +765,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
 
 
 
-    router.post('/downloadFile', verify  , async(req , res)=>{
+    router.post('/downloadFile', verify , requirePermission('files:view') , async(req , res)=>{
         try{
             
             const findFolders = await filesFoldersTags.find({deleteDate:null});
@@ -776,7 +777,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
     })
 
 
-    router.post('/deleteTagFromFileFolder', verify  , async(req , res)=>{
+    router.post('/deleteTagFromFileFolder', verify , requirePermission('files:upload') , async(req , res)=>{
         
         try{
             var decoded = jwt_decode(req.headers.authorization);
@@ -801,7 +802,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
 
 
     
-    router.post('/createNewLink', verify  , async(req , res)=>{
+    router.post('/createNewLink', verify , requirePermission('files:share') , async(req , res)=>{
         try{
             var decoded = jwt_decode(req.headers.authorization);
             const accessKey = generateApiKey()
@@ -885,7 +886,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
         }
     })
     
-router.get("/downloadFileFolders", verify, async (req, res) => {
+router.get("/downloadFileFolders", verify, requirePermission('files:view'), async (req, res) => {
     try {
         const selected = Array.isArray(req.query.selected) ? req.query.selected : [req.query.selected];
         
@@ -986,7 +987,7 @@ router.get("/downloadFileFolders", verify, async (req, res) => {
       
 
 
-    router.get('/files/download/:id', verify, async (req, res) => {
+    router.get('/files/download/:id', verify, requirePermission('files:view'), async (req, res) => {
         try {
             const { id } = req.params;
             if (!mongoose.Types.ObjectId.isValid(id)) {
