@@ -451,8 +451,9 @@ router.post('/:id/unlock', verify, requirePermission('users:unlock'), async (req
       { _id: req.params.id, deleteDate: null },
       {
         $set: {
-          'auth.lockedUntil':       null,
-          'auth.failedOtpAttempts': 0,
+          'auth.lockedUntil':            null,
+          'auth.failedOtpAttempts':      0,
+          'auth.failedPasswordAttempts': 0,
         },
       },
       { new: true }

@@ -19,7 +19,7 @@ var server = require('http').createServer(app);
 // the old 10.185.103.82 entry was a VPN adapter address, unreachable from other devices.
 var io = require('socket.io')(server , {
     cors: {
-      origin: ['https://lazulitemarble.com', 'http://localhost:3000', 'https://xms.lazulitemarble.com', 'http://192.168.1.135:3000', 'http://192.168.1.132:3000'],
+      origin: ['https://lazulitemarble.com', 'http://localhost:3000', 'https://xms.lazulitemarble.com', 'http://192.168.1.135:3000', 'http://192.168.1.132:3000','http://192.168.1.9:3000'],
       credentials: true,
     },
   });
