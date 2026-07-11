@@ -12,6 +12,9 @@ var folderSchema = new mongoose.Schema({
     logsStatus:{status:{type:String} , msg:{type:String}},
     logs:[mongoose.Mixed],
     tags:{type: Array},
+    // Phase 9 — per-user pins: each user sees THEIR pinned items first,
+    // without forcing one user's pins on everyone.
+    pinnedBy: [{ type: mongoose.Schema.Types.ObjectId }],
     deleteDate:{type:Date , default:null}
 
   });

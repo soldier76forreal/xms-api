@@ -67,7 +67,65 @@ const storage = multer.diskStorage({
 
   var zip = new AdmZip();
 
+// ── Phase 9: File Manager activity feed + per-user pins ───────────────────────
+const fileActivitySchema = require('../../models/fileActivityModel');
+const FileActivity = dbConnection.models.fileActivity || dbConnection.model('fileActivity', fileActivitySchema);
+
+// Every fileManager mutation writes an activity row in the same operation
+// (mirror of inventoryChangeLogs). Non-fatal by design.
+async function logFileActivity(req, fields) {
+  try {
+    const decoded = jwt_decode(req.headers.authorization);
+    const actor = await user.findById(decoded.id).select('firstName lastName').lean();
+    await FileActivity.create({
+      ...fields,
+      actorId: decoded.id,
+      actorName: actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '',
+      date: new Date(),
+    });
+  } catch (_) { /* activity is best-effort — never fail the mutation */ }
+}
+
 const router = express.Router()
+
+// ── POST /files/togglePin — pin/unpin a file or folder for the CURRENT user ──
+router.post('/togglePin', verify, async (req, res) => {
+  try {
+    const decoded = jwt_decode(req.headers.authorization);
+    const { itemId, kind } = req.body;   // kind: 'file' | 'folder'
+    if (!itemId || !['file', 'folder'].includes(kind)) {
+      return res.status(400).json({ message: 'itemId and kind (file|folder) are required' });
+    }
+    const Model = kind === 'file' ? file : folder;
+    const doc = await Model.findOne({ _id: itemId, deleteDate: null });
+    if (!doc) return res.status(404).json({ message: 'Item not found' });
+
+    const uid = String(decoded.id);
+    const pinned = (doc.pinnedBy || []).map(String).includes(uid);
+    await Model.updateOne(
+      { _id: itemId },
+      pinned ? { $pull: { pinnedBy: decoded.id } } : { $addToSet: { pinnedBy: decoded.id } }
+    );
+    return res.status(200).json({ pinned: !pinned });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── GET /files/activity — the Activity feed (File Manager scope only) ────────
+router.get('/activity', verify, async (req, res) => {
+  try {
+    const { itemId = '', limit = 40 } = req.query;
+    const query = itemId ? { itemId } : {};
+    const rows = await FileActivity.find(query)
+      .sort('-date')
+      .limit(Math.min(Number(limit) || 40, 100))
+      .lean();
+    return res.status(200).json(rows);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
     router.post('/newFolder' , verify  , async(req , res)=>{
         var newCustomer;
@@ -110,6 +168,8 @@ const router = express.Router()
                 }
             }
 
+            await logFileActivity(req, { type: 'new_folder', itemKind: 'folder',
+                itemId: newCustomer._id, itemName: newCustomer.name, path: req.body.supFolder });
             res.status(200).send("new folder created!");
         }catch(err){
         console.log(err)
@@ -132,6 +192,8 @@ const router = express.Router()
                         updateDate:Date.now(),
                         logsStatus:{status:'delete' , msg:'folder deleted!'}
                     })
+                    await logFileActivity(req, { type: 'delete', itemKind: 'folder',
+                        itemId: data[i].id, itemName: theDoc?.name, path: theDoc?.supFolder });
                 }else if(data[i].type==='file'){
                     const theDoc = await file.findOne({_id:data[i].id});
                     var decoded = jwt_decode(req.headers.authorization);
@@ -142,6 +204,8 @@ const router = express.Router()
                         updateDate:Date.now(),
                         logsStatus:{status:'delete' , msg:'file deleted!'}
                     })
+                    await logFileActivity(req, { type: 'delete', itemKind: 'file',
+                        itemId: data[i].id, itemName: theDoc?.name, path: theDoc?.supFolder });
                 }
             }
             res.status(200).send('deleted!');
@@ -164,8 +228,11 @@ const router = express.Router()
                     updateDate:Date.now(),
                     "$push": { 'logs' : [theDoc] } ,
                     logsStatus:{status:'rename' , msg:'folder renamed!'}
-    
+
                 })
+                await logFileActivity(req, { type: 'rename', itemKind: 'folder',
+                    itemId: req.body.typeId.id, itemName: req.body.newName,
+                    oldValue: theDoc?.name, newValue: req.body.newName, path: theDoc?.supFolder });
                 res.status(200).send('renamed!');
             }catch(err){
                 res.status(402).send(err);
@@ -184,6 +251,9 @@ const router = express.Router()
                     logsStatus:{status:'rename' , msg:'file renamed!'}
 
                 })
+                await logFileActivity(req, { type: 'rename', itemKind: 'file',
+                    itemId: req.body.typeId.id, itemName: req.body.newName,
+                    oldValue: theDoc?.name, newValue: req.body.newName, path: theDoc?.supFolder });
                 res.status(200).send('renamed!');
             }catch(err){
                 res.status(402).send(err);
@@ -323,7 +393,11 @@ const router = express.Router()
                 }
  
             }
-                       
+
+            for (const d of (req.body.dataArr || [])) {
+                await logFileActivity(req, { type: 'move', itemKind: d.type, itemId: d.id,
+                    newValue: req.body.newSupFolder });
+            }
             res.status(200).send('moved!');
 
         }catch(err){
@@ -439,7 +513,11 @@ const router = express.Router()
                         updatedBy:decoded.id,
                         updateDate:Date.now()
                     })
-                }            
+                }
+            }
+            for (const d of (req.body.dataArr || [])) {
+                await logFileActivity(req, { type: 'copy', itemKind: d.type, itemId: d.id,
+                    newValue: req.body.newSupFolder });
             }
             res.status(200).send('copied!');
 
@@ -577,6 +655,8 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
                 { "$push": { 'subFiles': result._id } }
             );
         }
+        await logFileActivity(req, { type: 'upload', itemKind: 'file',
+            itemId: result._id, itemName: result.name, path: req.body.supFolder });
         res.status(200).send(result);
     } catch (error) {
         console.log(error); // Helpful for debugging
@@ -671,6 +751,10 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
                     }
                 }
             }
+            for (const sel of (selected || [])) {
+                await logFileActivity(req, { type: 'tag_added', itemKind: sel.type,
+                    itemId: sel.id, newValue: theTag.label });
+            }
             res.status(200).send('tag added');
         }catch(err){
             res.status(402).send(err);
@@ -706,6 +790,8 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
                 await filesFoldersTags.updateOne({_id:req.body.tagId , deleteDate:null},{ "$pull": { 'folders': { "$in": [req.body.selected.id] } }, "$push": { 'logs' : [theTag]},updateDate:Date.now() , updatedBy:decoded.id, logsStatus:{status:'deleted!' , msg:'folder deleted from tag!'}})
                 await folder.updateOne({_id:req.body.selected.id , deleteDate:null},{"$pull": { 'tags': { "$in": [req.body.tagId] } }, "$push": {'logs' : [theFolder]},updateDate:Date.now() , updatedBy:decoded.id ,logsStatus:{status:'deleted!' , msg:'tag deleted from folder!'}})
             }
+            await logFileActivity(req, { type: 'tag_removed', itemKind: req.body.selected.type,
+                itemId: req.body.selected.id, oldValue: theTag?.tag });
             res.status(200).send('removed!');
         }catch(err){
             res.status(403).send(err);
@@ -732,6 +818,10 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
             })
             const result = await newLink.save();
 
+            for (const d of (req.body.document || [])) {
+                await logFileActivity(req, { type: 'share_link', itemKind: d.type, itemId: d.id,
+                    newValue: req.body.displayName || null });
+            }
             res.status(200).send(token);
         }catch(err){
             res.status(402).send(err);

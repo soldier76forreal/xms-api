@@ -33,5 +33,7 @@ var fileSchema = new mongoose.Schema({
     uploadDate:      { type: Date, default: Date.now },
     expirationDate:  { type: Date, default: null },
     uploadedByName:  { type: String },
+    // Phase 9 — per-user pins (see folderModel)
+    pinnedBy:       [{ type: mongoose.Schema.Types.ObjectId }],
   });
 module.exports = fileSchema;
