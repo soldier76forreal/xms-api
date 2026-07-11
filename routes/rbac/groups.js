@@ -10,7 +10,7 @@ router.get('/', verify, requireSuperAdmin(), async (req, res) => {
     const groups = await Group.find({ deleteDate: null }).sort('name').lean();
     return res.status(200).json(groups);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -27,8 +27,8 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
     });
     return res.status(201).json(group);
   } catch (err) {
-    if (err.code === 11000) return res.status(400).json({ message: 'گروهی با این نام وجود دارد' });
-    return res.status(500).json({ message: 'خطای سرور' });
+    if (err.code === 11000) return res.status(400).json({ message: 'A group with this name already exists' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -50,11 +50,11 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
       },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: 'گروه یافت نشد' });
+    if (!updated) return res.status(404).json({ message: 'Group not found' });
     clearPermissionCache();  // membership/permission change — clear all
     return res.status(200).json(updated);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -65,11 +65,11 @@ router.delete('/:id', verify, requireSuperAdmin(), async (req, res) => {
       { _id: req.params.id, deleteDate: null },
       { $set: { deleteDate: new Date() } }
     );
-    if (!updated) return res.status(404).json({ message: 'گروه یافت نشد' });
+    if (!updated) return res.status(404).json({ message: 'Group not found' });
     clearPermissionCache();
-    return res.status(200).json({ message: 'گروه حذف شد' });
+    return res.status(200).json({ message: 'Group deleted' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

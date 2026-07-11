@@ -53,7 +53,74 @@ router.get('/me/permissions', verify, async (req, res) => {
     ]);
     return res.status(200).json({ permissions: Array.from(perms), dataScopes: scopes, isSuperAdmin: superAdmin });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── PUT /users/me/profile — self-service: edit your OWN name ──────────────────
+// Any authenticated user, no permission key — it's their own record. Only
+// firstName/lastName are writable here (roles/branches/validation stay
+// admin-controlled through PUT /users/:id). Defined before /:id routes so
+// 'me' is never captured as an ObjectId.
+router.put('/me/profile', verify, async (req, res) => {
+  try {
+    const setFields = { updateDate: new Date() };
+    if (typeof req.body.firstName === 'string' && req.body.firstName.trim()) setFields.firstName = req.body.firstName.trim();
+    if (typeof req.body.lastName  === 'string' && req.body.lastName.trim())  setFields.lastName  = req.body.lastName.trim();
+
+    const updated = await userM.findOneAndUpdate(
+      { _id: req.user.id, deleteDate: null },
+      { $set: setFields },
+      { new: true }
+    ).select('firstName lastName phoneNumber profileImage');
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+    return res.status(200).json(updated);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── POST /users/me/avatar — self-service profile picture ─────────────────────
+router.post('/me/avatar', verify, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+    let thumbnailFilename = null;
+    if (req.file.mimetype.startsWith('image/')) {
+      try {
+        thumbnailFilename = `thumb-${req.file.filename}`;
+        await sharp(req.file.path)
+          .resize(200, 200, { fit: 'cover' })
+          .jpeg({ quality: 80 })
+          .toFile(path.join('public/uploads', thumbnailFilename));
+      } catch (_) { thumbnailFilename = null; }
+    }
+
+    const fileDoc = await File.create({
+      name:        req.file.originalname,
+      metaData:    req.file,
+      format:      path.extname(req.file.originalname).slice(1),
+      generatedBy: req.user.id,
+      thumbnail:   thumbnailFilename,
+      scope:       'users',
+      attachedTo:  { type: 'user', id: req.user.id },
+    });
+
+    const profileImage = {
+      fileId:    fileDoc._id,
+      url:       `/uploads/${req.file.filename}`,
+      thumbnail: thumbnailFilename ? `/uploads/${thumbnailFilename}` : null,
+      filename:  req.file.filename,
+    };
+
+    await userM.findOneAndUpdate(
+      { _id: req.user.id, deleteDate: null },
+      { $set: { profileImage } }
+    );
+
+    return res.status(200).json({ profileImage });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -64,7 +131,7 @@ router.get('/getFilter', verify, async (req, res) => {
     const theUser = await userM.findOne({ _id: decoded.id }).select('filterMemory');
     return res.status(200).json(theUser);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -77,7 +144,7 @@ router.get('/userProfileData', verify, async (req, res) => {
     );
     return res.status(200).json(theUser);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -95,7 +162,7 @@ router.get('/', verify, requirePermission('users:view'), async (req, res) => {
     // assigned to this branch. Caller must hold the branch themselves.
     if (branchId) {
       if (!(await assertBranchAccess(req.user.id, branchId))) {
-        return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+        return res.status(403).json({ message: 'You do not have access to this branch' });
       }
       const branchAccess = await UserAccess.find({ branches: branchId }).select('userId').lean();
       query._id = { $in: branchAccess.map(a => a.userId) };
@@ -126,7 +193,7 @@ router.get('/', verify, requirePermission('users:view'), async (req, res) => {
 
     return res.status(200).json({ data: enriched, total });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -136,7 +203,7 @@ router.get('/:id', verify, requirePermission('users:view'), async (req, res) => 
     const theUser = await userM.findOne({ _id: req.params.id, deleteDate: null })
       .select('-auth.otpHash -auth.otpExpiresAt -password -oldPasswords -passwordReset')
       .lean();
-    if (!theUser) return res.status(404).json({ message: 'کاربر یافت نشد' });
+    if (!theUser) return res.status(404).json({ message: 'User not found' });
 
     // Attach effective permissions + scopes summary
     const [perms, scopes] = await Promise.all([
@@ -147,7 +214,7 @@ router.get('/:id', verify, requirePermission('users:view'), async (req, res) => 
 
     return res.status(200).json({ user: theUser, effectivePermissions: Array.from(perms), dataScopes: scopes, userAccess: access });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -278,7 +345,7 @@ router.get('/:id/logs', verify, requirePermission('users:view'), async (req, res
 router.post('/', verify, requirePermission('users:create'), async (req, res) => {
   try {
     const existing = await userM.findOne({ phoneNumber: req.body.phoneNumber });
-    if (existing) return res.status(400).json({ message: 'شماره تلفن تکراری است' });
+    if (existing) return res.status(400).json({ message: 'Phone number already exists' });
 
     const newUser = new userM({
       firstName:   req.body.firstName,
@@ -311,7 +378,7 @@ router.post('/', verify, requirePermission('users:create'), async (req, res) => 
     return res.status(201).json(saved);
   } catch (err) {
     console.error('[POST /users] Error:', err.message, err);
-    return res.status(500).json({ message: 'خطای سرور', error: err.message });
+    return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
@@ -331,7 +398,7 @@ router.put('/:id', verify, requirePermission('users:edit'), async (req, res) => 
       { $set: setFields },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: 'کاربر یافت نشد' });
+    if (!updated) return res.status(404).json({ message: 'User not found' });
 
     // Branch assignment is superAdmin-only (branches gate Inventory/MIS isolation) —
     // a non-superAdmin with users:edit can never write branches (would bypass isolation).
@@ -358,7 +425,7 @@ router.put('/:id', verify, requirePermission('users:edit'), async (req, res) => 
     return res.status(200).json(updated);
   } catch (err) {
     console.error('[PUT /users/:id] Error:', err.message, err);
-    return res.status(500).json({ message: 'خطای سرور', error: err.message });
+    return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
@@ -370,9 +437,9 @@ router.delete('/:id', verify, requirePermission('users:delete'), async (req, res
       { $set: { deleteDate: new Date() } }
     );
     clearPermissionCache(req.params.id);
-    return res.status(200).json({ message: 'کاربر حذف شد' });
+    return res.status(200).json({ message: 'User deleted' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -390,10 +457,10 @@ router.post('/:id/unlock', verify, requirePermission('users:unlock'), async (req
       },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: 'کاربر یافت نشد' });
-    return res.status(200).json({ message: 'قفل حساب برداشته شد' });
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+    return res.status(200).json({ message: 'Account unlocked' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -439,7 +506,7 @@ router.post('/:id/avatar', verify, requirePermission('users:edit'), upload.singl
 
     return res.status(200).json({ profileImage });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -460,36 +527,36 @@ router.get('/getAllUsers', verify, async (req, res) => {
     });
     return res.status(200).json({ ln: length, rs: grouped });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.post('/updateAccess', verify, async (req, res) => {
   try {
     await userM.findOneAndUpdate({ _id: req.body.userId }, { $set: { access: req.body.newAccessList } });
-    return res.status(200).json({ message: 'دسترسی بروز شد' });
+    return res.status(200).json({ message: 'Access updated' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.post('/changeValidation', verify, async (req, res) => {
   try {
     const found = await userM.findOne({ _id: req.body.userId });
-    if (!found) return res.status(404).json({ message: 'کاربر یافت نشد' });
+    if (!found) return res.status(404).json({ message: 'User not found' });
     await userM.findOneAndUpdate({ _id: req.body.userId }, { validation: !found.validation });
-    return res.status(200).json({ message: 'وضعیت تغییر کرد' });
+    return res.status(200).json({ message: 'Status changed' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.post('/deleteUser', verify, async (req, res) => {
   try {
     await userM.findOneAndUpdate({ _id: req.body.userId }, { $set: { deleteDate: Date.now() } });
-    return res.status(200).json({ message: 'کاربر حذف شد' });
+    return res.status(200).json({ message: 'User deleted' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

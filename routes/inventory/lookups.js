@@ -24,11 +24,11 @@ const grades = [
 ];
 
 const units = [
-  { code: 'M2',   name: 'Square Metre', nameAr: 'متر مربع' },
-  { code: 'ML',   name: 'Linear Metre', nameAr: 'متر طول'  },
-  { code: 'PCS',  name: 'Pieces',       nameAr: 'عدد'       },
-  { code: 'SQFT', name: 'Square Feet',  nameAr: 'فوت مربع'  },
-  { code: 'LNFT', name: 'Linear Feet',  nameAr: 'فوت طول'   },
+  { code: 'M2',   name: 'Square Metre', nameAr: 'Square meter' },
+  { code: 'ML',   name: 'Linear Metre', nameAr: 'Linear meter'  },
+  { code: 'PCS',  name: 'Pieces',       nameAr: 'Pieces'       },
+  { code: 'SQFT', name: 'Square Feet',  nameAr: 'Square foot'  },
+  { code: 'LNFT', name: 'Linear Feet',  nameAr: 'Linear foot'   },
 ];
 
 // Known quarries seeded from the PDF inventory

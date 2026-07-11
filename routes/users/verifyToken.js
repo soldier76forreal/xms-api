@@ -6,7 +6,7 @@ module.exports =function  (req , res , next){
     var token = req.headers.authorization;
 
     if(!token){
-       return res.status(401).send('در دسترس نیست');
+       return res.status(401).send('Not available');
     }else{
         
         token = token.split(" ")[1];
@@ -15,7 +15,7 @@ module.exports =function  (req , res , next){
             req.user = verified;
             next();
         }catch(err){
-          return  res.status(400).send("توکن معتبر نیست");
+          return  res.status(400).send("Invalid token");
         }
     }
 }

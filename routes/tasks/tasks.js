@@ -26,7 +26,7 @@ router.get('/', verify, requirePermission('tasks:view'), async (req, res) => {
     if (targetId !== uid) {
       const perms = await getEffectivePermissions(uid);
       if (!perms.has('crm:task:assign') && !perms.has('users:view')) {
-        return res.status(403).json({ message: 'دسترسی ندارید' });
+        return res.status(403).json({ message: 'Access denied' });
       }
     }
     const q = { deleteDate: null, assigneeType: 'user', assignedUser: targetId };
@@ -133,7 +133,7 @@ router.post('/', verify, requirePermission('tasks:create'), async (req, res) => 
   if (taskModule === 'crm' && !isSelfAssign) {
     const perms = await getEffectivePermissions(req.user.id);
     if (!perms.has('crm:task:assign')) {
-      return res.status(403).json({ message: 'دسترسی ندارید', requiredPermission: 'crm:task:assign' });
+      return res.status(403).json({ message: 'Access denied', requiredPermission: 'crm:task:assign' });
     }
   }
 

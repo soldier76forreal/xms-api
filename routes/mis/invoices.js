@@ -195,7 +195,7 @@ function requireDocTypePermission(action) {
   return async (req, res, next) => {
     const docType = (req.misInvoice && req.misInvoice.docType) || req.body.docType;
     if (docType !== 'invoice' && docType !== 'pre_invoice') {
-      return res.status(400).json({ message: 'docType نامعتبر است' });
+      return res.status(400).json({ message: 'Invalid docType' });
     }
     const key = docType === 'invoice' ? `mis:invoice:${action}` : `mis:preinvoice:${action}`;
     return requirePermission(key)(req, res, next);
@@ -209,22 +209,22 @@ function requireDocTypePermission(action) {
 async function loadInvoice(req, res, next) {
   try {
     const doc = await MisInvoice.findOne({ _id: req.params.id, deleteDate: null });
-    if (!doc) return res.status(404).json({ message: 'سند یافت نشد' });
+    if (!doc) return res.status(404).json({ message: 'Document not found' });
 
     if (!(await assertBranchAccess(req.user.id, doc.branchId))) {
-      return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+      return res.status(403).json({ message: 'You do not have access to this branch' });
     }
 
     const scopes   = await getEffectiveScopes(req.user.id);
     const misScope = scopes.mis;
     if (!(await canAccessMisDoc(req.user.id, misScope, doc))) {
-      return res.status(403).json({ message: 'دسترسی ندارید' });
+      return res.status(403).json({ message: 'Access denied' });
     }
 
     req.misInvoice = doc;
     return next();
   } catch (err) {
-    return res.status(400).json({ message: 'شناسه نامعتبر است' });
+    return res.status(400).json({ message: 'Invalid ID' });
   }
 }
 
@@ -336,7 +336,7 @@ async function issueStockDecrement(doc, userId, actorName) {
       newValue:    newQty,
       delta,
       unit:        variant.unit,
-      reason:      `فاکتور #${doc.docNumber}`,
+      reason:      `Invoice #${doc.docNumber}`,
       source:      'order',
       changedBy:   userId,
       changedByName: actorName,
@@ -349,7 +349,7 @@ async function issueStockDecrement(doc, userId, actorName) {
 
   await MisInvoice.updateOne({ _id: doc._id }, { $set: { stockDecremented: true } });
   await logActivity(doc._id, doc.docType, 'stock_decremented', {
-    body: skipped.length ? `بدون واریانت (رد شد): ${skipped.join(', ')}` : undefined,
+    body: skipped.length ? `No variant (skipped): ${skipped.join(', ')}` : undefined,
     newValue: doc.lineItems.filter(l => l.variantId).length,
   }, userId, actorName);
 }
@@ -382,7 +382,7 @@ async function restoreStock(doc, userId, actorName) {
       newValue:    newQty,
       delta,
       unit:        variant.unit,
-      reason:      `حذف فاکتور #${doc.docNumber} — بازگشت موجودی`,
+      reason:      `Invoice #${doc.docNumber} deleted — stock restored`,
       source:      'correction',
       changedBy:   userId,
       changedByName: actorName,
@@ -429,7 +429,7 @@ router.get('/products-lookup', verify, requirePermission('mis:view'), requireBra
     const data = products.map((p) => ({ ...p, variants: byProduct[String(p._id)] || [] }));
     return res.status(200).json(data);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -445,7 +445,7 @@ router.get('/company-profile', verify, requirePermission('mis:view'), async (req
     ).lean();
     return res.status(200).json(profile);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -466,7 +466,7 @@ router.put('/company-profile', verify, requirePermission('mis:settings:edit'), a
     ).lean();
     return res.status(200).json(profile);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -483,7 +483,7 @@ router.put('/filter-memory', verify, async (req, res) => {
     }
     return res.status(200).json({ ok: true });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -496,7 +496,7 @@ router.get('/invoices/creators', verify, requirePermission('mis:view'), requireB
     const data = users.map((u) => ({ _id: u._id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown' }));
     return res.status(200).json({ data });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -596,7 +596,7 @@ router.get('/invoices', verify, requirePermission('mis:view'), requireBranch(), 
 
     return res.status(200).json({ data, total, page: Number(page) || 1, limit: lim });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -609,7 +609,7 @@ router.get('/invoices/assigned/:userId', verify, requirePermission('mis:view'), 
   try {
     const targetUserId = req.params.userId;
     if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
-      return res.status(400).json({ message: 'شناسه کاربر نامعتبر است' });
+      return res.status(400).json({ message: 'Invalid user ID' });
     }
 
     const query = {
@@ -632,7 +632,7 @@ router.get('/invoices/assigned/:userId', verify, requirePermission('mis:view'), 
 
     return res.status(200).json({ data, total: data.length });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -645,7 +645,7 @@ router.get('/invoices/:id', verify, requirePermission('mis:view'), loadInvoice, 
       .lean();
     return res.status(200).json({ ...req.misInvoice.toObject(), activity });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -661,13 +661,13 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
     // a customer is confirmed)
     const hasCustomerId = req.body.customerId && mongoose.Types.ObjectId.isValid(req.body.customerId);
     if (docType === 'invoice' && !hasCustomerId) {
-      return res.status(400).json({ message: 'مشتری الزامی است' });
+      return res.status(400).json({ message: 'Customer is required' });
     }
     if (req.body.customerId && !hasCustomerId) {
-      return res.status(400).json({ message: 'شناسه مشتری نامعتبر است' });
+      return res.status(400).json({ message: 'Invalid customer ID' });
     }
     if (!Array.isArray(req.body.lineItems) || req.body.lineItems.length === 0) {
-      return res.status(400).json({ message: 'حداقل یک ردیف کالا الزامی است' });
+      return res.status(400).json({ message: 'At least one line item is required' });
     }
     const overages = await findStockOverages(req.body.lineItems);
     if (overages.length) {
@@ -678,7 +678,7 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
     }
     const status = req.body.status || 'draft';
     if (!STATUS_SETS[docType].includes(status)) {
-      return res.status(400).json({ message: 'وضعیت نامعتبر برای این نوع سند' });
+      return res.status(400).json({ message: 'Invalid status for this document type' });
     }
 
     // authoritative snapshot (CRM doc + editable overlay) — skipped entirely
@@ -686,7 +686,7 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
     let customerSnapshot = null;
     if (hasCustomerId) {
       customerSnapshot = await buildCustomerSnapshot(req.body.customerId, req.body.customerSnapshot);
-      if (!customerSnapshot) return res.status(404).json({ message: 'مشتری یافت نشد' });
+      if (!customerSnapshot) return res.status(404).json({ message: 'Customer not found' });
     }
 
     // server-side money math — never trust client totals
@@ -733,7 +733,7 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
 
     return res.status(201).json(doc);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -758,7 +758,7 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     // status transition (validated per docType, logged separately)
     if (req.body.status && req.body.status !== doc.status) {
       if (!STATUS_SETS[doc.docType].includes(req.body.status)) {
-        return res.status(400).json({ message: 'وضعیت نامعتبر برای این نوع سند' });
+        return res.status(400).json({ message: 'Invalid status for this document type' });
       }
       update.status = req.body.status;
       await logActivity(doc._id, doc.docType, 'status',
@@ -771,7 +771,7 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
         const perms = await getEffectivePermissions(userId);
         if (!perms.has('inventory:quantity:edit')) {
           return res.status(403).json({
-            message: 'تسویه فاکتور موجودی انبار را کم می‌کند — نیاز به مجوز تنظیم موجودی دارید',
+            message: 'Marking an invoice paid decrements stock — inventory quantity permission required',
             requiredPermission: 'inventory:quantity:edit',
           });
         }
@@ -782,10 +782,10 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     // re-snapshot only when the customer itself changes
     if (req.body.customerId && String(req.body.customerId) !== String(doc.customerId)) {
       if (!mongoose.Types.ObjectId.isValid(req.body.customerId)) {
-        return res.status(400).json({ message: 'مشتری نامعتبر است' });
+        return res.status(400).json({ message: 'Invalid customer' });
       }
       const snap = await buildCustomerSnapshot(req.body.customerId, req.body.customerSnapshot);
-      if (!snap) return res.status(404).json({ message: 'مشتری یافت نشد' });
+      if (!snap) return res.status(404).json({ message: 'Customer not found' });
       update.customerId       = req.body.customerId;
       update.customerSnapshot = snap;
     } else if (req.body.customerSnapshot) {
@@ -797,7 +797,7 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     if (req.body.lineItems !== undefined || req.body.shipping !== undefined) {
       const lineItems = req.body.lineItems !== undefined ? req.body.lineItems : doc.lineItems;
       if (!Array.isArray(lineItems) || lineItems.length === 0) {
-        return res.status(400).json({ message: 'حداقل یک ردیف کالا الزامی است' });
+        return res.status(400).json({ message: 'At least one line item is required' });
       }
       const overages = await findStockOverages(lineItems);
       if (overages.length) {
@@ -842,7 +842,7 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
 
     return res.status(200).json(updated);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -862,7 +862,7 @@ router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('de
       const perms = await getEffectivePermissions(userId);
       if (!perms.has('inventory:quantity:edit')) {
         return res.status(403).json({
-          message: 'بازگرداندن موجودی نیاز به مجوز تنظیم موجودی دارد',
+          message: 'Restoring stock requires the inventory quantity permission',
           requiredPermission: 'inventory:quantity:edit',
         });
       }
@@ -874,10 +874,10 @@ router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('de
       { $set: { deleteDate: new Date(), updatedBy: userId } }
     );
     await logActivity(doc._id, doc.docType, 'deleted',
-      { oldValue: doc.docNumber, body: wantsRestore ? 'موجودی بازگردانده شد' : undefined }, userId, actorName);
-    return res.status(200).json({ message: 'سند حذف شد', stockRestored: wantsRestore });
+      { oldValue: doc.docNumber, body: wantsRestore ? 'Stock restored' : undefined }, userId, actorName);
+    return res.status(200).json({ message: 'Document deleted', stockRestored: wantsRestore });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -889,7 +889,7 @@ router.get('/invoices/:id/html', verify, requirePermission('mis:view'), loadInvo
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(html);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -911,7 +911,7 @@ router.get('/invoices/:id/pdf', verify, loadInvoice, requireDocTypePermission('p
     return res.status(200).end(pdf);
   } catch (err) {
     // browser launch failures land here (no Chrome/Edge found) — keep the error generic
-    return res.status(500).json({ message: 'خطا در تولید PDF' });
+    return res.status(500).json({ message: 'Failed to generate PDF' });
   }
 });
 
@@ -920,10 +920,10 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
   try {
     const pre = req.misInvoice;
     if (pre.docType !== 'pre_invoice') {
-      return res.status(400).json({ message: 'فقط پیش‌فاکتور قابل تبدیل است' });
+      return res.status(400).json({ message: 'Only a pre-invoice can be converted' });
     }
     if (pre.convertedToInvoiceId || pre.status === 'converted') {
-      return res.status(409).json({ message: 'این پیش‌فاکتور قبلاً تبدیل شده است', invoiceId: pre.convertedToInvoiceId });
+      return res.status(409).json({ message: 'This pre-invoice has already been converted', invoiceId: pre.convertedToInvoiceId });
     }
 
     const userId    = req.user.id;
@@ -962,11 +962,11 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
     await logActivity(pre._id, 'pre_invoice', 'converted',
       { newValue: invoice.docNumber }, userId, actorName);
     await logActivity(invoice._id, 'invoice', 'created',
-      { body: `تبدیل از پیش‌فاکتور #${pre.docNumber}`, newValue: invoice.docNumber }, userId, actorName);
+      { body: `Converted from pre-invoice #${pre.docNumber}`, newValue: invoice.docNumber }, userId, actorName);
 
     return res.status(201).json(invoice);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -975,7 +975,7 @@ router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:
   try {
     const doc = req.misInvoice;
     if (doc.docType !== 'invoice') {
-      return res.status(400).json({ message: 'پیش‌فاکتور بلوک پرداخت ندارد' });
+      return res.status(400).json({ message: 'A pre-invoice has no payment block' });
     }
 
     const userId    = req.user.id;
@@ -1010,7 +1010,7 @@ router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:
           const perms = await getEffectivePermissions(userId);
           if (!perms.has('inventory:quantity:edit')) {
             return res.status(403).json({
-              message: 'تسویه فاکتور موجودی انبار را کم می‌کند — نیاز به مجوز تنظیم موجودی دارید',
+              message: 'Marking an invoice paid decrements stock — inventory quantity permission required',
               requiredPermission: 'inventory:quantity:edit',
             });
           }
@@ -1023,11 +1023,11 @@ router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:
 
     await logActivity(doc._id, doc.docType, 'payment',
       { oldValue: doc.payment && doc.payment.remaining, newValue: remaining,
-        body: `نقدي ${cash} · شيك/بنك ${chequeBank} · بطاقة ${card}` }, userId, actorName);
+        body: `Cash ${cash} · Cheque/Bank ${chequeBank} · Card ${card}` }, userId, actorName);
 
     return res.status(200).json(updated);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -1057,22 +1057,22 @@ router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission
 
     const updated = await MisInvoice.findOneAndUpdate({ _id: doc._id }, { $set: update }, { new: true }).lean();
 
-    const label = doc.docType === 'invoice' ? 'فاکتور' : 'پیش‌فاکتور';
+    const label = doc.docType === 'invoice' ? 'Invoice' : 'Pre-invoice';
     await logActivity(doc._id, doc.docType, 'assigned',
-      { body: `ارسال به ${validIds.length} کاربر`, newValue: validIds.length }, userId, actorName);
+      { body: `Sent to ${validIds.length} user(s)`, newValue: validIds.length }, userId, actorName);
 
     for (const uid of newlyAdded) {
       await sendNotificationToUser(uid, {
         fromId: userId, fromName: actorName, type: 'assignment',
-        title: `${label} #${doc.docNumber} به شما ارسال شد`,
-        body: `${actorName} این ${label} را به شما ارسال کرد`,
+        title: `${label} #${doc.docNumber} was sent to you`,
+        body: `${actorName} sent this ${label} to you`,
         entityType: 'invoice', entityId: String(doc._id),
       });
     }
 
     return res.status(200).json(updated);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

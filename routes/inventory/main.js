@@ -162,7 +162,7 @@ router.get('/export', verify, requirePermission('inventory:export'), requireBran
     return res.status(200).end(buf);
   } catch (err) {
     console.error('GET /inventory/export failed:', err);
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -339,7 +339,7 @@ router.post('/import', verify, requirePermission('inventory:import'), upload.sin
     return res.status(200).json({ data: summary });
   } catch (err) {
     console.error('POST /inventory/import failed:', err);
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -399,7 +399,7 @@ router.get('/products/creators', verify, requirePermission('inventory:view'), re
     const data = users.map((u) => ({ _id: u._id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown' }));
     return res.status(200).json({ data });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -475,7 +475,7 @@ router.get('/products/:id', verify, requirePermission('inventory:view'), async (
   if (!product) return res.status(404).json({ message: 'Product not found' });
 
   if (!(await assertBranchAccess(req.user.id, product.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   // Scope enforcement on detail
@@ -485,14 +485,14 @@ router.get('/products/:id', verify, requirePermission('inventory:view'), async (
 
   if (scope === 'mine') {
     if (String(product.createdBy) !== uid) {
-      return res.status(403).json({ message: 'دسترسی ندارید' });
+      return res.status(403).json({ message: 'Access denied' });
     }
   } else if (scope === 'group') {
     const userGroups = await Group.find({ members: mongoose.Types.ObjectId(uid), deleteDate: null }).select('members').lean();
     const memberIds  = new Set(userGroups.flatMap(g => g.members.map(String)));
     memberIds.add(uid);
     if (!memberIds.has(String(product.createdBy))) {
-      return res.status(403).json({ message: 'دسترسی ندارید' });
+      return res.status(403).json({ message: 'Access denied' });
     }
   }
 
@@ -553,7 +553,7 @@ router.put('/products/:id', verify, requirePermission('inventory:edit'), async (
   const existing = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
   if (!existing) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, existing.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const allowed = ['quarryName', 'name', 'nameAr', 'description', 'category', 'defaultUnit', 'status', 'coverMediaId'];
@@ -589,7 +589,7 @@ router.delete('/products/:id', verify, requirePermission('inventory:delete'), as
   const existing = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
   if (!existing) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, existing.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const product = await InvProduct.findOneAndUpdate(
@@ -614,7 +614,7 @@ router.get('/products/:id/variants', verify, requirePermission('inventory:view')
   const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
   if (!product) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, product.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const variants = await InvVariant.find({
@@ -638,7 +638,7 @@ router.post('/variants', verify, requirePermission('inventory:subproduct:create'
   const product = await InvProduct.findOne({ _id: productId, deleteDate: null });
   if (!product) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, product.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const parsed = parseStoneCode(code);
@@ -724,12 +724,12 @@ router.post('/variants', verify, requirePermission('inventory:subproduct:create'
 router.get('/products/:id/invoices', verify, requirePermission('inventory:view'), requirePermission('mis:view'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'شناسه نامعتبر است' });
+      return res.status(400).json({ message: 'Invalid ID' });
     }
     const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
     if (!product) return res.status(404).json({ message: 'Product not found' });
     if (!(await assertBranchAccess(req.user.id, product.branchId))) {
-      return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+      return res.status(403).json({ message: 'You do not have access to this branch' });
     }
     const misInvoiceSchema = require('../../models/misInvoiceModel');
     const MisInvoice = dbConnection.models.misInvoice || dbConnection.model('misInvoice', misInvoiceSchema);
@@ -771,7 +771,7 @@ router.get('/products/:id/invoices', verify, requirePermission('inventory:view')
 
     return res.status(200).json({ data, total });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -781,7 +781,7 @@ router.get('/products/:id/logs', verify, requirePermission('inventory:view'), as
   const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
   if (!product) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, product.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const { changeType, limit = 50, skip = 0 } = req.query;
@@ -807,7 +807,7 @@ router.put('/variants/:id', verify, requirePermission('inventory:edit'), async (
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const allowed = ['unit', 'status', 'categories'];
@@ -852,7 +852,7 @@ router.delete('/variants/:id', verify, requirePermission('inventory:delete'), as
   const existing = await InvVariant.findOne({ _id: req.params.id, deleteDate: null }).lean();
   if (!existing) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, existing.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const variant = await InvVariant.findOneAndUpdate(
@@ -878,7 +878,7 @@ router.post('/variants/:id/adjust', verify, requirePermission('inventory:quantit
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const oldQty = variant.quantity;
@@ -925,7 +925,7 @@ router.put('/variants/:id/price', verify, requirePermission('inventory:price:edi
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const oldPrice = variant.price;
@@ -960,7 +960,7 @@ router.post('/variants/:id/media', verify, requirePermission('inventory:media:ed
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
@@ -1023,7 +1023,7 @@ router.post('/variants/:id/media-batch', verify, requirePermission('inventory:me
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   if (!req.files || !req.files.length) {
@@ -1111,7 +1111,7 @@ router.get('/variants/:id/media-batch/zip', verify, requirePermission('inventory
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const files = await File.find({
@@ -1146,7 +1146,7 @@ router.post('/products/:id/media', verify, requirePermission('inventory:media:ed
   const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null });
   if (!product) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, product.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
@@ -1209,7 +1209,7 @@ router.get('/media', verify, requirePermission('inventory:view'), async (req, re
     : await InvProduct.findOne({ _id: attachedToId, deleteDate: null }).select('branchId').lean();
   if (!owner) return res.status(404).json({ message: 'Not found' });
   if (!(await assertBranchAccess(req.user.id, owner.branchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   const files = await File.find({
@@ -1239,7 +1239,7 @@ router.delete('/media/:fileId', verify, requirePermission('inventory:media:edit'
     ? ownerVariant.branchId
     : (await InvProduct.findById(fileDoc.attachedTo?.id).select('branchId').lean())?.branchId;
   if (!(await assertBranchAccess(req.user.id, ownerBranchId))) {
-    return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+    return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
   await File.findByIdAndUpdate(req.params.fileId, { $set: { deleteDate: new Date() } });

@@ -18,7 +18,7 @@ router.get('/', verify, async (req, res) => {
     const branches = await Branch.find({ _id: { $in: ids }, deleteDate: null }).sort('name').lean();
     return res.status(200).json(branches);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -32,8 +32,8 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
     });
     return res.status(201).json(branch);
   } catch (err) {
-    if (err.code === 11000) return res.status(400).json({ message: 'شعبه‌ای با این نام وجود دارد' });
-    return res.status(500).json({ message: 'خطای سرور' });
+    if (err.code === 11000) return res.status(400).json({ message: 'A branch with this name already exists' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -45,10 +45,10 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
       { $set: { name: req.body.name, description: req.body.description, status: req.body.status, updateDate: new Date() } },
       { new: true }
     );
-    if (!branch) return res.status(404).json({ message: 'شعبه یافت نشد' });
+    if (!branch) return res.status(404).json({ message: 'Branch not found' });
     return res.status(200).json(branch);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -59,10 +59,10 @@ router.delete('/:id', verify, requireSuperAdmin(), async (req, res) => {
       { _id: req.params.id, deleteDate: null },
       { $set: { deleteDate: new Date() } },
     );
-    if (!branch) return res.status(404).json({ message: 'شعبه یافت نشد' });
-    return res.status(200).json({ message: 'شعبه حذف شد' });
+    if (!branch) return res.status(404).json({ message: 'Branch not found' });
+    return res.status(200).json({ message: 'Branch deleted' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

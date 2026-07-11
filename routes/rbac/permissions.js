@@ -16,7 +16,7 @@ router.get('/', verify, requireSuperAdmin(), async (req, res) => {
     });
     return res.status(200).json({ flat: perms, byModule });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

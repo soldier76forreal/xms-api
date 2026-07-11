@@ -123,7 +123,7 @@ router.get('/products-lookup', verify, requirePermission('crm:view'), async (req
 
     return res.status(200).json(data);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -141,7 +141,7 @@ router.put('/filter-memory', verify, async (req, res) => {
     }
     return res.status(200).json({ ok: true });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -155,7 +155,7 @@ router.get('/customers/creators', verify, requirePermission('crm:view'), async (
     const data = users.map(u => ({ _id: u._id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown' }));
     return res.status(200).json({ data });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -285,7 +285,7 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
     return res.status(200).json({ data, total, page: Number(page) || 1, limit: lim });
   } catch (err) {
     console.error('GET /crm/customers failed:', err);
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -298,7 +298,7 @@ router.post('/customers', verify, requirePermission('crm:customer:create'), asyn
     if (req.body.phoneNumber) {
       const dup = await Customer.findOne({ phoneNumber: req.body.phoneNumber, deleteDate: null });
       if (dup) {
-        return res.status(409).json({ message: 'مشتری با این شماره تلفن وجود دارد', existingId: dup._id });
+        return res.status(409).json({ message: 'A customer with this phone number already exists', existingId: dup._id });
       }
     }
 
@@ -314,7 +314,7 @@ router.post('/customers', verify, requirePermission('crm:customer:create'), asyn
 
     return res.status(201).json(doc);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -326,18 +326,18 @@ router.get('/customers/:id', verify, requirePermission('crm:view'), async (req, 
     const crmScope = scopes.crm;
 
     const customer = await Customer.findOne({ _id: req.params.id, deleteDate: null }).lean();
-    if (!customer) return res.status(404).json({ message: 'مشتری یافت نشد' });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
     // row-level check for 'mine' scope
     if (crmScope === 'mine') {
       const isOwner    = String(customer.owner) === String(userId);
       const isAssigned = (customer.assignedTo || []).map(String).includes(String(userId));
-      if (!isOwner && !isAssigned) return res.status(403).json({ message: 'دسترسی ندارید' });
+      if (!isOwner && !isAssigned) return res.status(403).json({ message: 'Access denied' });
     }
 
     return res.status(200).json(customer);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -372,7 +372,7 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
       if (!isSelf) {
         const perms = await getEffectivePermissions(userId);
         if (!perms.has('crm:task:assign')) {
-          return res.status(403).json({ message: 'دسترسی ندارید', requiredPermission: 'crm:task:assign' });
+          return res.status(403).json({ message: 'Access denied', requiredPermission: 'crm:task:assign' });
         }
       }
 
@@ -437,7 +437,7 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
     if (action === 'delete') {
       const perms = await getEffectivePermissions(userId);
       if (!perms.has('crm:customer:delete')) {
-        return res.status(403).json({ message: 'دسترسی ندارید', requiredPermission: 'crm:customer:delete' });
+        return res.status(403).json({ message: 'Access denied', requiredPermission: 'crm:customer:delete' });
       }
       const now = new Date();
       await Customer.updateMany(
@@ -452,7 +452,7 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
 
     return res.status(400).json({ message: 'Unknown action. Use addTag, assign, or delete.' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -461,7 +461,7 @@ router.put('/customers/:id', verify, requirePermission('crm:customer:edit'), asy
   try {
     const userId   = req.user.id;
     const existing = await Customer.findOne({ _id: req.params.id, deleteDate: null });
-    if (!existing) return res.status(404).json({ message: 'مشتری یافت نشد' });
+    if (!existing) return res.status(404).json({ message: 'Customer not found' });
 
     const actorName = await getActorName(userId);
 
@@ -496,7 +496,7 @@ router.put('/customers/:id', verify, requirePermission('crm:customer:edit'), asy
 
     return res.status(200).json(updated);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -504,12 +504,12 @@ router.put('/customers/:id', verify, requirePermission('crm:customer:edit'), asy
 router.delete('/customers/:id', verify, requirePermission('crm:customer:delete'), async (req, res) => {
   try {
     const customer = await Customer.findOne({ _id: req.params.id, deleteDate: null });
-    if (!customer) return res.status(404).json({ message: 'مشتری یافت نشد' });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
     await Customer.findOneAndUpdate({ _id: req.params.id }, { $set: { deleteDate: new Date() } });
-    return res.status(200).json({ message: 'مشتری حذف شد' });
+    return res.status(200).json({ message: 'Customer deleted' });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -531,7 +531,7 @@ router.get('/customers/:id/communication', verify, requirePermission('crm:commun
 
     return res.status(200).json({ data: activities, total, page: Number(page) || 1, limit: lim });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -551,7 +551,7 @@ router.post('/customers/:id/communication', verify, requirePermission('crm:commu
     }
 
     const customer = await Customer.findOne({ _id: req.params.id, deleteDate: null });
-    if (!customer) return res.status(404).json({ message: 'مشتری یافت نشد' });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
     const actorName = await getActorName(userId);
     const now       = new Date();
@@ -610,7 +610,7 @@ router.post('/customers/:id/communication', verify, requirePermission('crm:commu
 
     return res.status(201).json(activity);
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -623,7 +623,7 @@ router.put('/customers/:id/follow-up', verify, requirePermission('crm:customer:e
     if (!nextFollowUpAt) return res.status(400).json({ message: 'nextFollowUpAt is required' });
 
     const customer = await Customer.findOne({ _id: req.params.id, deleteDate: null });
-    if (!customer) return res.status(404).json({ message: 'مشتری یافت نشد' });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
     const actorName = await getActorName(userId);
     const date      = new Date(nextFollowUpAt);
@@ -640,7 +640,7 @@ router.put('/customers/:id/follow-up', verify, requirePermission('crm:customer:e
 
     return res.status(200).json({ ok: true, nextFollowUpAt: date });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -650,7 +650,7 @@ router.put('/customers/:id/follow-up', verify, requirePermission('crm:customer:e
 router.get('/customers/:id/requests', verify, requirePermission('crm:view'), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'شناسه نامعتبر است' });
+      return res.status(400).json({ message: 'Invalid ID' });
     }
     const misInvoiceSchema = require('../../models/misInvoiceModel');
     const MisInvoice = dbConnection.models.misInvoice || dbConnection.model('misInvoice', misInvoiceSchema);
@@ -678,7 +678,7 @@ router.get('/customers/:id/requests', verify, requirePermission('crm:view'), asy
 
     return res.status(200).json({ data, total });
   } catch (err) {
-    return res.status(500).json({ message: 'خطای سرور' });
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 

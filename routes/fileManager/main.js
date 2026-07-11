@@ -580,7 +580,7 @@ router.post("/uploadFile", verify, upload.single("files"), async (req, res, next
         res.status(200).send(result);
     } catch (error) {
         console.log(error); // Helpful for debugging
-        res.status(500).send("مشکلی رخ داده است");
+        res.status(500).send("Something went wrong");
     }
 });
 

@@ -102,11 +102,11 @@ function requirePermission(key) {
   return async (req, res, next) => {
     try {
       if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: 'احراز هویت نشده' });
+        return res.status(401).json({ message: 'Not authenticated' });
       }
       const perms = await getEffectivePermissions(req.user.id);
       if (perms.has(key)) return next();
-      return res.status(403).json({ message: 'دسترسی ندارید', requiredPermission: key });
+      return res.status(403).json({ message: 'Access denied', requiredPermission: key });
     } catch (err) {
       return next(err);
     }
@@ -128,10 +128,10 @@ function requireSuperAdmin() {
   return async (req, res, next) => {
     try {
       if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: 'احراز هویت نشده' });
+        return res.status(401).json({ message: 'Not authenticated' });
       }
       if (await isSuperAdmin(req.user.id)) return next();
-      return res.status(403).json({ message: 'این بخش فقط برای مدیر ارشد سیستم در دسترس است', requiredRole: 'superAdmin' });
+      return res.status(403).json({ message: 'This section is only available to the super admin', requiredRole: 'superAdmin' });
     } catch (err) {
       return next(err);
     }
@@ -151,7 +151,11 @@ async function getUserBranches(userId) {
 async function assertBranchAccess(userId, branchId) {
   if (!branchId) return false;
   const branches = await getUserBranches(userId);
-  return branches.some((b) => String(b) === String(branchId));
+  if (branches.some((b) => String(b) === String(branchId))) return true;
+  // superAdmin holds every branch implicitly — GET /branches already lists them
+  // all for a superAdmin, so without this bypass switching to a branch not in
+  // their own userAccess.branches 403'd every Inventory/MIS request.
+  return isSuperAdmin(userId);
 }
 
 // requireBranch — reads branchId from query (GET) or body (mutations), 400s if
@@ -161,9 +165,9 @@ function requireBranch() {
   return async (req, res, next) => {
     try {
       const branchId = req.query.branchId || req.body.branchId;
-      if (!branchId) return res.status(400).json({ message: 'شعبه انتخاب نشده است', code: 'BRANCH_REQUIRED' });
+      if (!branchId) return res.status(400).json({ message: 'No branch selected', code: 'BRANCH_REQUIRED' });
       const ok = await assertBranchAccess(req.user.id, branchId);
-      if (!ok) return res.status(403).json({ message: 'دسترسی به این شعبه ندارید' });
+      if (!ok) return res.status(403).json({ message: 'You do not have access to this branch' });
       req.branchId = branchId;
       return next();
     } catch (err) {

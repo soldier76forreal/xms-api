@@ -181,7 +181,7 @@ const returnRouter = function (io) {
         const response = await newNotif.save();
         const payload  = JSON.stringify({
           sendFrom: `${from.firstName} ${from.lastName}`,
-          document: `${document.preInvoice.productName}-${document.preInvoice.meterage} متر`,
+          document: `${document.preInvoice.productName}-${document.preInvoice.meterage} meters`,
           status: document.status, type: req.body.type,
         });
         const subscriptions = await pwaSubscription.findOne({ userId: req.body.to[i] });
@@ -233,7 +233,7 @@ const returnRouter = function (io) {
       })));
       res.status(200).json(notifs);
     } catch (err) {
-      res.status(500).json({ message: 'خطای سرور' });
+      res.status(500).json({ message: 'Server error' });
     }
   });
 
@@ -244,7 +244,7 @@ const returnRouter = function (io) {
       await notfication.findOneAndUpdate({ _id: id }, { status: switchStatus.status === 0 ? 1 : 0 });
       res.status(200).send('switched!');
     } catch (err) {
-      res.status(500).json({ message: 'خطای سرور' });
+      res.status(500).json({ message: 'Server error' });
     }
   });
 
@@ -255,7 +255,7 @@ const returnRouter = function (io) {
       await notfication.findOneAndUpdate({ _id: id }, { status: switchStatus.status === 0 ? 1 : 0 });
       res.status(200).send('switched!');
     } catch (err) {
-      res.status(500).json({ message: 'خطای سرور' });
+      res.status(500).json({ message: 'Server error' });
     }
   });
 
