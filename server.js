@@ -15,16 +15,19 @@ patchExpressRouter(express);
 //express middlewear
 const app = express();
 var server = require('http').createServer(app);
-// LAN IPs added for phone/device testing (Ethernet 192.168.1.135, Wi-Fi 192.168.1.132) —
-// the old 10.185.103.82 entry was a VPN adapter address, unreachable from other devices.
+// Production origins (launched 2026-07-12) + localhost for development.
+const ALLOWED_ORIGINS = [
+  'https://xms.lazulitemarble.com',
+  'https://auth.lazulitemarble.com',
+  'http://localhost:3000',            // local dev only
+];
 var io = require('socket.io')(server , {
     cors: {
-      origin: ['https://lazulitemarble.com', 'http://localhost:3000', 'https://xms.lazulitemarble.com', 'http://192.168.1.135:3000', 'http://192.168.1.132:3000','http://192.168.1.9:3000'],
+      origin: ALLOWED_ORIGINS,
       credentials: true,
     },
   });
-// app.use(cors());
-app.use(cors({exposedHeaders: ['Content-Disposition', 'X-Total-Size'],credentials: true, origin:['http://localhost:3000' , 'https://localhost:3002', 'http://192.168.1.135:3000', 'http://192.168.1.132:3000']}));
+app.use(cors({exposedHeaders: ['Content-Disposition', 'X-Total-Size'], credentials: true, origin: ALLOWED_ORIGINS}));
 
 //dotenv middlewear
 dotenv.config();
@@ -108,8 +111,10 @@ process.on("uncaughtException", (error) => {
 
 
 
-server.listen(3003, async () => {
-    console.log('server running on port 3003.');
+// Port 7130 (changed from 3003 for the 2026-07-12 launch) — the reverse proxy
+// maps https://api.lazulitemarble.com onto this local port.
+server.listen(7130, async () => {
+    console.log('server running on port 7130.');
     // On restart all socket connections are gone → mark everyone offline
     try {
         const userSchema   = require('./models/userModel');

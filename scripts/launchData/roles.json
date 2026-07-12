@@ -1,0 +1,222 @@
+[
+  {
+    "_id": {
+      "$oid": "6a4013f2ea3a1a78f4830d95"
+    },
+    "description": "دسترسی کامل به همه بخش‌ها",
+    "permissions": [
+      "inventory:view",
+      "inventory:product:create",
+      "inventory:subproduct:create",
+      "inventory:edit",
+      "inventory:delete",
+      "inventory:quantity:edit",
+      "inventory:price:edit",
+      "inventory:media:edit",
+      "inventory:import",
+      "inventory:export",
+      "users:view",
+      "users:create",
+      "users:edit",
+      "users:delete",
+      "users:unlock",
+      "users:role:view",
+      "users:role:edit",
+      "users:group:view",
+      "users:group:edit",
+      "crm:view",
+      "crm:customer:create",
+      "crm:customer:edit",
+      "crm:customer:delete",
+      "crm:task:assign",
+      "crm:communication:view",
+      "crm:communication:create",
+      "mis:view",
+      "mis:invoice:create",
+      "mis:invoice:edit",
+      "mis:invoice:delete",
+      "mis:invoice:pdf",
+      "mis:preinvoice:create",
+      "mis:preinvoice:edit",
+      "mis:preinvoice:delete",
+      "mis:preinvoice:pdf",
+      "mis:preinvoice:convert",
+      "mis:payment:edit",
+      "mis:settings:edit",
+      "files:view",
+      "files:upload",
+      "files:delete",
+      "files:share",
+      "tasks:view",
+      "tasks:create",
+      "tasks:respond",
+      "digitalMarketing:view",
+      "digitalMarketing:rawContent:create",
+      "digitalMarketing:rawContent:edit",
+      "digitalMarketing:rawContent:delete",
+      "digitalMarketing:rawContent:chat",
+      "digitalMarketing:readyToUpload:edit",
+      "digitalMarketing:readyToUpload:delete"
+    ],
+    "isSystem": true,
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1783443065091"
+      }
+    },
+    "deleteDate": null,
+    "name": "Admin",
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1782584306466"
+      }
+    },
+    "__v": {
+      "$numberInt": "0"
+    },
+    "dataScopes": {},
+    "isSuperAdmin": true
+  },
+  {
+    "_id": {
+      "$oid": "6a40ceff0f1bf064801fe280"
+    },
+    "description": "",
+    "permissions": [
+      "inventory:delete",
+      "inventory:edit",
+      "inventory:media:edit",
+      "inventory:price:edit",
+      "inventory:product:create",
+      "inventory:quantity:edit",
+      "inventory:subproduct:create",
+      "inventory:view",
+      "crm:communication:create",
+      "crm:communication:view",
+      "crm:customer:create",
+      "crm:customer:delete",
+      "crm:customer:edit",
+      "crm:customer:view",
+      "crm:task:assign",
+      "crm:view",
+      "mis:invoice:create",
+      "mis:invoice:delete",
+      "mis:invoice:edit",
+      "mis:invoice:pdf",
+      "mis:payment:edit",
+      "mis:preinvoice:convert",
+      "mis:preinvoice:create",
+      "mis:preinvoice:delete",
+      "mis:preinvoice:edit",
+      "mis:preinvoice:pdf",
+      "mis:settings:edit",
+      "mis:view",
+      "digitalMarketing:rawContent:chat",
+      "digitalMarketing:rawContent:create",
+      "digitalMarketing:rawContent:delete",
+      "digitalMarketing:rawContent:edit",
+      "digitalMarketing:readyToUpload:delete",
+      "digitalMarketing:readyToUpload:edit",
+      "digitalMarketing:view",
+      "files:delete",
+      "files:share",
+      "files:upload",
+      "files:view"
+    ],
+    "isSystem": false,
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1783835339571"
+      }
+    },
+    "deleteDate": null,
+    "name": "Sales manager",
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1782632191821"
+      }
+    },
+    "__v": {
+      "$numberInt": "0"
+    },
+    "dataScopes": {
+      "crm": "mine",
+      "mis": "mine"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c42c"
+    },
+    "name": "Viewer",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "description": "فقط مشاهده — بدون تغییر",
+    "isSystem": false,
+    "permissions": [
+      "inventory:view",
+      "users:view",
+      "users:role:view",
+      "users:group:view",
+      "crm:view",
+      "crm:communication:view",
+      "files:view",
+      "tasks:view",
+      "mis:view"
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c42d"
+    },
+    "name": "StockOperator",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "description": "اپراتور انبار — مشاهده + موجودی + قیمت",
+    "isSystem": false,
+    "permissions": [
+      "inventory:view",
+      "inventory:quantity:edit",
+      "inventory:price:edit"
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c42e"
+    },
+    "name": "InventoryManager",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "description": "مدیر انبار — همه مجوزهای انبار",
+    "isSystem": false,
+    "permissions": [
+      "inventory:view",
+      "inventory:product:create",
+      "inventory:subproduct:create",
+      "inventory:edit",
+      "inventory:delete",
+      "inventory:quantity:edit",
+      "inventory:price:edit",
+      "inventory:media:edit",
+      "crm:communication:create",
+      "crm:communication:view",
+      "crm:customer:edit",
+      "crm:customer:view",
+      "crm:task:assign",
+      "crm:view",
+      "mis:invoice:create",
+      "mis:invoice:delete",
+      "mis:invoice:edit",
+      "mis:view"
+    ],
+    "dataScopes": {},
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1783155794602"
+      }
+    }
+  }
+]

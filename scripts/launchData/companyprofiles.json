@@ -1,0 +1,41 @@
+[
+  {
+    "_id": {
+      "$oid": "6a4928c42d08a87408bc06d6"
+    },
+    "key": "default",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "phones": [
+      "00971507085051"
+    ],
+    "quotationValidityDefaultDays": {
+      "$numberInt": "2"
+    },
+    "vatRate": {
+      "$numberInt": "5"
+    },
+    "bank": {
+      "name": "مصرف أبو ظبي الاسلامي ADIB  ",
+      "accountNumber": "19543282",
+      "iban": "AE140500000000019543282",
+      "branch": "RAK Airport RD",
+      "swift": "ABDIAEAD"
+    },
+    "email": "lazulitemarvel@gmail.com",
+    "nameAr": "LAZULITE MARVEL",
+    "nameEn": "LAZULITE MARVEL BUILDING MATERIALS TRADING L.L.C",
+    "thankYouNoteAr": "نشكركم على ثقتكم بشركتنا ونقدر تعاونكم معنا. نأمل أن نكون عند حسن ظنكم وأن نتمكن من تلبية احتياجاتكم على أكمل وجه. إذا كان لديكم أي\nاستفسارات أو احتياجات إضافية، فلا تترددوا في الاتصال بنا. شكر ً ا لكم مرة أخرى على تعاونكم",
+    "trn": "لازوليت مارفل",
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1783239923864"
+      }
+    },
+    "updatedBy": {
+      "$oid": "69313420fb6573a1b924bb65"
+    },
+    "website": "www.lazulitemarble.com"
+  }
+]

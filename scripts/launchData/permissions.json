@@ -1,0 +1,1114 @@
+[
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad75e"
+    },
+    "key": "inventory:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306361"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527445"
+      }
+    },
+    "description": "View products and inventory"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad75f"
+    },
+    "key": "inventory:product:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306385"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527451"
+      }
+    },
+    "description": "Create product"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad760"
+    },
+    "key": "inventory:subproduct:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306388"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527454"
+      }
+    },
+    "description": "Create sub-product (variant)"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad761"
+    },
+    "key": "inventory:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306391"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527457"
+      }
+    },
+    "description": "Edit product descriptive info"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad762"
+    },
+    "key": "inventory:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306393"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527460"
+      }
+    },
+    "description": "Delete product or variant"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad763"
+    },
+    "key": "inventory:quantity:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306396"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527463"
+      }
+    },
+    "description": "Adjust stock quantity"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad764"
+    },
+    "key": "inventory:price:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306397"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527465"
+      }
+    },
+    "description": "Change price"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad765"
+    },
+    "key": "inventory:media:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306399"
+      }
+    },
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527468"
+      }
+    },
+    "description": "Upload and delete media"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad766"
+    },
+    "key": "users:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306402"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527475"
+      }
+    },
+    "description": "View users list and details"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad767"
+    },
+    "key": "users:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306405"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527477"
+      }
+    },
+    "description": "Create user"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad768"
+    },
+    "key": "users:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306408"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527479"
+      }
+    },
+    "description": "Edit user"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad769"
+    },
+    "key": "users:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306409"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527480"
+      }
+    },
+    "description": "Delete user"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad76a"
+    },
+    "key": "users:unlock",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306411"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527482"
+      }
+    },
+    "description": "Unlock a locked user account"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad76b"
+    },
+    "key": "users:role:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306412"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527484"
+      }
+    },
+    "description": "View roles and permissions"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad76c"
+    },
+    "key": "users:role:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306413"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527486"
+      }
+    },
+    "description": "Create and edit roles"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad76d"
+    },
+    "key": "users:group:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306415"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527488"
+      }
+    },
+    "description": "View groups"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad76e"
+    },
+    "key": "users:group:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306417"
+      }
+    },
+    "module": "users",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527490"
+      }
+    },
+    "description": "Create and edit groups"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad76f"
+    },
+    "key": "crm:customer:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306419"
+      }
+    },
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1782584306419"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad770"
+    },
+    "key": "crm:customer:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306421"
+      }
+    },
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527493"
+      }
+    },
+    "description": "Create customer"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad771"
+    },
+    "key": "crm:customer:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306422"
+      }
+    },
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527495"
+      }
+    },
+    "description": "Edit customer"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad772"
+    },
+    "key": "crm:customer:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306424"
+      }
+    },
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527497"
+      }
+    },
+    "description": "Delete customer"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad774"
+    },
+    "key": "mis:invoice:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306426"
+      }
+    },
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527505"
+      }
+    },
+    "description": "Create invoice"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad775"
+    },
+    "key": "mis:invoice:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306428"
+      }
+    },
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527507"
+      }
+    },
+    "description": "Edit invoice"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad776"
+    },
+    "key": "mis:invoice:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306429"
+      }
+    },
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527509"
+      }
+    },
+    "description": "Delete invoice"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad777"
+    },
+    "key": "files:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306430"
+      }
+    },
+    "module": "files",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527525"
+      }
+    },
+    "description": "View files"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad778"
+    },
+    "key": "files:upload",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306432"
+      }
+    },
+    "module": "files",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527527"
+      }
+    },
+    "description": "Upload files"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad779"
+    },
+    "key": "files:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306434"
+      }
+    },
+    "module": "files",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527528"
+      }
+    },
+    "description": "Delete files"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad77a"
+    },
+    "key": "files:share",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306435"
+      }
+    },
+    "module": "files",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527530"
+      }
+    },
+    "description": "Share files"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad782"
+    },
+    "key": "tasks:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306448"
+      }
+    },
+    "module": "tasks",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527532"
+      }
+    },
+    "description": "View tasks"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad783"
+    },
+    "key": "tasks:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306450"
+      }
+    },
+    "module": "tasks",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527534"
+      }
+    },
+    "description": "Create and assign tasks"
+  },
+  {
+    "_id": {
+      "$oid": "6a4013f2f4066619361ad784"
+    },
+    "key": "tasks:respond",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782584306452"
+      }
+    },
+    "module": "tasks",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527535"
+      }
+    },
+    "description": "Claim / complete tasks"
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c428"
+    },
+    "key": "crm:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782807885792"
+      }
+    },
+    "description": "View customers and CRM",
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527492"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c429"
+    },
+    "key": "crm:task:assign",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782807885810"
+      }
+    },
+    "description": "Assign customers to a user/group (My Desk)",
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527498"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c42a"
+    },
+    "key": "crm:communication:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782807885812"
+      }
+    },
+    "description": "View communication history",
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527500"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a437d4d321f075e0d09c42b"
+    },
+    "key": "crm:communication:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1782807885814"
+      }
+    },
+    "description": "Log a call / note",
+    "module": "crm",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527502"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2bff"
+    },
+    "key": "mis:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406163"
+      }
+    },
+    "description": "View invoices and pre-invoices",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527504"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c00"
+    },
+    "key": "mis:invoice:pdf",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406172"
+      }
+    },
+    "description": "Download invoice PDF",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527511"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c01"
+    },
+    "key": "mis:preinvoice:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406174"
+      }
+    },
+    "description": "Create pre-invoice",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527512"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c02"
+    },
+    "key": "mis:preinvoice:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406176"
+      }
+    },
+    "description": "Edit pre-invoice",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527514"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c03"
+    },
+    "key": "mis:preinvoice:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406178"
+      }
+    },
+    "description": "Delete pre-invoice",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527516"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c04"
+    },
+    "key": "mis:preinvoice:pdf",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406180"
+      }
+    },
+    "description": "Download pre-invoice PDF",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527518"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c05"
+    },
+    "key": "mis:preinvoice:convert",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406182"
+      }
+    },
+    "description": "Convert pre-invoice to invoice",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527520"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c06"
+    },
+    "key": "mis:payment:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406183"
+      }
+    },
+    "description": "Record / edit invoice payment",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527522"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a48d29e3f004d8b499c2c07"
+    },
+    "key": "mis:settings:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783157406185"
+      }
+    },
+    "description": "Edit company settings (invoice header)",
+    "module": "mis",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527524"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4b9ebcea59aa44181b4b6f"
+    },
+    "key": "inventory:import",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783340732849"
+      }
+    },
+    "description": "Import from Excel",
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527471"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4b9ebcea59aa44181b4b70"
+    },
+    "key": "inventory:export",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783340732865"
+      }
+    },
+    "description": "Export inventory to Excel",
+    "module": "inventory",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527473"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a1"
+    },
+    "key": "digitalMarketing:view",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766700"
+      }
+    },
+    "description": "View raw content and ready-to-upload content",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527537"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a2"
+    },
+    "key": "digitalMarketing:rawContent:create",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766717"
+      }
+    },
+    "description": "Upload a raw content batch",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527539"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a3"
+    },
+    "key": "digitalMarketing:rawContent:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766718"
+      }
+    },
+    "description": "Edit / change status of raw content",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527540"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a4"
+    },
+    "key": "digitalMarketing:rawContent:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766720"
+      }
+    },
+    "description": "Delete raw content",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527542"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a5"
+    },
+    "key": "digitalMarketing:rawContent:chat",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766722"
+      }
+    },
+    "description": "Chat on a raw content record",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527544"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a6"
+    },
+    "key": "digitalMarketing:readyToUpload:edit",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766724"
+      }
+    },
+    "description": "Edit ready-to-upload content",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527546"
+      }
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6a4f3ca6ad0ef824b93bf6a7"
+    },
+    "key": "digitalMarketing:readyToUpload:delete",
+    "__v": {
+      "$numberInt": "0"
+    },
+    "createdAt": {
+      "$date": {
+        "$numberLong": "1783577766726"
+      }
+    },
+    "description": "Delete ready-to-upload content",
+    "module": "digitalMarketing",
+    "updatedAt": {
+      "$date": {
+        "$numberLong": "1783752527547"
+      }
+    }
+  }
+]
