@@ -954,14 +954,28 @@ router.get("/downloadFileFolders", verify, requirePermission('files:view'), asyn
                 // Add empty directory entry
                 archive.append(null, { name: folderPath + '/' });
             } else {
-                // It's a file
-                let filePathInZip = item.metaData.filename;
+                // It's a file — zip entries use the ORIGINAL name (users should
+                // never see the internal disk filename like "files-171234.png")
+                const displayName = item.metaData.originalname || item.metaData.filename;
+                let filePathInZip = displayName;
                 if (item.supFolder && folderPaths.has(item.supFolder.toString())) {
-                    filePathInZip = path.join(folderPaths.get(item.supFolder.toString()), item.metaData.filename);
+                    filePathInZip = path.join(folderPaths.get(item.supFolder.toString()), displayName);
                 }
-                
-                const fullSystemPath = path.join(__dirname, '../public/uploads/', item.metaData.filename);
-                archive.file(fullSystemPath, { name: filePathInZip });
+
+                // __dirname is api/routes/fileManager — public/ is TWO levels up.
+                // The old '../public/uploads' pointed at a nonexistent directory,
+                // which made archiver error mid-stream => corrupt/empty zips.
+                const fullSystemPath = path.join(__dirname, '../../public/uploads/', item.metaData.filename);
+                if (fs.existsSync(fullSystemPath)) {
+                    archive.file(fullSystemPath, { name: filePathInZip });
+                }
+            }
+        }
+
+        // Activity feed — one row per top-level selected item
+        for (const sel of selected) {
+            if (sel && sel.id) {
+                await logFileActivity(req, { type: 'download', itemKind: sel.type || 'file', itemId: sel.id });
             }
         }
 
