@@ -886,9 +886,14 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
         }
     })
     
-router.get("/downloadFileFolders", verify, requirePermission('files:view'), async (req, res) => {
+// POST (not GET) — `selected` is an array of {id,type} OBJECTS, and axios's
+// default paramsSerializer cannot encode nested objects in a GET querystring
+// (it silently mangled to "[object Object]"), which is why bulk/zip downloads
+// never worked reliably. A JSON body sidesteps that entirely.
+router.post("/downloadFileFolders", verify, requirePermission('files:view'), async (req, res) => {
     try {
-        const selected = Array.isArray(req.query.selected) ? req.query.selected : [req.query.selected];
+        const raw = req.body.selected;
+        const selected = Array.isArray(raw) ? raw : [raw];
         
         // 1. Setup Archiver
         const archive = archiver('zip', { zlib: { level: 5 } }); // Level 5 is a good balance of speed/size
@@ -1001,7 +1006,11 @@ router.get("/downloadFileFolders", verify, requirePermission('files:view'), asyn
       
 
 
-    router.get('/files/download/:id', verify, requirePermission('files:view'), async (req, res) => {
+    // This router is mounted at /files in server.js — declaring the path here
+    // as '/files/download/:id' doubled the prefix (real URL was
+    // /files/files/download/:id), which made this route unreachable and
+    // unused by the frontend. Fixed to just '/download/:id'.
+    router.get('/download/:id', verify, requirePermission('files:view'), async (req, res) => {
         try {
             const { id } = req.params;
             if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -1032,6 +1041,9 @@ router.get("/downloadFileFolders", verify, requirePermission('files:view'), asyn
             'Content-Disposition',
             `attachment; filename="${metaData.originalname}"`
             );
+            res.setHeader('Content-Length', fs.statSync(absolutePath).size);
+
+            await logFileActivity(req, { type: 'download', itemKind: 'file', itemId: id, itemName: metaData.originalname });
 
             // Stream file (memory safe)
             fs.createReadStream(absolutePath).pipe(res);
