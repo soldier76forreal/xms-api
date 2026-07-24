@@ -353,13 +353,23 @@ router.get('/stats', verify, requirePermission('inventory:view'), requireBranch(
   const [productCount, variantCount, variants, weekLogs] = await Promise.all([
     InvProduct.countDocuments({ branchId, deleteDate: null, status: 'active' }),
     InvVariant.countDocuments({ branchId, deleteDate: null, status: 'active' }),
-    InvVariant.find({ branchId, deleteDate: null, status: 'active' }, 'unit quantity').lean(),
+    InvVariant.find({ branchId, deleteDate: null, status: 'active' }, 'unit quantity productId').lean(),
     InvChangeLog.find({ changeType: 'quantity', date: { $gte: weekAgo }, subjectId: { $in: branchVariantIds } }, 'delta').lean(),
   ]);
 
+  // Current balance of available stones — total quantity in stock, per unit
+  // (m² and ml are never added together; each unit is its own running balance).
   const totalByUnit = {};
+  // "Available" = currently carries stock (qty > 0): in-stock SKUs and the
+  // distinct products they belong to. Total SKUs = variantCount (all active).
+  const inStockProductIds = new Set();
+  let inStockVariantCount = 0;
   for (const v of variants) {
     totalByUnit[v.unit] = parseFloat(((totalByUnit[v.unit] || 0) + (v.quantity || 0)).toFixed(4));
+    if ((v.quantity || 0) > 0) {
+      inStockVariantCount++;
+      inStockProductIds.add(String(v.productId));
+    }
   }
 
   let addedThisWeek = 0;
@@ -372,7 +382,9 @@ router.get('/stats', verify, requirePermission('inventory:view'), requireBranch(
 
   res.json({
     productCount,
-    variantCount,
+    variantCount,                             // total variety SKUs (all active)
+    inStockProductCount: inStockProductIds.size,
+    inStockVariantCount,                      // in-stock SKUs / "available varieties"
     totalByUnit,
     addedThisWeek: parseFloat(addedThisWeek.toFixed(2)),
     soldThisWeek:  parseFloat(soldThisWeek.toFixed(2)),
@@ -787,6 +799,33 @@ router.get('/products/:id/logs', verify, requirePermission('inventory:view'), as
   const { changeType, limit = 50, skip = 0 } = req.query;
 
   const filter = { productId: req.params.id };
+  if (changeType) filter.changeType = changeType;
+
+  const [logs, total] = await Promise.all([
+    InvChangeLog.find(filter)
+      .sort({ date: -1 })
+      .skip(Number(skip))
+      .limit(Number(limit))
+      .lean(),
+    InvChangeLog.countDocuments(filter),
+  ]);
+
+  res.json({ data: logs, total });
+});
+
+// ─── per-variant (per-SKU) change history ─────────────────────────────────────
+// Mirrors /products/:id/logs but scopes to a single SKU (subjectId === variant).
+// Every quantity/price/spec/status/media/import change on this variant is here.
+router.get('/variants/:id/logs', verify, requirePermission('inventory:view'), async (req, res) => {
+  const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null }).lean();
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+  if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
+    return res.status(403).json({ message: 'You do not have access to this branch' });
+  }
+
+  const { changeType, limit = 50, skip = 0 } = req.query;
+
+  const filter = { subjectType: 'variant', subjectId: req.params.id };
   if (changeType) filter.changeType = changeType;
 
   const [logs, total] = await Promise.all([

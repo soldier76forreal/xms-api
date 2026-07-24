@@ -22,6 +22,7 @@ const rawContentFileSchema = new mongoose.Schema({
 }, { _id: false });
 
 const rawContentSchema = new mongoose.Schema({
+  title:    { type: String, default: '' },   // batch title (shown on the card + detail)
   language: { type: String, default: '' },
   useCase:  { type: String, default: 'Anything' },
   platform: { type: String, default: 'Anything' },

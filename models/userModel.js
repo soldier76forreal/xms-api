@@ -47,6 +47,17 @@ const userSchema = new mongoose.Schema({
   isOnline: { type: Boolean, default: false },
   lastSeen: { type: Date,    default: null  },
 
+  // ── Web-push notification preferences (per type; all default ON) ──────────
+  // Gates ONLY the browser push; the in-app notification + socket event always
+  // fire. Missing/undefined categories are treated as enabled (opt-out model).
+  notificationPrefs: {
+    tasks:         { type: Boolean, default: true },
+    assignments:   { type: Boolean, default: true },
+    invoices:      { type: Boolean, default: true },
+    dmChat:        { type: Boolean, default: true },
+    readyToUpload: { type: Boolean, default: true },
+  },
+
   // ── Access (deprecated — replaced by userAccess RBAC collection) ──────────
   validation: { type: Boolean, require: true },
   access:     [],

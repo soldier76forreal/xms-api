@@ -80,6 +80,38 @@ router.put('/me/profile', verify, async (req, res) => {
   }
 });
 
+// ── GET /users/me/notification-prefs — read your OWN push preferences ─────────
+const NOTIF_PREF_KEYS = ['tasks', 'assignments', 'invoices', 'dmChat', 'readyToUpload'];
+const DEFAULT_NOTIF_PREFS = { tasks: true, assignments: true, invoices: true, dmChat: true, readyToUpload: true };
+
+router.get('/me/notification-prefs', verify, async (req, res) => {
+  try {
+    const u = await userM.findById(req.user.id).select('notificationPrefs').lean();
+    return res.status(200).json({ ...DEFAULT_NOTIF_PREFS, ...(u?.notificationPrefs || {}) });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── PUT /users/me/notification-prefs — set your OWN push preferences ──────────
+router.put('/me/notification-prefs', verify, async (req, res) => {
+  try {
+    const setFields = { updateDate: new Date() };
+    for (const k of NOTIF_PREF_KEYS) {
+      if (req.body[k] !== undefined) setFields[`notificationPrefs.${k}`] = !!req.body[k];
+    }
+    const updated = await userM.findOneAndUpdate(
+      { _id: req.user.id, deleteDate: null },
+      { $set: setFields },
+      { new: true }
+    ).select('notificationPrefs');
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+    return res.status(200).json({ ...DEFAULT_NOTIF_PREFS, ...(updated.notificationPrefs || {}) });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ── POST /users/me/avatar — self-service profile picture ─────────────────────
 router.post('/me/avatar', verify, upload.single('file'), async (req, res) => {
   try {
@@ -392,6 +424,16 @@ router.put('/:id', verify, requirePermission('users:edit'), async (req, res) => 
       updateDate: new Date(),
     };
     if (req.body.countryCode !== undefined) setFields.countryCode = req.body.countryCode;
+
+    // Admin-editable notification preferences (same per-type keys as the
+    // self-service /me/notification-prefs route).
+    if (req.body.notificationPrefs && typeof req.body.notificationPrefs === 'object') {
+      for (const k of NOTIF_PREF_KEYS) {
+        if (req.body.notificationPrefs[k] !== undefined) {
+          setFields[`notificationPrefs.${k}`] = !!req.body.notificationPrefs[k];
+        }
+      }
+    }
 
     const updated = await userM.findOneAndUpdate(
       { _id: req.params.id, deleteDate: null },

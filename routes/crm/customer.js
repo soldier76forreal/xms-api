@@ -15,7 +15,7 @@ const taskSchema             = require('../../models/taskModel');
 const fileSchema             = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch } = require('../../utils/rbac');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -27,6 +27,43 @@ const InvProduct       = dbConnection.models.inventoryProduct || dbConnection.mo
 const InvVariant       = dbConnection.models.inventoryVariant || dbConnection.model('inventoryVariant', inventoryVariantSchema);
 const Task             = dbConnection.models.task             || dbConnection.model('task',             taskSchema);
 const File             = dbConnection.models.file             || dbConnection.model('file',             fileSchema);
+
+// Denormalizes interestedProducts[] entries with productName/productCode/variantCode
+// for display — the schema (customerModel.js) only stores raw productId/variantId
+// refs, so every read path that shows this needs the join done here rather than
+// kept as a stale copy on the customer doc. Batches product/variant lookups across
+// ALL customers passed in (one query pair, not N+1) — used by both the list route
+// (many customers) and the detail route (a single customer wrapped in an array).
+async function joinInterestedProducts(customers) {
+  const productIds = new Set();
+  const variantIds = new Set();
+  customers.forEach((c) => {
+    (c.interestedProducts || []).forEach((ip) => {
+      if (ip.productId) productIds.add(String(ip.productId));
+      if (ip.variantId) variantIds.add(String(ip.variantId));
+    });
+  });
+  if (productIds.size === 0) return;
+
+  const [products, variants] = await Promise.all([
+    InvProduct.find({ _id: { $in: [...productIds] } }).select('_id name code').lean(),
+    variantIds.size
+      ? InvVariant.find({ _id: { $in: [...variantIds] } }).select('_id code').lean()
+      : [],
+  ]);
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
+  const variantMap = new Map(variants.map((v) => [String(v._id), v]));
+
+  customers.forEach((c) => {
+    if (!c.interestedProducts || c.interestedProducts.length === 0) return;
+    c.interestedProducts = c.interestedProducts.map((ip) => ({
+      ...ip,
+      productName: productMap.get(String(ip.productId))?.name || null,
+      productCode: productMap.get(String(ip.productId))?.code || null,
+      variantCode: ip.variantId ? (variantMap.get(String(ip.variantId))?.code || null) : null,
+    }));
+  });
+}
 
 const commUpload = multer({ storage: multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
@@ -92,10 +129,10 @@ async function getActorName(userId) {
 
 // ── GET /crm/products-lookup — inventory products for the multi-select ────────
 // BEFORE /:id to avoid capture
-router.get('/products-lookup', verify, requirePermission('crm:view'), async (req, res) => {
+router.get('/products-lookup', verify, requirePermission('crm:view'), requireBranch(), async (req, res) => {
   try {
     const { search = '' } = req.query;
-    const query = { deleteDate: null, status: 'active' };
+    const query = { branchId: req.branchId, deleteDate: null, status: 'active' };
     if (search) {
       const re = new RegExp(escapeRegex(search), 'i');
       query.$or = [{ name: re }, { code: re }];
@@ -282,6 +319,18 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
       Customer.countDocuments(query),
     ]);
 
+    // Resolve the record creator's name for the card (createdBy is only an
+    // ObjectId on the doc; the card shows a human name). Works for existing
+    // customers with no denormalized name.
+    const creatorIds = [...new Set(data.map((c) => c.createdBy).filter(Boolean).map(String))];
+    if (creatorIds.length) {
+      const creators = await User.find({ _id: { $in: creatorIds } }).select('firstName lastName').lean();
+      const nameById = new Map(creators.map((u) => [String(u._id), `${u.firstName || ''} ${u.lastName || ''}`.trim()]));
+      data.forEach((c) => { c.createdByName = c.createdBy ? (nameById.get(String(c.createdBy)) || '') : ''; });
+    }
+
+    await joinInterestedProducts(data);
+
     return res.status(200).json({ data, total, page: Number(page) || 1, limit: lim });
   } catch (err) {
     console.error('GET /crm/customers failed:', err);
@@ -302,15 +351,18 @@ router.post('/customers', verify, requirePermission('crm:customer:create'), asyn
       }
     }
 
-    const doc = await Customer.create({
+    const created = await Customer.create({
       ...req.body,
       owner:      userId,
       createdBy:  userId,
       insertDate: new Date(),
     });
+    const doc = created.toObject();
 
     const actorName = await getActorName(userId);
     await writeActivity(doc._id, 'created', {}, userId, actorName);
+
+    await joinInterestedProducts([doc]);
 
     return res.status(201).json(doc);
   } catch (err) {
@@ -334,6 +386,8 @@ router.get('/customers/:id', verify, requirePermission('crm:view'), async (req, 
       const isAssigned = (customer.assignedTo || []).map(String).includes(String(userId));
       if (!isOwner && !isAssigned) return res.status(403).json({ message: 'Access denied' });
     }
+
+    await joinInterestedProducts([customer]);
 
     return res.status(200).json(customer);
   } catch (err) {
@@ -408,7 +462,7 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
         if (assigneeType === 'user') {
           await sendNotificationToUser(assignedUser, {
             fromId: userId, fromName: createdByName,
-            type: 'task', title: `New CRM task: ${taskTitle}`,
+            type: 'assignment', title: `New CRM assignment: ${taskTitle}`,
             body: `${ids.length} customer${ids.length !== 1 ? 's' : ''} assigned to you`,
             entityType: 'task', entityId: task._id,
           });
@@ -421,7 +475,7 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
                 .map(memberId =>
                   sendNotificationToUser(memberId, {
                     fromId: userId, fromName: createdByName,
-                    type: 'task', title: `New group CRM task: ${taskTitle}`,
+                    type: 'assignment', title: `New group CRM assignment: ${taskTitle}`,
                     body: `${ids.length} customer${ids.length !== 1 ? 's' : ''} assigned [${group.name || ''}]`,
                     entityType: 'task', entityId: task._id,
                   })
@@ -492,7 +546,9 @@ router.put('/customers/:id', verify, requirePermission('crm:customer:edit'), asy
       { _id: req.params.id },
       { $set: { ...req.body, updatedBy: userId, updateDate: new Date() } },
       { new: true }
-    );
+    ).lean();
+
+    await joinInterestedProducts([updated]);
 
     return res.status(200).json(updated);
   } catch (err) {

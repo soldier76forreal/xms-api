@@ -1,8 +1,10 @@
 const mongoose = require('mongoose');
 
-// Phase 8 — Digital Marketing. Created ONLY via a rawContent record's status
-// toggling to 'ready_to_upload' — never a standalone POST (see DO NOT list).
-// Always keeps a back-reference to its source raw content batch.
+// Phase 8 — Digital Marketing. Created either via a rawContent record's status
+// toggling to 'ready_to_upload' (rawContentId set, back-reference to its source
+// raw content batch) OR standalone via POST /ready-to-upload (rawContentId left
+// unset — added 2026-07-22 at Pouriya's request, reversing the original
+// graduate-only design).
 
 const readyToUploadFileSchema = new mongoose.Schema({
   fileId:    { type: mongoose.Schema.Types.ObjectId, required: true },
@@ -14,7 +16,9 @@ const readyToUploadFileSchema = new mongoose.Schema({
 }, { _id: false });
 
 const readyToUploadSchema = new mongoose.Schema({
-  rawContentId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  rawContentId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
+
+  title: { type: String, default: '' },   // shown on the card + detail
 
   files: [readyToUploadFileSchema],
 

@@ -128,6 +128,80 @@ router.get('/activity', verify, requirePermission('files:view'), async (req, res
   }
 });
 
+// ── GET /files/storageStats — storage usage broken down by file type ──────────
+// Aggregates every non-deleted file's byte size (from the stored multer metaData)
+// into type buckets (image/video/audio/document/archive/other), plus a per-
+// section (scope) breakdown and the largest files, so the File Manager can show
+// what's consuming disk space. Covers ALL app files (the real disk footprint),
+// not just the file_manager scope.
+router.get('/storageStats', verify, requirePermission('files:view'), async (req, res) => {
+  try {
+    const sizeExpr = { $ifNull: ['$metaData.size', 0] };
+    // Bucket by mimetype (fall back to extension); keep the regex list aligned
+    // with the frontend's category legend.
+    const categoryExpr = {
+      $let: {
+        vars: { m: { $toLower: { $ifNull: ['$metaData.mimetype', ''] } } },
+        in: {
+          $switch: {
+            branches: [
+              { case: { $regexMatch: { input: '$$m', regex: '^image/' } },  then: 'image' },
+              { case: { $regexMatch: { input: '$$m', regex: '^video/' } },  then: 'video' },
+              { case: { $regexMatch: { input: '$$m', regex: '^audio/' } },  then: 'audio' },
+              { case: { $regexMatch: { input: '$$m', regex: 'pdf|word|excel|spreadsheet|presentation|officedocument|msword|^text/|csv' } }, then: 'document' },
+              { case: { $regexMatch: { input: '$$m', regex: 'zip|rar|7z|tar|gzip|compressed' } }, then: 'archive' },
+            ],
+            default: 'other',
+          },
+        },
+      },
+    };
+
+    const [byTypeAgg, bySectionAgg, largest] = await Promise.all([
+      file.aggregate([
+        { $match: { deleteDate: null } },
+        { $group: { _id: categoryExpr, size: { $sum: sizeExpr }, count: { $sum: 1 } } },
+      ]),
+      file.aggregate([
+        { $match: { deleteDate: null } },
+        { $group: { _id: { $ifNull: ['$scope', 'file_manager'] }, size: { $sum: sizeExpr }, count: { $sum: 1 } } },
+      ]),
+      file.find({ deleteDate: null })
+        .sort({ 'metaData.size': -1 })
+        .limit(12)
+        .select('name format scope metaData.size metaData.originalname')
+        .lean(),
+    ]);
+
+    const byType = {};
+    let totalSize = 0, totalCount = 0;
+    for (const t of byTypeAgg) {
+      byType[t._id] = { size: t.size || 0, count: t.count || 0 };
+      totalSize  += t.size || 0;
+      totalCount += t.count || 0;
+    }
+
+    return res.status(200).json({
+      totalSize,
+      totalCount,
+      byType,
+      bySection: bySectionAgg
+        .map((s) => ({ scope: s._id, size: s.size || 0, count: s.count || 0 }))
+        .sort((a, b) => b.size - a.size),
+      largest: largest.map((f) => ({
+        _id: f._id,
+        name: f.metaData?.originalname || f.name,
+        size: f.metaData?.size || 0,
+        format: f.format,
+        scope: f.scope || 'file_manager',
+      })),
+    });
+  } catch (err) {
+    console.error('GET /files/storageStats failed:', err);
+    return res.status(500).json({ message: 'Failed to load storage stats' });
+  }
+});
+
     router.post('/newFolder' , verify , requirePermission('files:upload') , async(req , res)=>{
         var newCustomer;
         var decoded = jwt_decode(req.headers.authorization);

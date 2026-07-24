@@ -9,12 +9,13 @@ const dbConnection        = require('../../connections/xmsPr');
 const rawContentSchema     = require('../../models/rawContentModel');
 const rawContentChatSchema = require('../../models/rawContentChatModel');
 const readyToUploadSchema  = require('../../models/readyToUploadModel');
+const dmActivitySchema     = require('../../models/dmActivityModel');
 const userSchema           = require('../../models/userModel');
 const fileSchema           = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
 const { requirePermission, getEffectiveScopes, Group } = require('../../utils/rbac');
-const { emitRawContentMessage } = require('../socket/xmsNotifications');
+const { emitRawContentMessage, sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -27,6 +28,7 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 const RawContent     = dbConnection.models.rawContent     || dbConnection.model('rawContent',     rawContentSchema);
 const RawContentChat = dbConnection.models.rawContentChat || dbConnection.model('rawContentChat', rawContentChatSchema);
 const ReadyToUpload  = dbConnection.models.readyToUpload  || dbConnection.model('readyToUpload',  readyToUploadSchema);
+const DmActivity     = dbConnection.models.dmActivity     || dbConnection.model('dmActivity',     dmActivitySchema);
 const User           = dbConnection.models.user           || dbConnection.model('user',           userSchema);
 const File           = dbConnection.models.file           || dbConnection.model('file',           fileSchema);
 
@@ -102,6 +104,16 @@ async function makeFileDoc(file, userId, attachedToType, attachedToId) {
 async function getActorName(userId) {
   const actor = await User.findById(userId).select('firstName lastName').lean();
   return actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
+}
+
+// Best-effort view/download audit row — never blocks the actual request.
+async function logDmActivity(subjectType, subjectId, action, userId, actorName, fileMeta = {}) {
+  try {
+    await DmActivity.create({
+      subjectType, subjectId, action, actorId: userId, actorName,
+      fileId: fileMeta.fileId || null, fileName: fileMeta.fileName || '',
+    });
+  } catch (_) { /* audit trail is non-critical */ }
 }
 
 function parseJsonArray(raw, fallback = []) {
@@ -207,7 +219,42 @@ router.get('/raw-contents', verify, requirePermission('digitalMarketing:view'), 
 
 // GET /raw-contents/:id — detail (+ scope check via loadRawContent)
 router.get('/raw-contents/:id', verify, requirePermission('digitalMarketing:view'), loadRawContent, async (req, res) => {
+  // Log a 'viewed' row for anyone OTHER than the owner opening their own record
+  // (self-views aren't useful signal for "who looked at this").
+  if (String(req.rawContent.owner) !== String(req.user.id)) {
+    getActorName(req.user.id).then((name) =>
+      logDmActivity('rawContent', req.rawContent._id, 'viewed', req.user.id, name));
+  }
   return res.status(200).json(req.rawContent);
+});
+
+// GET /raw-contents/:id/activity — who viewed/downloaded this record + its files
+router.get('/raw-contents/:id/activity', verify, requirePermission('digitalMarketing:view'), loadRawContent, async (req, res) => {
+  try {
+    const rows = await DmActivity.find({ subjectType: 'rawContent', subjectId: req.rawContent._id })
+      .sort({ date: -1 }).limit(100).lean();
+    return res.status(200).json(rows);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /raw-contents/:id/files/:fileId/log-download — records who downloaded
+// a file WITHOUT streaming it. The actual bytes still flow through the public
+// /download/<diskName> route (native browser download → real progress bar,
+// per the earlier download-UX fix) — a bearer-token GET can't back a plain
+// <a href> click, so tracking is a separate fire-and-forget authenticated call
+// fired alongside the anchor click rather than gating the download itself.
+router.post('/raw-contents/:id/files/:fileId/log-download', verify, requirePermission('digitalMarketing:view'), loadRawContent, async (req, res) => {
+  const entry = (req.rawContent.files || []).find((f) => String(f.fileId) === String(req.params.fileId));
+  if (!entry) return res.status(404).json({ message: 'File not found' });
+
+  if (String(req.rawContent.owner) !== String(req.user.id)) {
+    const actorName = await getActorName(req.user.id);
+    await logDmActivity('rawContent', req.rawContent._id, 'downloaded', req.user.id, actorName,
+      { fileId: entry.fileId, fileName: entry.name });
+  }
+  return res.status(200).json({ ok: true });
 });
 
 // POST /raw-contents — batch upload. Multipart:
@@ -227,12 +274,14 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
     }
 
     const descriptions = parseJsonArray(req.body.descriptions, []);
+    const names         = parseJsonArray(req.body.names, []);
     const voiceFlags    = parseJsonArray(req.body.voiceDescriptionFlags, []);
     const voiceFiles     = (req.files && req.files.voiceDescriptions) || [];
 
     const actorName = await getActorName(userId);
 
     const doc = await RawContent.create({
+      title:    req.body.title    || '',
       language: req.body.language || '',
       useCase:  req.body.useCase  || 'Anything',
       platform: req.body.platform || 'Anything',
@@ -258,7 +307,7 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
       }
 
       fileEntries.push({
-        fileId: f.fileId, diskName: f.diskName, name: f.name, mimetype: f.mimetype, thumbnail: f.thumbnail,
+        fileId: f.fileId, diskName: f.diskName, name: names[i] || f.name, mimetype: f.mimetype, thumbnail: f.thumbnail,
         description: descriptions[i] || '',
         voiceDescriptionFileId, voiceDescriptionDiskName,
         addedAt: new Date(),
@@ -279,11 +328,18 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
 // (status='ready_to_upload' is REJECTED here — that transition only happens
 // atomically via POST /:id/ready-to-upload, see below).
 router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawContent:edit'), loadRawContent,
-  dmUpload.fields([{ name: 'files', maxCount: 30 }, { name: 'voiceDescriptions', maxCount: 30 }]),
+  dmUpload.fields([
+    { name: 'files', maxCount: 30 },
+    { name: 'voiceDescriptions', maxCount: 30 },
+    { name: 'replaceFile', maxCount: 1 },          // per-file edit: swap the actual file
+    { name: 'editVoiceDescription', maxCount: 1 }, // per-file edit: set/replace the voice note
+  ]),
   async (req, res) => {
   try {
     const userId = req.user.id;
     const doc    = req.rawContent;
+
+    if (req.body.title !== undefined) doc.title = req.body.title;
 
     if (req.body.status !== undefined) {
       const nextStatus = req.body.status;
@@ -312,10 +368,43 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
       if (entry) entry.description = req.body.updateDescriptionText;
     }
 
+    // ── Full per-file edit (name / description / replace file / voice note) ──
+    // Keyed by editFileId; each sub-field is applied only when present, so the
+    // detail's edit form can send any subset. Replacing the file swaps its
+    // fileId/diskName/etc IN PLACE, keeping the entry's name+description.
+    if (req.body.editFileId) {
+      const entry = doc.files.find((f) => String(f.fileId) === String(req.body.editFileId));
+      if (entry) {
+        if (req.body.editFileName        !== undefined) entry.name        = req.body.editFileName;
+        if (req.body.editFileDescription !== undefined) entry.description = req.body.editFileDescription;
+
+        const replaceFile = req.files && req.files.replaceFile && req.files.replaceFile[0];
+        if (replaceFile) {
+          const nf = await makeFileDoc(replaceFile, userId, 'rawContent', doc._id);
+          entry.fileId    = nf.fileId;
+          entry.diskName  = nf.diskName;
+          entry.mimetype  = nf.mimetype;
+          entry.thumbnail = nf.thumbnail;
+        }
+
+        if (req.body.editFileRemoveVoice === 'true') {
+          entry.voiceDescriptionFileId   = null;
+          entry.voiceDescriptionDiskName = null;
+        }
+        const editVoice = req.files && req.files.editVoiceDescription && req.files.editVoiceDescription[0];
+        if (editVoice) {
+          const v = await makeFileDoc(editVoice, userId, 'rawContent', doc._id);
+          entry.voiceDescriptionFileId   = v.fileId;
+          entry.voiceDescriptionDiskName = v.diskName;
+        }
+      }
+    }
+
     // Add / replace files (same multipart shape as create)
     const newFiles = (req.files && req.files.files) || [];
     if (newFiles.length) {
       const descriptions = parseJsonArray(req.body.descriptions, []);
+      const names         = parseJsonArray(req.body.names, []);
       const voiceFlags    = parseJsonArray(req.body.voiceDescriptionFlags, []);
       const voiceFiles     = (req.files && req.files.voiceDescriptions) || [];
 
@@ -330,7 +419,7 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
           voiceCursor++;
         }
         doc.files.push({
-          fileId: f.fileId, diskName: f.diskName, name: f.name, mimetype: f.mimetype, thumbnail: f.thumbnail,
+          fileId: f.fileId, diskName: f.diskName, name: names[i] || f.name, mimetype: f.mimetype, thumbnail: f.thumbnail,
           description: descriptions[i] || '',
           voiceDescriptionFileId, voiceDescriptionDiskName,
           addedAt: new Date(),
@@ -380,6 +469,7 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
 
     const ready = await ReadyToUpload.create({
       rawContentId: doc._id,
+      title: req.body.title || '',
       files: [],
       language: req.body.language || '',
       platform: req.body.platform || '',
@@ -403,6 +493,16 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
     doc.updateDate = new Date();
     doc.updatedBy  = userId;
     await doc.save();
+
+    // Notify the batch owner that their content is now ready to upload.
+    if (doc.owner && String(doc.owner) !== String(userId)) {
+      await sendNotificationToUser(String(doc.owner), {
+        fromId: userId, fromName: actorName, type: 'readyToUpload',
+        title: 'Content is ready to upload',
+        body: `${actorName} marked "${doc.title || 'a batch'}" ready to upload`,
+        entityType: 'readyToUpload', entityId: String(ready._id),
+      });
+    }
 
     return res.status(201).json({ rawContent: doc, readyToUpload: ready });
   } catch (err) {
@@ -469,6 +569,18 @@ router.post('/raw-contents/:id/chat', verify, requirePermission('digitalMarketin
 
     emitRawContentMessage(req.rawContent._id, message);
 
+    // Notify the batch owner (the uploader) when someone else messages their
+    // batch — real-time socket delivery is only for people with the room open.
+    const ownerId = req.rawContent.owner;
+    if (ownerId && String(ownerId) !== String(userId)) {
+      await sendNotificationToUser(String(ownerId), {
+        fromId: userId, fromName: actorName, type: 'dmChat',
+        title: 'New message on your content',
+        body: type === 'text' ? body.slice(0, 120) : `Sent a ${type}`,
+        entityType: 'rawContent', entityId: String(req.rawContent._id),
+      });
+    }
+
     return res.status(201).json(message);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -476,6 +588,47 @@ router.post('/raw-contents/:id/chat', verify, requirePermission('digitalMarketin
 });
 
 // ── Ready to Upload ───────────────────────────────────────────────────────────
+
+// POST /ready-to-upload — standalone create (no source raw content). Added
+// 2026-07-22 at Pouriya's request — reverses the original graduate-only design;
+// rawContentId is left unset here (the model no longer requires it).
+router.post('/ready-to-upload', verify, requirePermission('digitalMarketing:readyToUpload:edit'),
+  dmUpload.fields([{ name: 'files', maxCount: 30 }]),
+  async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const files = (req.files && req.files.files) || [];
+    if (!files.length) {
+      return res.status(400).json({ message: 'At least one file is required' });
+    }
+
+    const actorName = await getActorName(userId);
+
+    const ready = await ReadyToUpload.create({
+      title: req.body.title || '',
+      files: [],
+      language: req.body.language || '',
+      platform: req.body.platform || '',
+      caption:  req.body.caption  || '',
+      owner: userId,
+      createdBy: userId,
+      createdByName: actorName,
+      insertDate: new Date(),
+    });
+
+    const fileEntries = [];
+    for (const file of files) {
+      const f = await makeFileDoc(file, userId, 'readyToUpload', ready._id);
+      fileEntries.push({ fileId: f.fileId, diskName: f.diskName, name: f.name, mimetype: f.mimetype, thumbnail: f.thumbnail, addedAt: new Date() });
+    }
+    ready.files = fileEntries;
+    await ready.save();
+
+    return res.status(201).json(ready);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // GET /ready-to-upload — timeline list, scope-filtered
 router.get('/ready-to-upload', verify, requirePermission('digitalMarketing:view'), async (req, res) => {
@@ -509,22 +662,55 @@ router.get('/ready-to-upload', verify, requirePermission('digitalMarketing:view'
 // GET /ready-to-upload/:id — detail (+ scope check), includes the source raw content
 router.get('/ready-to-upload/:id', verify, requirePermission('digitalMarketing:view'), loadReadyToUpload, async (req, res) => {
   try {
-    const source = await RawContent.findOne({ _id: req.readyToUpload.rawContentId, deleteDate: null })
-      .select('language useCase platform status insertDate createdByName').lean();
+    const source = req.readyToUpload.rawContentId
+      ? await RawContent.findOne({ _id: req.readyToUpload.rawContentId, deleteDate: null })
+          .select('language useCase platform status insertDate createdByName').lean()
+      : null;
+    if (String(req.readyToUpload.owner) !== String(req.user.id)) {
+      getActorName(req.user.id).then((name) =>
+        logDmActivity('readyToUpload', req.readyToUpload._id, 'viewed', req.user.id, name));
+    }
     return res.status(200).json({ ...req.readyToUpload.toObject(), rawContent: source });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
 });
 
-// PUT /ready-to-upload/:id — edit files/language/platform/caption
+// GET /ready-to-upload/:id/activity — who viewed/downloaded this record + its files
+router.get('/ready-to-upload/:id/activity', verify, requirePermission('digitalMarketing:view'), loadReadyToUpload, async (req, res) => {
+  try {
+    const rows = await DmActivity.find({ subjectType: 'readyToUpload', subjectId: req.readyToUpload._id })
+      .sort({ date: -1 }).limit(100).lean();
+    return res.status(200).json(rows);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /ready-to-upload/:id/files/:fileId/log-download — records a download
+// (same tracking-only pattern as the raw-content route above; the actual bytes
+// still flow through the public /download/<diskName> native-progress path).
+router.post('/ready-to-upload/:id/files/:fileId/log-download', verify, requirePermission('digitalMarketing:view'), loadReadyToUpload, async (req, res) => {
+  const entry = (req.readyToUpload.files || []).find((f) => String(f.fileId) === String(req.params.fileId));
+  if (!entry) return res.status(404).json({ message: 'File not found' });
+
+  if (String(req.readyToUpload.owner) !== String(req.user.id)) {
+    const actorName = await getActorName(req.user.id);
+    await logDmActivity('readyToUpload', req.readyToUpload._id, 'downloaded', req.user.id, actorName,
+      { fileId: entry.fileId, fileName: entry.name });
+  }
+  return res.status(200).json({ ok: true });
+});
+
+// PUT /ready-to-upload/:id — edit title/files/language/platform/caption
 router.put('/ready-to-upload/:id', verify, requirePermission('digitalMarketing:readyToUpload:edit'), loadReadyToUpload,
-  dmUpload.fields([{ name: 'files', maxCount: 30 }]),
+  dmUpload.fields([{ name: 'files', maxCount: 30 }, { name: 'replaceFile', maxCount: 1 }]),
   async (req, res) => {
   try {
     const userId = req.user.id;
     const doc    = req.readyToUpload;
 
+    if (req.body.title    !== undefined) doc.title    = req.body.title;
     if (req.body.language !== undefined) doc.language = req.body.language;
     if (req.body.platform !== undefined) doc.platform = req.body.platform;
     if (req.body.caption  !== undefined) doc.caption  = req.body.caption;
@@ -534,10 +720,28 @@ router.put('/ready-to-upload/:id', verify, requirePermission('digitalMarketing:r
       doc.files = doc.files.filter((f) => !removeFileIds.includes(String(f.fileId)));
     }
 
+    // Full per-file edit (name / replace the actual file) — mirrors the
+    // rawContent editFileId pattern (see PUT /raw-contents/:id).
+    if (req.body.editFileId) {
+      const entry = doc.files.find((f) => String(f.fileId) === String(req.body.editFileId));
+      if (entry) {
+        if (req.body.editFileName !== undefined) entry.name = req.body.editFileName;
+        const replaceFile = req.files && req.files.replaceFile && req.files.replaceFile[0];
+        if (replaceFile) {
+          const nf = await makeFileDoc(replaceFile, userId, 'readyToUpload', doc._id);
+          entry.fileId    = nf.fileId;
+          entry.diskName  = nf.diskName;
+          entry.mimetype  = nf.mimetype;
+          entry.thumbnail = nf.thumbnail;
+        }
+      }
+    }
+
     const newFiles = (req.files && req.files.files) || [];
-    for (const file of newFiles) {
-      const f = await makeFileDoc(file, userId, 'readyToUpload', doc._id);
-      doc.files.push({ fileId: f.fileId, diskName: f.diskName, name: f.name, mimetype: f.mimetype, thumbnail: f.thumbnail, addedAt: new Date() });
+    const names = parseJsonArray(req.body.names, []);
+    for (let i = 0; i < newFiles.length; i++) {
+      const f = await makeFileDoc(newFiles[i], userId, 'readyToUpload', doc._id);
+      doc.files.push({ fileId: f.fileId, diskName: f.diskName, name: names[i] || f.name, mimetype: f.mimetype, thumbnail: f.thumbnail, addedAt: new Date() });
     }
 
     doc.updateDate = new Date();

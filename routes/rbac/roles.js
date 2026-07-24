@@ -44,6 +44,9 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
       return res.status(400).json({ message: 'A system role cannot be renamed' });
     }
     const update = { description: req.body.description, permissions: req.body.permissions, dataScopes: req.body.dataScopes || {}, updateDate: new Date() };
+    // Name is editable for non-system roles (system roles are blocked above).
+    // It was previously omitted here, so renaming a role silently did nothing.
+    if (!role.isSystem && req.body.name !== undefined) update.name = String(req.body.name).trim();
     if (req.body.isSuperAdmin !== undefined) update.isSuperAdmin = !!req.body.isSuperAdmin;
     const updated = await Role.findOneAndUpdate(
       { _id: req.params.id },
@@ -53,7 +56,9 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
     clearPermissionCache();  // role change affects all holders — clear all
     return res.status(200).json(updated);
   } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
+    if (err.code === 11000) return res.status(400).json({ message: 'A role with this name already exists' });
+    console.error('[PUT /roles/:id] Error:', err.message);
+    return res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

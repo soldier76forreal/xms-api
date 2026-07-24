@@ -37,6 +37,24 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(cookieParser());
 
+// ── Native file download ──────────────────────────────────────────────────────
+// Streams a public/uploads file with `Content-Disposition: attachment` so the
+// browser saves it with its OWN download manager (progress bar) instead of the
+// frontend blob-fetching the whole file into memory first (no progress, opens a
+// tab). Same public access level as the /uploads static mount it mirrors.
+// basename() strips any path so `..%2f` traversal can't escape the folder.
+const _path = require('path');
+const _fs   = require('fs');
+app.get('/download/:diskName', (req, res) => {
+  const safe = _path.basename(String(req.params.diskName || ''));
+  const filePath = _path.join(__dirname, 'public', 'uploads', safe);
+  if (!safe || !_fs.existsSync(filePath)) return res.status(404).json({ message: 'File not found' });
+  const downloadName = req.query.name ? _path.basename(String(req.query.name)) : safe;
+  res.download(filePath, downloadName, (err) => {
+    if (err && !res.headersSent) res.status(500).json({ message: 'Download failed' });
+  });
+});
+
 //webpush
 // webpush.setVapidDetails("mailto:test@test.com" , JSON.stringify(process.env.PublicVapidKey) , JSON.stringify(process.env.PrivateVapidKey));
 

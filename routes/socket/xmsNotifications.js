@@ -65,7 +65,75 @@ const getUser = (username) => onlineUsers.find(u => u.username === username);
 // ── io reference for use by other routes ─────────────────────────────────────
 let _io = null;
 
-// Send a notification to a specific user via socket AND persist to DB.
+// Maps a notification `type` to the per-user push preference category. Types
+// not listed here (info/system/request/unlock) are always pushed — they are
+// account/system messages with no user-facing opt-out.
+const PREF_BY_TYPE = {
+  task: 'tasks', taskClaimed: 'tasks', taskDone: 'tasks',
+  assignment: 'assignments',
+  invoice: 'invoices',
+  dmChat: 'dmChat',
+  readyToUpload: 'readyToUpload',
+};
+
+// Deep-link path for a push notification click — kept in sync with the frontend
+// notifPath() in tools/pushNotifications.js. The service worker opens this URL.
+function notifPath(entityType, entityId) {
+  const id = entityId ? String(entityId) : '';
+  switch (entityType) {
+    case 'invoice':       return id ? `/mis?open=${id}` : '/mis';
+    case 'rawContent':    return id ? `/digitalMarketing?dm=raw&open=${id}`   : '/digitalMarketing?dm=raw';
+    case 'readyToUpload': return id ? `/digitalMarketing?dm=ready&open=${id}` : '/digitalMarketing?dm=ready';
+    case 'task':          return '/crm';
+    case 'customer':      return id ? `/crm?open=${id}` : '/crm';
+    case 'user':          return '/users';
+    default:              return '/';
+  }
+}
+
+// Fire the browser (web-push) notification for a persisted in-app notification,
+// gated by the recipient's notificationPrefs. Best-effort: never throws into the
+// caller, and prunes subscriptions the push service reports as gone (404/410).
+async function sendWebPush(userId, { type, title, body, entityType, entityId }) {
+  try {
+    const prefCat = PREF_BY_TYPE[type];
+    if (prefCat) {
+      const u = await userM.findById(userId).select('notificationPrefs').lean();
+      const prefs = (u && u.notificationPrefs) || {};
+      if (prefs[prefCat] === false) return;   // user opted out of this category
+    }
+    const subDoc = await pwaSubscription.findOne({ userId });
+    if (!subDoc || !Array.isArray(subDoc.subscription) || !subDoc.subscription.length) return;
+
+    const payload = JSON.stringify({ type: 'generic', title, body, entityType, entityId, url: notifPath(entityType, entityId) });
+    const stale = [];
+    for (const s of subDoc.subscription) {
+      try {
+        await webpush.sendNotification(JSON.parse(s), payload);
+      } catch (err) {
+        // 404/410 = the push service says this subscription is dead (browser
+        // uninstalled, permission revoked, OS cleared it) — prune it silently,
+        // that's expected churn. Anything else (bad VAPID key, payload too
+        // large, network error) is a REAL delivery failure and was previously
+        // swallowed with zero visibility — log it so it's diagnosable.
+        if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+          stale.push(s);
+        } else {
+          console.error('web-push send failed:', err && (err.statusCode || err.message || err));
+        }
+      }
+    }
+    if (stale.length) {
+      const kept = subDoc.subscription.filter((s) => !stale.includes(s));
+      await pwaSubscription.updateOne({ userId }, { $set: { subscription: kept } });
+    }
+  } catch (err) {
+    console.error('sendWebPush failed:', err && err.message);
+  }
+}
+
+// Send a notification to a specific user via socket AND persist to DB AND, if
+// they have a push subscription + haven't opted out, a browser push.
 // Other route files import this to push real-time notifications.
 const sendNotificationToUser = async (userId, { fromId = null, fromName = '', type = 'info', title, body = '', entityType = null, entityId = null } = {}) => {
   if (!userId || !title) return;
@@ -78,6 +146,8 @@ const sendNotificationToUser = async (userId, { fromId = null, fromName = '', ty
       _id: saved?._id, userId, fromId, fromName, type, title, body, entityType, entityId, isRead: false, insertDate: new Date(),
     });
   }
+  // Browser push (best-effort, respects per-user prefs)
+  sendWebPush(String(userId), { type, title, body, entityType, entityId });
   return saved;
 };
 
