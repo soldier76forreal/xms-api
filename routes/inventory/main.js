@@ -677,36 +677,50 @@ router.post('/variants', verify, requirePermission('inventory:subproduct:create'
     return res.status(409).json({ message: `Variant code ${normalizedCode} already exists` });
   }
 
-  const variant = await InvVariant.create({
-    branchId: product.branchId,
-    productId: product._id,
-    code: normalizedCode,
-    spec: {
-      stoneType:     parsed.stoneType,
-      stoneTypeName: parsed.stoneTypeName,
-      quarryCode:    parsed.quarryCode,
-      grade:         parsed.grade,
-      gradeName:     parsed.gradeName,
-      gradeRank:     parsed.gradeRank,
-      lengthCm:      parsed.lengthCm,
-      widthCm:       parsed.widthCm,
-      thicknessMm:   parsed.thicknessMm,
-      unsized:       parsed.unsized,
-      cut:           parsed.cut,
-      cutName:       parsed.cutName,
-      fill:          parsed.fill,
-      fillName:      parsed.fillName,
-      finish:        parsed.finish,
-      finishName:    parsed.finishName,
-      raw:           parsed.raw,
-      parseWarnings: parsed.parseWarnings,
-    },
-    unit:     unit     || product.defaultUnit,
-    quantity: Number(quantity),
-    price:    price != null ? Number(price) : null,
-    currency,
-    createdBy: req.user?._id,
-  });
+  // The findOne check above + this create() aren't atomic — if the same
+  // request fires more than once in quick succession (double-submit, a
+  // client-side retry), more than one can pass the check before either has
+  // inserted, and the loser hits the unique index directly. Catch that here
+  // and answer with the same friendly 409 instead of letting a raw Mongo
+  // E11000 fall through to the generic 500 handler.
+  let variant;
+  try {
+    variant = await InvVariant.create({
+      branchId: product.branchId,
+      productId: product._id,
+      code: normalizedCode,
+      spec: {
+        stoneType:     parsed.stoneType,
+        stoneTypeName: parsed.stoneTypeName,
+        quarryCode:    parsed.quarryCode,
+        grade:         parsed.grade,
+        gradeName:     parsed.gradeName,
+        gradeRank:     parsed.gradeRank,
+        lengthCm:      parsed.lengthCm,
+        widthCm:       parsed.widthCm,
+        thicknessMm:   parsed.thicknessMm,
+        unsized:       parsed.unsized,
+        cut:           parsed.cut,
+        cutName:       parsed.cutName,
+        fill:          parsed.fill,
+        fillName:      parsed.fillName,
+        finish:        parsed.finish,
+        finishName:    parsed.finishName,
+        raw:           parsed.raw,
+        parseWarnings: parsed.parseWarnings,
+      },
+      unit:     unit     || product.defaultUnit,
+      quantity: Number(quantity),
+      price:    price != null ? Number(price) : null,
+      currency,
+      createdBy: req.user?._id,
+    });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ message: `Variant code ${normalizedCode} already exists` });
+    }
+    throw err;
+  }
 
   // Write "created" change log
   await InvChangeLog.create({
