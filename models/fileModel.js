@@ -14,6 +14,13 @@ var fileSchema = new mongoose.Schema({
     logsStatus:{status:{type:String} , msg:{type:String}},
     logs:[mongoose.Mixed],
     thumbnail: { type: String, default: null },
+    // Additional DISPLAY copies generated at upload time for formats browsers
+    // can't natively decode — the original uploaded file (metaData.filename)
+    // is never modified/discarded, it stays the "download original" target.
+    // See api/utils/mediaConvert.js.
+    webPreview:      { type: String, default: null },  // HEIC/HEIF -> JPEG
+    videoPreview:    { type: String, default: null },  // HEVC-codec video -> H.264 MP4
+    transcodeStatus: { type: String, enum: ['none', 'pending', 'ready', 'failed'], default: 'none' },
     deleteDate: { type: Date, default: null },
     scope: {
       type: String,
@@ -23,7 +30,7 @@ var fileSchema = new mongoose.Schema({
     attachedTo: {
       type: {
         type: String,
-        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload'],
+        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'userJobReport'],
       },
       id: { type: mongoose.Schema.Types.ObjectId },
     },

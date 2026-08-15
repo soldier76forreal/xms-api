@@ -91,6 +91,7 @@ app.use('/inventory/categories' , require('./routes/inventory/categories') )
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
+app.use('/shortlinks' , require('./routes/shortLinks/main') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
 app.use((err, req, res, next) => {
@@ -134,11 +135,49 @@ process.on("uncaughtException", (error) => {
 server.listen(7130, async () => {
     console.log('server running on port 7130.');
     // On restart all socket connections are gone → mark everyone offline
+    let userM = null;
     try {
         const userSchema   = require('./models/userModel');
         const dbConnection = require('./connections/xmsPr');
-        const userM        = dbConnection.model('user', userSchema);
+        userM = dbConnection.model('user', userSchema);
         await userM.updateMany({ isOnline: true }, { $set: { isOnline: false, lastSeen: new Date() } });
     } catch (_) {}
+    if (!userM) return;   // the Telegram /start handler needs the User model too
+
+    // ── Telegram bot — /start <code> completes the self-service link started
+    // from "Connect Telegram" in My Profile (POST /users/me/telegram/link-code).
+    // Independent of SMS/OTP auth; see utils/telegramBot.js + routes/users/users.js.
+    const { startPolling, sendTelegramMessage } = require('./utils/telegramBot');
+    startPolling(async (message) => {
+        const text = (message.text || '').trim();
+        if (!text.startsWith('/start')) return;
+
+        const code = text.split(' ')[1];
+        if (!code) {
+            await sendTelegramMessage(message.chat.id,
+                'Welcome to XMS! Open "Connect Telegram" in your XMS profile to get a linking code, then tap the link it gives you.');
+            return;
+        }
+
+        const linkedUser = await userM.findOneAndUpdate(
+            { 'telegram.pendingCode': code, 'telegram.pendingCodeExpiresAt': { $gt: new Date() }, deleteDate: null },
+            { $set: {
+                'telegram.chatId': String(message.chat.id),
+                'telegram.username': message.from && message.from.username ? message.from.username : null,
+                'telegram.linkedAt': new Date(),
+                'telegram.pendingCode': null,
+                'telegram.pendingCodeExpiresAt': null,
+            } },
+            { new: true }
+        );
+
+        if (linkedUser) {
+            await sendTelegramMessage(message.chat.id,
+                `✅ Connected! You'll now receive XMS notifications here${linkedUser.firstName ? ', ' + linkedUser.firstName : ''}.`);
+        } else {
+            await sendTelegramMessage(message.chat.id,
+                'That linking code is invalid or has expired. Generate a new one from your XMS profile and try again.');
+        }
+    });
 });
 

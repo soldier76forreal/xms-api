@@ -5,8 +5,8 @@ const notficationModel = require("../../models/notficationsModel");
 const userModel = require("../../models/userModel");
 const invoiceModel = require("../../models/invoiceModel");
 const verify = require('../users/verifyToken');
-const verifyLink = require('../users/verifyLinks');
 const { requirePermission } = require('../../utils/rbac');
+const { createShortLink, resolveShortLink } = require('../../utils/shortLink');
 const path = require('path');
 const pwaSubscriptionModel = require('../../models/pwaSubscriptionModel');
 const dotenv = require("dotenv");
@@ -29,17 +29,10 @@ webpush.setVapidDetails('mailto:test@test.com' , process.env.PublicVapidKey , pr
 const folderModel = require("../../models/folderModel");
 const fileModal = require("../../models/fileModel");
 const filesFoldersTagsModel = require("../../models/filesFoldersTagsModel");
-const linkModel = require("../../models/linkModel");
-const sharp = require('sharp'); 
+const sharp = require('sharp');
 const folder = dbConnection.model('folder' , folderModel);
 const file = dbConnection.model('file' , fileModal);
 const filesFoldersTags = dbConnection.model('fileFoldersTag' , filesFoldersTagsModel);
-const link = dbConnection.model('link' , linkModel);
-const crypto = require('crypto');
-// per-link JWT secret — random hex via built-in crypto (replaced the vulnerable
-// 'generate-api-key' package; existing links are unaffected, their secret is stored on the doc)
-const generateApiKey = () => crypto.randomBytes(32).toString('hex');
-const jwt = require("jsonwebtoken");
 const sizeOf = require('image-size')
 var AdmZip = require("adm-zip");
 var randomstring = require("randomstring");
@@ -876,61 +869,73 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
 
 
     
+    // Unified short-link system (2026-07-30): File Manager share links now go
+    // through the same shortLink model every other section's "copy link"
+    // button uses — internal-only, requires login. The old flow minted a raw
+    // signed JWT as the "link" (200+ chars, and deliberately public/no-login);
+    // that public, no-login sharing is intentionally retired.
     router.post('/createNewLink', verify , requirePermission('files:share') , async(req , res)=>{
         try{
             var decoded = jwt_decode(req.headers.authorization);
-            const accessKey = generateApiKey()
-            const token = jwt.sign({} , accessKey , {expiresIn : `${req.body.timer}m`} );
-            newLink = new link({
-                document:req.body.document,
-                token:token,
-                msg:req.body.msg === ''?null:req.body.msg,
-                showName:req.body.displayName,
-                secret:accessKey,
-                generatedBy:decoded.id,
-                insertDate:Date.now(),
-                logsStatus:{status:'created' , msg:'link created!'}
-            })
-            const result = await newLink.save();
+            const timerMinutes = Number(req.body.timer) || 0;
+            const expiresAt = timerMinutes > 0 ? new Date(Date.now() + timerMinutes * 60000) : null;
+            const code = await createShortLink({
+                module: 'files',
+                entityType: 'fileShare',
+                entityId: null,
+                payload: {
+                    document: req.body.document,
+                    msg: req.body.msg === '' ? null : req.body.msg,
+                    showName: req.body.displayName,
+                },
+                expiresAt,
+                createdBy: decoded.id,
+            });
 
             for (const d of (req.body.document || [])) {
                 await logFileActivity(req, { type: 'share_link', itemKind: d.type, itemId: d.id,
                     newValue: req.body.displayName || null });
             }
-            res.status(200).send(token);
+            res.status(200).json({ code });
         }catch(err){
             res.status(402).send(err);
             console.log(err)
         }
     })
-       
 
 
-    router.get('/getFileForLink', verifyLink  , async(req , res)=>{
+
+    router.get('/shortlinks/:code', verify, requirePermission('files:view'), async(req , res)=>{
         try{
-            var token = req.headers.authorization;
-            const linkDoc = await link.findOne({token:token.split(" ")[1] , deleteDate:null}).select('_id document msg showName generatedBy insertDate')
-            
+            const link = await resolveShortLink(req.params.code);
+            if (!link || link.module !== 'files') {
+                return res.status(404).json({ message: 'This link is no longer valid' });
+            }
+            const linkDoc = link.payload || {};
+            const documents = Array.isArray(linkDoc.document) ? linkDoc.document : [];
+
             var finalArr = []
             var folders = []
 
-            for(var i = 0 ; linkDoc.document.length>i ; i++){
-                if(linkDoc.document[i].type === 'folder'){
-                    folders.push(linkDoc.document[i].id)
-                }else if(linkDoc.document[i].type === 'file'){
-                    const tempDoc = await file.findOne({_id:linkDoc.document[i].id}).lean()
+            for(var i = 0 ; documents.length>i ; i++){
+                if(documents[i].type === 'folder'){
+                    folders.push(documents[i].id)
+                }else if(documents[i].type === 'file'){
+                    const tempDoc = await file.findOne({_id:documents[i].id}).lean()
+                    if (!tempDoc) continue;
                     tempDoc.dim = sizeOf(`./public/uploads/${tempDoc.metaData.filename}`)
                     if(tempDoc.format === 'jpg' || tempDoc.format === 'JPG' || tempDoc.format === 'png' ||tempDoc.format === 'svg' || tempDoc.format === 'jpeg' || tempDoc.format === 'JPGE'|| tempDoc.format === 'PNG' || tempDoc.format === 'SVG'){
                         finalArr.push({type:'file',doc:tempDoc})
                     }else{
                         finalArr.push({type:'file',doc:tempDoc })
                     }
-                    
+
                 }
             }
             if(folders.length>0){
                 for(var p = 0 ; folders.length>p ; p++){
                     var doc = await folder.findOne({_id:folders[p]});
+                    if (!doc) continue;
                     var tempFi = await file.find({_id: { $in: doc.subFiles}}).lean();
                     var tempFo = await folder.find({_id: { $in: doc.subFolders}} );
                     var finalFi = []
@@ -943,23 +948,27 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
                             finalFi.push(tempFi[o])
                         }
                     }
-                    
+
                     folders = folders.concat(doc.subFolders);
-                    finalArr.push({type:'folder',doc:doc , 
+                    finalArr.push({type:'folder',doc:doc ,
                         subFiles: finalFi,
                         subFolders:tempFo
                     })
                 }
             }
-            var userDoc = await user.findOne({_id:linkDoc.generatedBy}).select('firstName lastName')
+            var userDoc = await user.findOne({_id:link.createdBy}).select('firstName lastName')
 
-            res.status(200).send({finalArr:finalArr , linkDoc:linkDoc , user:userDoc});
+            res.status(200).send({
+                finalArr,
+                linkDoc: { _id: link._id, document: documents, msg: linkDoc.msg, showName: linkDoc.showName, insertDate: link.insertDate, createdBy: link.createdBy },
+                user: userDoc,
+            });
         }catch(err){
             res.status(402).send(err);
             console.log(err)
         }
     })
-    
+
 // POST (not GET) — `selected` is an array of {id,type} OBJECTS, and axios's
 // default paramsSerializer cannot encode nested objects in a GET querystring
 // (it silently mangled to "[object Object]"), which is why bulk/zip downloads

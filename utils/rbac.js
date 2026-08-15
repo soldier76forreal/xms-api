@@ -59,6 +59,22 @@ function clearPermissionCache(userId) {
   else        permCache.clear();
 }
 
+// Reverse lookup — every userId that currently resolves to have `key`. Powers
+// broadcast notifications ("notify anyone who can see Digital Marketing when
+// new content lands") without duplicating the grants/denies/role/group logic
+// above: it just iterates everyone who HAS a userAccess doc (no doc = default
+// deny, so they're correctly excluded for free) and reuses the same cached
+// resolver per user.
+async function getUsersWithPermission(key) {
+  const allAccess = await UserAccess.find({}).select('userId').lean();
+  const matched = [];
+  for (const access of allAccess) {
+    const perms = await getEffectivePermissions(access.userId);
+    if (perms.has(key)) matched.push(String(access.userId));
+  }
+  return matched;
+}
+
 // ── Scope resolver ────────────────────────────────────────────────────────────
 // Returns effective data scopes: { crm: 'mine'|'group'|'all', ... }
 // Most permissive wins across all roles + groups (all > group > mine).
@@ -178,6 +194,7 @@ function requireBranch() {
 
 module.exports = {
   getEffectivePermissions, getEffectiveScopes, requirePermission, clearPermissionCache,
+  getUsersWithPermission,
   isSuperAdmin, requireSuperAdmin, getUserBranches, assertBranchAccess, requireBranch,
   Permission, Role, Group, UserAccess, Branch,
 };

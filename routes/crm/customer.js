@@ -462,8 +462,8 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
         if (assigneeType === 'user') {
           await sendNotificationToUser(assignedUser, {
             fromId: userId, fromName: createdByName,
-            type: 'assignment', title: `New CRM assignment: ${taskTitle}`,
-            body: `${ids.length} customer${ids.length !== 1 ? 's' : ''} assigned to you`,
+            type: 'assignment',
+            textKey: 'crmAssignmentUser', textParams: { taskTitle, count: ids.length },
             entityType: 'task', entityId: task._id,
           });
         } else {
@@ -475,8 +475,8 @@ router.put('/customers/bulk', verify, requirePermission('crm:customer:edit'), as
                 .map(memberId =>
                   sendNotificationToUser(memberId, {
                     fromId: userId, fromName: createdByName,
-                    type: 'assignment', title: `New group CRM assignment: ${taskTitle}`,
-                    body: `${ids.length} customer${ids.length !== 1 ? 's' : ''} assigned [${group.name || ''}]`,
+                    type: 'assignment',
+                    textKey: 'crmAssignmentGroup', textParams: { taskTitle, count: ids.length, groupName: group.name },
                     entityType: 'task', entityId: task._id,
                   })
                 )

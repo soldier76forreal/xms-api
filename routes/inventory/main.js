@@ -18,9 +18,10 @@ const groupSchema              = require('../../models/groupModel');
 const userSchema                = require('../../models/userModel');
 const categorySchema            = require('../../models/categoryModel');
 const verify = require('../users/verifyToken');
-const { getEffectiveScopes, requirePermission, requireBranch, assertBranchAccess } = require('../../utils/rbac');
+const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess } = require('../../utils/rbac');
 const { parseStoneCode } = require('../../utils/stoneCodeParser');
 const { stoneTypes, grades, units, quarries } = require('./lookups');
+const { isHeic, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync } = require('../../utils/mediaConvert');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -83,22 +84,8 @@ async function getUploaderName(userId) {
   return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '';
 }
 
-// Extracts a single preview frame from a video (10% in — robust against very
-// short clips) and resizes it via the same thumbnail convention as images.
-function extractVideoThumbnail(videoPath, thumbFilename) {
-  return new Promise((resolve) => {
-    ffmpeg(videoPath)
-      .on('end', () => resolve(thumbFilename))
-      .on('error', () => resolve(null)) // non-fatal — falls back to the play-icon placeholder
-      .screenshots({
-        count: 1,
-        timestamps: ['10%'],
-        filename: thumbFilename,
-        folder: 'public/uploads',
-        size: '300x?',
-      });
-  });
-}
+// extractVideoThumbnail now lives in utils/mediaConvert.js (shared, and fixes
+// BUG-07 — the old '10%' timestamp needed ffprobe, which isn't installed).
 
 // ─── lookups ──────────────────────────────────────────────────────────────────
 
@@ -516,6 +503,44 @@ router.get('/products/:id', verify, requirePermission('inventory:view'), async (
     .lean();
 
   res.json({ data: { ...product, variants } });
+});
+
+// Variant detail is normally read straight out of Redux (the product fetch
+// above already embeds every variant) — this route exists so a short-link to
+// a single variant has something to fetch by id alone.
+router.get('/variants/:id', verify, requirePermission('inventory:view'), async (req, res) => {
+  const variant = await InvVariant.findOne({
+    _id: req.params.id,
+    deleteDate: null,
+  }).lean();
+
+  if (!variant) return res.status(404).json({ message: 'Variant not found' });
+
+  if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
+    return res.status(403).json({ message: 'You do not have access to this branch' });
+  }
+
+  const product = await InvProduct.findOne({ _id: variant.productId, deleteDate: null }).lean();
+  if (!product) return res.status(404).json({ message: 'Product not found' });
+
+  const effScopes = await getEffectiveScopes(req.user.id);
+  const scope     = effScopes.inventory || 'all';
+  const uid       = String(req.user.id);
+
+  if (scope === 'mine') {
+    if (String(product.createdBy) !== uid) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+  } else if (scope === 'group') {
+    const userGroups = await Group.find({ members: mongoose.Types.ObjectId(uid), deleteDate: null }).select('members').lean();
+    const memberIds  = new Set(userGroups.flatMap(g => g.members.map(String)));
+    memberIds.add(uid);
+    if (!memberIds.has(String(product.createdBy))) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+  }
+
+  res.json({ data: { variant, product } });
 });
 
 // ─── create product (variety) ─────────────────────────────────────────────────
@@ -1019,8 +1044,10 @@ router.post('/variants/:id/media', verify, requirePermission('inventory:media:ed
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
   const decoded = jwt_decode(req.headers.authorization);
+  const isVideo = req.file.mimetype.startsWith('video/');
 
   let thumbnailPath = null;
+  let webPreviewPath = null;
   if (req.file.mimetype.startsWith('image/')) {
     try {
       const thumbFilename = `thumb-${req.file.filename}`;
@@ -1030,6 +1057,9 @@ router.post('/variants/:id/media', verify, requirePermission('inventory:media:ed
     } catch (e) {
       // thumbnail failure is non-fatal
     }
+    webPreviewPath = await convertHeicIfNeeded(req.file);
+  } else if (isVideo) {
+    thumbnailPath = await extractVideoThumbnail(req.file.path, `thumb-${req.file.filename}.jpg`);
   }
 
   const ext = req.file.originalname.slice(req.file.originalname.lastIndexOf('.') + 1);
@@ -1041,9 +1071,13 @@ router.post('/variants/:id/media', verify, requirePermission('inventory:media:ed
     format:    ext,
     generatedBy: decoded.id,
     thumbnail: thumbnailPath,
+    webPreview: webPreviewPath,
+    transcodeStatus: isVideo ? 'pending' : 'none',
     scope:     'inventory',
     attachedTo: { type: 'inventoryVariant', id: variant._id },
   });
+
+  if (isVideo) transcodeVideoAsync(File, fileDoc, req.file.path);
 
   await InvChangeLog.create({
     subjectType: 'variant',
@@ -1111,7 +1145,9 @@ router.post('/variants/:id/media-batch', verify, requirePermission('inventory:me
   const uploadedFileDocs = [];
 
   for (const file of req.files) {
+    const isVideo = file.mimetype.startsWith('video/');
     let thumbnailPath = null;
+    let webPreviewPath = null;
     if (file.mimetype.startsWith('image/')) {
       try {
         const thumbFilename = `thumb-${file.filename}`;
@@ -1119,7 +1155,8 @@ router.post('/variants/:id/media-batch', verify, requirePermission('inventory:me
         await sharp(file.path).resize(300).jpeg({ quality: 80 }).toFile(thumbPath);
         thumbnailPath = thumbFilename;
       } catch (e) { /* thumbnail failure is non-fatal */ }
-    } else if (file.mimetype.startsWith('video/')) {
+      webPreviewPath = await convertHeicIfNeeded(file);
+    } else if (isVideo) {
       const videoThumbFilename = `thumb-${file.filename}.jpg`;
       thumbnailPath = await extractVideoThumbnail(file.path, videoThumbFilename);
     }
@@ -1134,10 +1171,13 @@ router.post('/variants/:id/media-batch', verify, requirePermission('inventory:me
       generatedBy: decoded.id,
       uploadedByName: uploaderName,
       thumbnail: thumbnailPath,
+      webPreview: webPreviewPath,
+      transcodeStatus: isVideo ? 'pending' : 'none',
       scope:     'inventory',
       attachedTo: { type: 'inventoryVariant', id: variant._id },
       batchId, uploadDate, expirationDate,
     });
+    if (isVideo) transcodeVideoAsync(File, fileDoc, file.path);
     uploadedFileDocs.push(fileDoc);
   }
 
@@ -1205,8 +1245,10 @@ router.post('/products/:id/media', verify, requirePermission('inventory:media:ed
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
   const decoded = jwt_decode(req.headers.authorization);
+  const isVideo = req.file.mimetype.startsWith('video/');
 
   let thumbnailPath = null;
+  let webPreviewPath = null;
   if (req.file.mimetype.startsWith('image/')) {
     try {
       const thumbFilename = `thumb-${req.file.filename}`;
@@ -1214,6 +1256,9 @@ router.post('/products/:id/media', verify, requirePermission('inventory:media:ed
       await sharp(req.file.path).resize(300).jpeg({ quality: 80 }).toFile(thumbPath);
       thumbnailPath = thumbFilename;
     } catch (e) {}
+    webPreviewPath = await convertHeicIfNeeded(req.file);
+  } else if (isVideo) {
+    thumbnailPath = await extractVideoThumbnail(req.file.path, `thumb-${req.file.filename}.jpg`);
   }
 
   const ext = req.file.originalname.slice(req.file.originalname.lastIndexOf('.') + 1);
@@ -1225,9 +1270,13 @@ router.post('/products/:id/media', verify, requirePermission('inventory:media:ed
     format:    ext,
     generatedBy: decoded.id,
     thumbnail: thumbnailPath,
+    webPreview: webPreviewPath,
+    transcodeStatus: isVideo ? 'pending' : 'none',
     scope:     'inventory',
     attachedTo: { type: 'inventoryProduct', id: product._id },
   });
+
+  if (isVideo) transcodeVideoAsync(File, fileDoc, req.file.path);
 
   await InvChangeLog.create({
     subjectType: 'product',
@@ -1247,6 +1296,78 @@ router.post('/products/:id/media', verify, requirePermission('inventory:media:ed
   }
 
   res.status(201).json({ data: fileDoc });
+});
+
+// ─── product media BATCH — purely additive (no delete-and-replace) ───────────
+// Unlike the variant batch route above, product-level media is an accumulating
+// gallery, not a versioned set — this just adds N independent File docs in one
+// request, giving the upload a single XHR (real onUploadProgress) instead of
+// the old one-request-per-file loop the frontend used to do.
+router.post('/products/:id/media-batch', verify, requirePermission('inventory:media:edit'), upload.array('files', 20), async (req, res) => {
+  const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null });
+  if (!product) return res.status(404).json({ message: 'Product not found' });
+  if (!(await assertBranchAccess(req.user.id, product.branchId))) {
+    return res.status(403).json({ message: 'You do not have access to this branch' });
+  }
+
+  if (!req.files || !req.files.length) {
+    return res.status(400).json({ message: 'No files uploaded' });
+  }
+
+  const decoded = jwt_decode(req.headers.authorization);
+  const uploaderName = await getUploaderName(decoded.id);
+  const uploadedFileDocs = [];
+
+  for (const file of req.files) {
+    const isVideo = file.mimetype.startsWith('video/');
+    let thumbnailPath = null;
+    let webPreviewPath = null;
+    if (file.mimetype.startsWith('image/')) {
+      try {
+        const thumbFilename = `thumb-${file.filename}`;
+        const thumbPath = path.join('public/uploads', thumbFilename);
+        await sharp(file.path).resize(300).jpeg({ quality: 80 }).toFile(thumbPath);
+        thumbnailPath = thumbFilename;
+      } catch (e) { /* thumbnail failure is non-fatal */ }
+      webPreviewPath = await convertHeicIfNeeded(file);
+    } else if (isVideo) {
+      thumbnailPath = await extractVideoThumbnail(file.path, `thumb-${file.filename}.jpg`);
+    }
+
+    const ext = file.originalname.slice(file.originalname.lastIndexOf('.') + 1);
+
+    const fileDoc = await File.create({
+      name:      file.originalname.split('.')[0],
+      supFolder: null,
+      metaData:  file,
+      format:    ext,
+      generatedBy: decoded.id,
+      uploadedByName: uploaderName,
+      thumbnail: thumbnailPath,
+      webPreview: webPreviewPath,
+      transcodeStatus: isVideo ? 'pending' : 'none',
+      scope:     'inventory',
+      attachedTo: { type: 'inventoryProduct', id: product._id },
+    });
+    if (isVideo) transcodeVideoAsync(File, fileDoc, file.path);
+    uploadedFileDocs.push(fileDoc);
+  }
+
+  await InvChangeLog.insertMany(uploadedFileDocs.map((f) => ({
+    subjectType: 'product', subjectId: product._id, productId: product._id,
+    changeType: 'media', mediaRef: { fileId: f._id, action: 'added', name: f.name },
+    source: 'manual', changedBy: decoded.id, changedByName: uploaderName,
+  })));
+
+  // Auto-set as cover if none exists (mirrors the single-file route)
+  const firstImage = uploadedFileDocs.find((f) => f.metaData?.mimetype?.startsWith('image/'));
+  if (!product.coverMediaId && firstImage) {
+    await InvProduct.findByIdAndUpdate(product._id, {
+      $set: { coverMediaId: firstImage._id, coverThumbnail: firstImage.thumbnail || null },
+    });
+  }
+
+  res.status(201).json({ data: uploadedFileDocs });
 });
 
 // ─── get media for a product or variant ───────────────────────────────────────
@@ -1320,6 +1441,97 @@ router.delete('/media/:fileId', verify, requirePermission('inventory:media:edit'
   }
 
   res.json({ message: 'Media removed' });
+});
+
+// ─── bulk media action — delete or zip-download an arbitrary set of files ────
+// body: { fileIds: [...], action: 'delete' | 'zip' }. Re-checks branch access
+// per file's owning product/variant (a mixed-branch selection isn't reachable
+// from the UI, but the guard is cheap and matches every other route here).
+router.post('/media/bulk', verify, async (req, res) => {
+  const { fileIds, action } = req.body;
+  if (!Array.isArray(fileIds) || !fileIds.length) {
+    return res.status(400).json({ message: 'fileIds is required' });
+  }
+  if (!['delete', 'zip'].includes(action)) {
+    return res.status(400).json({ message: "action must be 'delete' or 'zip'" });
+  }
+  const perms = await getEffectivePermissions(req.user.id);
+  if (!perms.has('inventory:view')) {
+    return res.status(403).json({ message: 'Missing permission: inventory:view' });
+  }
+  if (action === 'delete' && !perms.has('inventory:media:edit')) {
+    return res.status(403).json({ message: 'Missing permission: inventory:media:edit' });
+  }
+
+  const files = await File.find({ _id: { $in: fileIds }, scope: 'inventory', deleteDate: null });
+  if (!files.length) return res.status(404).json({ message: 'No matching files found' });
+
+  const variantIds = [...new Set(files.filter((f) => f.attachedTo?.type === 'inventoryVariant').map((f) => String(f.attachedTo.id)))];
+  const productIdsFromFiles = [...new Set(files.filter((f) => f.attachedTo?.type === 'inventoryProduct').map((f) => String(f.attachedTo.id)))];
+  const [variants, directProducts] = await Promise.all([
+    variantIds.length ? InvVariant.find({ _id: { $in: variantIds } }).select('branchId productId').lean() : [],
+    productIdsFromFiles.length ? InvProduct.find({ _id: { $in: productIdsFromFiles } }).select('branchId').lean() : [],
+  ]);
+  const variantById = new Map(variants.map((v) => [String(v._id), v]));
+  const productBranchById = new Map(directProducts.map((p) => [String(p._id), p.branchId]));
+
+  for (const f of files) {
+    const branchId = f.attachedTo?.type === 'inventoryVariant'
+      ? variantById.get(String(f.attachedTo.id))?.branchId
+      : productBranchById.get(String(f.attachedTo.id));
+    if (!(await assertBranchAccess(req.user.id, branchId))) {
+      return res.status(403).json({ message: 'You do not have access to this branch' });
+    }
+  }
+
+  if (action === 'zip') {
+    res.attachment('inventory-media.zip');
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', () => res.end());
+    archive.pipe(res);
+    for (const f of files) {
+      if (!f.metaData?.filename) continue;
+      const diskPath = path.join('public/uploads', f.metaData.filename);
+      if (fs.existsSync(diskPath)) {
+        const ext = f.format ? `.${f.format}` : '';
+        archive.file(diskPath, { name: `${f.name}${ext}` });
+      }
+    }
+    return archive.finalize();
+  }
+
+  // action === 'delete'
+  const decoded = jwt_decode(req.headers.authorization);
+  await File.updateMany({ _id: { $in: files.map((f) => f._id) } }, { $set: { deleteDate: new Date() } });
+
+  const changeLogRows = [];
+  const clearedCoverProductIds = new Set();
+  for (const f of files) {
+    const isVariant = f.attachedTo?.type === 'inventoryVariant';
+    const variant = isVariant ? variantById.get(String(f.attachedTo.id)) : null;
+    const productId = isVariant ? variant?.productId : f.attachedTo?.id;
+    if (!productId) continue;
+    changeLogRows.push({
+      subjectType: isVariant ? 'variant' : 'product',
+      subjectId:   f.attachedTo.id,
+      productId,
+      changeType:  'media',
+      mediaRef:    { fileId: f._id, action: 'removed', name: f.name },
+      source:      'manual',
+      changedBy:   decoded.id,
+    });
+    clearedCoverProductIds.add(String(productId));
+  }
+  if (changeLogRows.length) await InvChangeLog.insertMany(changeLogRows);
+
+  await Promise.all([...clearedCoverProductIds].map((productId) =>
+    InvProduct.updateOne(
+      { _id: productId, coverMediaId: { $in: files.map((f) => f._id) } },
+      { $set: { coverMediaId: null, coverThumbnail: null } }
+    )
+  ));
+
+  res.json({ message: 'Media removed', count: files.length });
 });
 
 module.exports = router;

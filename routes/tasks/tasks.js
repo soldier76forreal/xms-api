@@ -152,7 +152,8 @@ router.post('/', verify, requirePermission('tasks:create'), async (req, res) => 
     if (assigneeType === 'user') {
       await sendNotificationToUser(assignedUser, {
         fromId: req.user.id, fromName: createdByName,
-        type: 'task', title: `New task: ${title}`, body: description,
+        type: 'task',
+        textKey: 'taskAssignedUser', textParams: { title, description },
         entityType: 'task', entityId: task._id,
       });
     } else {
@@ -164,8 +165,8 @@ router.post('/', verify, requirePermission('tasks:create'), async (req, res) => 
             .map(memberId =>
               sendNotificationToUser(memberId, {
                 fromId: req.user.id, fromName: createdByName,
-                type: 'task', title: `New group task: ${title}`,
-                body: `${description}${group.name ? ` [${group.name}]` : ''}`,
+                type: 'task',
+                textKey: 'taskAssignedGroup', textParams: { title, description, groupName: group.name },
                 entityType: 'task', entityId: task._id,
               })
             )
@@ -195,8 +196,8 @@ router.put('/:id/claim', verify, requirePermission('tasks:respond'), async (req,
   if (String(task.createdBy) !== String(req.user.id)) {
     await sendNotificationToUser(task.createdBy, {
       fromId: req.user.id, fromName: claimedByName,
-      type: 'taskClaimed', title: `Task claimed: ${task.title}`,
-      body: `${claimedByName} claimed your task`,
+      type: 'taskClaimed',
+      textKey: 'taskClaimed', textParams: { claimedByName, taskTitle: task.title },
       entityType: 'task', entityId: task._id,
     });
   }
@@ -218,8 +219,8 @@ router.put('/:id/done', verify, requirePermission('tasks:respond'), async (req, 
     const byName = me ? `${me.firstName} ${me.lastName}`.trim() : '';
     await sendNotificationToUser(task.createdBy, {
       fromId: req.user.id, fromName: byName,
-      type: 'taskDone', title: `Task done: ${task.title}`,
-      body: `${byName} marked your task as done`,
+      type: 'taskDone',
+      textKey: 'taskDone', textParams: { byName, taskTitle: task.title },
       entityType: 'task', entityId: task._id,
     });
   }

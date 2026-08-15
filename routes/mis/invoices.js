@@ -1102,8 +1102,7 @@ router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission
     for (const uid of newlyAdded) {
       await sendNotificationToUser(uid, {
         fromId: userId, fromName: actorName, type: 'invoice',
-        title: `${label} #${doc.docNumber} was sent to you`,
-        body: `${actorName} sent this ${label} to you`,
+        textKey: 'misInvoiceSent', textParams: { label, docNumber: doc.docNumber, actorName },
         entityType: 'invoice', entityId: String(doc._id),
       });
     }

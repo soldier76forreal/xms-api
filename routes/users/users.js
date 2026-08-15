@@ -2,19 +2,27 @@ const express    = require('express');
 const jwt_decode = require('jwt-decode');
 const mongoose   = require('mongoose');
 const path       = require('path');
+const crypto     = require('crypto');
 const multer     = require('multer');
 const sharp      = require('sharp');
+const ffmpeg     = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 
 const userModel              = require('../../models/userModel');
 const notficationModel       = require('../../models/notficationsModel');
 const invoiceModel           = require('../../models/invoiceModel');
 const fileModel              = require('../../models/fileModel');
+const userNoteModel            = require('../../models/userNoteModel');
 const inventoryChangeLogSchema = require('../../models/inventoryChangeLogModel');
 const inventoryProductSchema   = require('../../models/inventoryProductModel');
 const customerActivitySchema   = require('../../models/customerActivityModel');
 const customerSchema           = require('../../models/customerModel');
 const invoiceActivitySchema    = require('../../models/invoiceActivityModel');
 const misInvoiceSchema         = require('../../models/misInvoiceModel');
+const dmActivitySchema         = require('../../models/dmActivityModel');
+const rawContentSchema         = require('../../models/rawContentModel');
+const readyToUploadSchema      = require('../../models/readyToUploadModel');
+const userJobReportModel       = require('../../models/userJobReportModel');
 const dbConnection        = require('../../connections/xmsPr');
 const verify              = require('./verifyToken');
 const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, UserAccess, Role } = require('../../utils/rbac');
@@ -22,22 +30,50 @@ const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPer
 const dotenv = require('dotenv');
 dotenv.config();
 
+ffmpeg.setFfmpegPath(ffmpegPath);
+
 const userM        = dbConnection.model('user',       userModel);
 const notfication  = dbConnection.model('notfication', notficationModel);
 const invoice      = dbConnection.model('invoice',     invoiceModel);
 const File         = dbConnection.model('file',        fileModel);
+const UserNote     = dbConnection.models.userNote || dbConnection.model('userNote', userNoteModel);
 const InvChangeLog = dbConnection.models.inventoryChangeLog || dbConnection.model('inventoryChangeLog', inventoryChangeLogSchema);
 const InvProduct   = dbConnection.models.inventoryProduct   || dbConnection.model('inventoryProduct',   inventoryProductSchema);
 const CustomerActivity = dbConnection.models.customerActivity || dbConnection.model('customerActivity', customerActivitySchema);
 const Customer         = dbConnection.models.customer         || dbConnection.model('customer',         customerSchema);
 const InvoiceActivity  = dbConnection.models.invoiceActivity   || dbConnection.model('invoiceActivity',  invoiceActivitySchema);
 const MisInvoice       = dbConnection.models.misInvoice        || dbConnection.model('misInvoice',       misInvoiceSchema);
+const DmActivity       = dbConnection.models.dmActivity        || dbConnection.model('dmActivity',       dmActivitySchema);
+const RawContent       = dbConnection.models.rawContent        || dbConnection.model('rawContent',       rawContentSchema);
+const ReadyToUpload    = dbConnection.models.readyToUpload     || dbConnection.model('readyToUpload',    readyToUploadSchema);
+const UserJobReport    = dbConnection.models.userJobReport     || dbConnection.model('userJobReport',    userJobReportModel);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
   filename:    (req, file, cb) => cb(null, `avatar-${Date.now()}${path.extname(file.originalname)}`),
 });
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+// Personal notes attachments — voice/video/photo/document, up to 5 per note.
+const notesStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'public/uploads'),
+  filename:    (req, file, cb) => {
+    const ext = file.originalname.match(/\..*$/)?.[0] || '';
+    cb(null, `note-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  },
+});
+const notesUpload = multer({ storage: notesStorage });
+
+// Extracts a single preview frame from a video (10% in) — mirrors the
+// Inventory variant-media-batch / CRM communication-tab convention exactly.
+function extractNoteVideoThumbnail(videoPath, thumbFilename) {
+  return new Promise((resolve) => {
+    ffmpeg(videoPath)
+      .on('end', () => resolve(thumbFilename))
+      .on('error', () => resolve(null))
+      .screenshots({ count: 1, timestamps: ['10%'], filename: thumbFilename, folder: 'public/uploads', size: '300x?' });
+  });
+}
 
 const router = express.Router();
 
@@ -80,33 +116,70 @@ router.put('/me/profile', verify, async (req, res) => {
   }
 });
 
+// ── PUT /users/me/language — self-service: persist your OWN UI language ───────
+// Fired on every switcher change (see languageContext.js) so the value is
+// visible to others (Users list/detail indicator), not just this browser's
+// localStorage. No permission key — it's the caller's own preference.
+const VALID_LANGUAGES = ['en', 'fa', 'ar'];
+router.put('/me/language', verify, async (req, res) => {
+  try {
+    const { language } = req.body;
+    if (!VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ message: `language must be one of: ${VALID_LANGUAGES.join(', ')}` });
+    }
+    const updated = await userM.findOneAndUpdate(
+      { _id: req.user.id, deleteDate: null },
+      { $set: { language, updateDate: new Date() } },
+      { new: true }
+    ).select('language');
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+    return res.status(200).json({ language: updated.language });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ── GET /users/me/notification-prefs — read your OWN push preferences ─────────
 const NOTIF_PREF_KEYS = ['tasks', 'assignments', 'invoices', 'dmChat', 'readyToUpload'];
 const DEFAULT_NOTIF_PREFS = { tasks: true, assignments: true, invoices: true, dmChat: true, readyToUpload: true };
 
 router.get('/me/notification-prefs', verify, async (req, res) => {
   try {
-    const u = await userM.findById(req.user.id).select('notificationPrefs').lean();
-    return res.status(200).json({ ...DEFAULT_NOTIF_PREFS, ...(u?.notificationPrefs || {}) });
+    const u = await userM.findById(req.user.id).select('notificationPrefs pushEnabled telegram.enabled').lean();
+    return res.status(200).json({
+      ...DEFAULT_NOTIF_PREFS, ...(u?.notificationPrefs || {}),
+      pushEnabled: u?.pushEnabled !== false,
+      telegramEnabled: u?.telegram?.enabled !== false,
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
 });
 
 // ── PUT /users/me/notification-prefs — set your OWN push preferences ──────────
+// Also carries the two channel-level toggles (pushEnabled / telegramEnabled) —
+// ON/OFF for the whole channel, independent of both the per-category prefs
+// above AND (for Telegram) whether the account is linked at all.
 router.put('/me/notification-prefs', verify, async (req, res) => {
   try {
     const setFields = { updateDate: new Date() };
     for (const k of NOTIF_PREF_KEYS) {
       if (req.body[k] !== undefined) setFields[`notificationPrefs.${k}`] = !!req.body[k];
     }
+    if (req.body.pushEnabled !== undefined) setFields.pushEnabled = !!req.body.pushEnabled;
+    if (req.body.telegramEnabled !== undefined) setFields['telegram.enabled'] = !!req.body.telegramEnabled;
+
     const updated = await userM.findOneAndUpdate(
       { _id: req.user.id, deleteDate: null },
       { $set: setFields },
       { new: true }
-    ).select('notificationPrefs');
+    ).select('notificationPrefs pushEnabled telegram.enabled');
     if (!updated) return res.status(404).json({ message: 'User not found' });
-    return res.status(200).json({ ...DEFAULT_NOTIF_PREFS, ...(updated.notificationPrefs || {}) });
+    return res.status(200).json({
+      ...DEFAULT_NOTIF_PREFS, ...(updated.notificationPrefs || {}),
+      pushEnabled: updated.pushEnabled !== false,
+      telegramEnabled: updated.telegram?.enabled !== false,
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
@@ -151,6 +224,311 @@ router.post('/me/avatar', verify, upload.single('file'), async (req, res) => {
     );
 
     return res.status(200).json({ profileImage });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── Personal Notes — strictly private, no admin override ──────────────────────
+// Every route below is scoped to req.user.id and ONLY req.user.id. There is no
+// list/read route for another user's notes anywhere in the app, not even for
+// superAdmin — that is deliberate, not an oversight. No permission key either:
+// this isn't a capability that varies by role, every user manages their own.
+
+// GET /users/me/notes — paginated list of the caller's own notes.
+router.get('/me/notes', verify, async (req, res) => {
+  try {
+    const page  = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Number(req.query.limit) || 20);
+
+    const filter = { userId: req.user.id, deleteDate: null };
+    const [data, total] = await Promise.all([
+      UserNote.find(filter).sort({ insertDate: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      UserNote.countDocuments(filter),
+    ]);
+    return res.status(200).json({ data, total });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /users/me/notes — create a note (text + up to 5 voice/video/photo/document attachments).
+router.post('/me/notes', verify, notesUpload.array('files', 5), async (req, res) => {
+  try {
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    const uploadedFiles = req.files || [];
+    if (!body && uploadedFiles.length === 0) {
+      return res.status(400).json({ message: 'A note needs text or at least one attachment' });
+    }
+
+    const note = await UserNote.create({ userId: req.user.id, body, insertDate: new Date() });
+
+    if (uploadedFiles.length) {
+      const files = [];
+      for (const file of uploadedFiles) {
+        const mime = file.mimetype || '';
+        const kind = mime.startsWith('audio/') ? 'audio'
+          : mime.startsWith('video/') ? 'video'
+          : mime.startsWith('image/') ? 'image'
+          : 'document';
+
+        let thumbnail = null;
+        if (kind === 'image') {
+          try {
+            const thumbFilename = `thumb-${file.filename}`;
+            await sharp(file.path).resize(300).jpeg({ quality: 80 }).toFile(`public/uploads/${thumbFilename}`);
+            thumbnail = thumbFilename;
+          } catch (_) { /* non-fatal */ }
+        } else if (kind === 'video') {
+          thumbnail = await extractNoteVideoThumbnail(file.path, `thumb-${file.filename}.png`);
+        }
+
+        const fileDoc = await File.create({
+          name: file.originalname.split('.')[0],
+          supFolder: null,
+          metaData: file,
+          format: file.originalname.slice(file.originalname.lastIndexOf('.') + 1),
+          generatedBy: req.user.id,
+          thumbnail,
+          scope: 'users',
+          attachedTo: { type: 'userNote', id: note._id },
+        });
+
+        files.push({ fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail });
+      }
+      note.files = files;
+      await note.save();
+    }
+
+    return res.status(201).json(note);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /users/me/notes/:noteId — soft-delete your OWN note.
+router.delete('/me/notes/:noteId', verify, async (req, res) => {
+  try {
+    const note = await UserNote.findOneAndUpdate(
+      { _id: req.params.noteId, userId: req.user.id, deleteDate: null },
+      { $set: { deleteDate: new Date(), updateDate: new Date() } },
+      { new: true }
+    );
+    if (!note) return res.status(404).json({ message: 'Note not found' });
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── Job Reports — self-authored, but VISIBLE to anyone who can view this
+// user's profile (users:view) — unlike Notes above, these are not private.
+// Shown in Users > (their profile) > Job Reports, organized/filterable by
+// reportDate (distinct from insertDate — the date the entry was typed up).
+
+// GET /users/:id/jobReports — the OWNER can always see their own; anyone else
+// needs users:view (same gate as GET /:id and GET /:id/logs).
+// ?dateFrom=&dateTo=&page=&limit=
+router.get('/:id/jobReports', verify, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (String(targetId) !== String(req.user.id)) {
+      const perms = await getEffectivePermissions(req.user.id);
+      if (!perms.has('users:view')) return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { dateFrom, dateTo, page = 1, limit = 20 } = req.query;
+    const filter = { userId: targetId, deleteDate: null };
+    if (dateFrom || dateTo) {
+      filter.reportDate = {};
+      if (dateFrom) filter.reportDate.$gte = new Date(dateFrom);
+      if (dateTo)   filter.reportDate.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    }
+
+    const lim = Math.min(50, Number(limit) || 20);
+    const pg  = Math.max(1, Number(page) || 1);
+    const [data, total] = await Promise.all([
+      UserJobReport.find(filter).sort({ reportDate: -1, insertDate: -1 }).skip((pg - 1) * lim).limit(lim).lean(),
+      UserJobReport.countDocuments(filter),
+    ]);
+    return res.status(200).json({ data, total });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+async function makeJobReportFileEntry(file, userId, reportId) {
+  const mime = file.mimetype || '';
+  const kind = mime.startsWith('audio/') ? 'audio'
+    : mime.startsWith('video/') ? 'video'
+    : mime.startsWith('image/') ? 'image'
+    : 'document';
+
+  let thumbnail = null;
+  if (kind === 'image') {
+    try {
+      const thumbFilename = `thumb-${file.filename}`;
+      await sharp(file.path).resize(300).jpeg({ quality: 80 }).toFile(`public/uploads/${thumbFilename}`);
+      thumbnail = thumbFilename;
+    } catch (_) { /* non-fatal */ }
+  } else if (kind === 'video') {
+    thumbnail = await extractNoteVideoThumbnail(file.path, `thumb-${file.filename}.png`);
+  }
+
+  const fileDoc = await File.create({
+    name: file.originalname.split('.')[0],
+    supFolder: null,
+    metaData: file,
+    format: file.originalname.slice(file.originalname.lastIndexOf('.') + 1),
+    generatedBy: userId,
+    thumbnail,
+    scope: 'users',
+    attachedTo: { type: 'userJobReport', id: reportId },
+  });
+
+  return { fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail };
+}
+
+// POST /users/me/jobReports — create your OWN report (text + up to 5 voice/video/photo/document attachments).
+router.post('/me/jobReports', verify, notesUpload.array('files', 5), async (req, res) => {
+  try {
+    const reportDate = req.body.reportDate ? new Date(req.body.reportDate) : new Date();
+    const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+    const body  = typeof req.body.body  === 'string' ? req.body.body.trim()  : '';
+    const uploadedFiles = req.files || [];
+
+    const report = await UserJobReport.create({ userId: req.user.id, reportDate, title, body, insertDate: new Date() });
+
+    if (uploadedFiles.length) {
+      const files = [];
+      for (const file of uploadedFiles) files.push(await makeJobReportFileEntry(file, req.user.id, report._id));
+      report.files = files;
+      await report.save();
+    }
+
+    return res.status(201).json(report);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /users/me/jobReports/:reportId — edit your OWN report (real edit — date/text + add/remove files).
+router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', 5), async (req, res) => {
+  try {
+    const report = await UserJobReport.findOne({ _id: req.params.reportId, userId: req.user.id, deleteDate: null });
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+
+    if (req.body.reportDate !== undefined) report.reportDate = new Date(req.body.reportDate);
+    if (req.body.title      !== undefined) report.title      = req.body.title.trim();
+    if (req.body.body       !== undefined) report.body       = req.body.body.trim();
+
+    let removeFileIds = [];
+    try { removeFileIds = JSON.parse(req.body.removeFileIds || '[]').map(String); } catch (_) { /* ignore */ }
+    if (removeFileIds.length) {
+      report.files = report.files.filter((f) => !removeFileIds.includes(String(f.fileId)));
+    }
+
+    const uploadedFiles = req.files || [];
+    for (const file of uploadedFiles) {
+      report.files.push(await makeJobReportFileEntry(file, req.user.id, report._id));
+    }
+
+    report.updateDate = new Date();
+    await report.save();
+    return res.status(200).json(report);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /users/me/jobReports/:reportId — soft-delete your OWN report.
+router.delete('/me/jobReports/:reportId', verify, async (req, res) => {
+  try {
+    const report = await UserJobReport.findOneAndUpdate(
+      { _id: req.params.reportId, userId: req.user.id, deleteDate: null },
+      { $set: { deleteDate: new Date(), updateDate: new Date() } },
+      { new: true }
+    );
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── Telegram — self-service link, mirrors existing notification events ────────
+// Independent of the SMS/OTP auth system. verify-only, self only (no
+// permission key — it's the caller's own data, same rationale as Notes/My
+// Profile). The actual /start <code> handling lives in server.js, next to
+// where the long-polling loop is started (needs the User model + a way to
+// send the confirmation message — not an HTTP route, so it doesn't belong
+// in this router).
+
+router.get('/me/telegram/status', verify, async (req, res) => {
+  try {
+    const u = await userM.findById(req.user.id).select('telegram').lean();
+    const tg = (u && u.telegram) || {};
+    const pendingStillValid = !tg.chatId && tg.pendingCode && tg.pendingCodeExpiresAt && new Date(tg.pendingCodeExpiresAt) > new Date();
+    return res.status(200).json({
+      linked: !!tg.chatId,
+      username: tg.username || null,
+      linkedAt: tg.linkedAt || null,
+      pendingCode: pendingStillValid ? tg.pendingCode : null,
+      botUsername: process.env.TELEGRAM_BOT_USERNAME || 'xms_lazulite_bot',
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/me/telegram/link-code', verify, async (req, res) => {
+  try {
+    const code = crypto.randomBytes(6).toString('hex');
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await userM.findOneAndUpdate(
+      { _id: req.user.id, deleteDate: null },
+      { $set: { 'telegram.pendingCode': code, 'telegram.pendingCodeExpiresAt': expiresAt } }
+    );
+    return res.status(200).json({
+      code,
+      expiresAt,
+      botUsername: process.env.TELEGRAM_BOT_USERNAME || 'xms_lazulite_bot',
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/me/telegram/unlink', verify, async (req, res) => {
+  try {
+    await userM.findOneAndUpdate(
+      { _id: req.user.id },
+      { $set: {
+        'telegram.chatId': null, 'telegram.username': null, 'telegram.linkedAt': null,
+        'telegram.pendingCode': null, 'telegram.pendingCodeExpiresAt': null,
+      } }
+    );
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── GET /users/directory — lightweight id→{name, profileImage} lookup ─────────
+// Powers avatar rendering anywhere a user's identity is shown by id (chat
+// bubbles, task assignee, activity actor, "shared by", etc.) without forcing
+// every module's own actor-name-building route to carry profileImage too.
+// verify-only, no permission key: colleague names are already shown app-wide
+// with no gate (activity actorName / assignedByName / senderName etc. — see
+// getActorName()-style helpers across crm/mis/digitalMarketing) — this adds a
+// photo to that same, already-ungated information, nothing more sensitive.
+// Defined before /:id so 'directory' is never captured as an ObjectId.
+router.get('/directory', verify, async (req, res) => {
+  try {
+    const users = await userM.find({ deleteDate: null })
+      .select('firstName lastName profileImage')
+      .lean();
+    return res.status(200).json({ data: users });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
@@ -201,7 +579,7 @@ router.get('/', verify, requirePermission('users:view'), async (req, res) => {
     }
     const [users, total] = await Promise.all([
       userM.find(query)
-        .select('firstName lastName phoneNumber profileImage validation access isOnline lastSeen insertDate auth.lockedUntil')
+        .select('firstName lastName phoneNumber profileImage validation access isOnline lastSeen insertDate auth.lockedUntil language')
         .sort(sort)
         .skip(Number(skip))
         .limit(Number(limit))
@@ -251,11 +629,19 @@ router.get('/:id', verify, requirePermission('users:view'), async (req, res) => 
 });
 
 // ── GET /users/:id/logs — activity timeline ───────────────────────────────────
-// ?section=all|inventory|crm|mis   (default: all)
+// The OWNER can always see their own (powers the self-service "My Activity"
+// page, reachable from the profile popup regardless of users:view — see
+// myActivityPage.js); anyone else needs users:view. Same pattern as
+// GET /:id/jobReports below.
+// ?section=all|inventory|crm|mis|digitalMarketing   (default: all)
 // ?page=1&limit=30
-router.get('/:id/logs', verify, requirePermission('users:view'), async (req, res) => {
+router.get('/:id/logs', verify, async (req, res) => {
   try {
     const uid     = req.params.id;
+    if (String(uid) !== String(req.user.id)) {
+      const perms = await getEffectivePermissions(req.user.id);
+      if (!perms.has('users:view')) return res.status(403).json({ message: 'Access denied' });
+    }
     const section = req.query.section || 'all';
     const page    = Math.max(1, parseInt(req.query.page)  || 1);
     const limit   = Math.min(50, parseInt(req.query.limit) || 30);
@@ -357,6 +743,40 @@ router.get('/:id/logs', verify, requirePermission('users:view'), async (req, res
           newValue:    log.newValue,
           body:        log.body,
           date:        log.date || log.createdAt,
+        });
+      });
+    }
+
+    // ── Digital Marketing logs (dmActivity, keyed by actorId) ────────────────
+    // Only 'created'/'status_changed' — 'viewed'/'downloaded' are near-empty
+    // for the record's own creator (self-views are deliberately never logged,
+    // see routes/digitalMarketing/main.js) and aren't useful "my work" signal.
+    if (section === 'all' || section === 'digitalMarketing') {
+      const dmLogs = await DmActivity.find({ actorId: uid, action: { $in: ['created', 'status_changed'] } })
+        .sort({ date: -1 })
+        .lean();
+
+      const rawIds   = dmLogs.filter(l => l.subjectType === 'rawContent').map(l => l.subjectId);
+      const readyIds = dmLogs.filter(l => l.subjectType === 'readyToUpload').map(l => l.subjectId);
+      const [rawDocs, readyDocs] = await Promise.all([
+        rawIds.length   ? RawContent.find({ _id: { $in: rawIds } }).select('title files').lean()      : [],
+        readyIds.length ? ReadyToUpload.find({ _id: { $in: readyIds } }).select('title files').lean() : [],
+      ]);
+      const rawMap   = {}; rawDocs.forEach(d   => { rawMap[String(d._id)]   = d; });
+      const readyMap = {}; readyDocs.forEach(d => { readyMap[String(d._id)] = d; });
+
+      dmLogs.forEach(log => {
+        const subj = log.subjectType === 'rawContent' ? rawMap[String(log.subjectId)] : readyMap[String(log.subjectId)];
+        const subjName = subj?.title?.trim() || (subj ? `${subj.files?.length || 0} file(s)` : '');
+        entries.push({
+          _id:         String(log._id),
+          section:     'digitalMarketing',
+          changeType:  log.action,
+          subjectType: log.subjectType,
+          productName: subjName,
+          oldValue:    log.oldValue,
+          newValue:    log.newValue,
+          date:        log.date,
         });
       });
     }

@@ -21,6 +21,9 @@ const pwaSubscription = dbConnection.model('pwaSubscription', pwaSubscriptionMod
 
 const webpush = require('web-push');
 webpush.setVapidDetails('mailto:test@test.com', process.env.PublicVapidKey, process.env.PrivateVapidKey);
+const { sendTelegramMessage } = require('../../utils/telegramBot');
+const { createShortLink } = require('../../utils/shortLink');
+const { renderNotificationText } = require('../../utils/notificationText');
 
 const storage = multer.diskStorage({
   destination: 'uploads/',
@@ -94,15 +97,16 @@ function notifPath(entityType, entityId) {
 // Fire the browser (web-push) notification for a persisted in-app notification,
 // gated by the recipient's notificationPrefs. Best-effort: never throws into the
 // caller, and prunes subscriptions the push service reports as gone (404/410).
-async function sendWebPush(userId, { type, title, body, entityType, entityId }) {
+// `user` is the ALREADY-FETCHED recipient doc (see sendNotificationToUser) —
+// avoids a second DB round-trip for the same prefs sendTelegramNotification needs.
+async function sendWebPush(user, { type, title, body, entityType, entityId }) {
   try {
+    if (user.pushEnabled === false) return;   // channel switched off entirely, independent of category prefs
+
     const prefCat = PREF_BY_TYPE[type];
-    if (prefCat) {
-      const u = await userM.findById(userId).select('notificationPrefs').lean();
-      const prefs = (u && u.notificationPrefs) || {};
-      if (prefs[prefCat] === false) return;   // user opted out of this category
-    }
-    const subDoc = await pwaSubscription.findOne({ userId });
+    if (prefCat && user.notificationPrefs && user.notificationPrefs[prefCat] === false) return;
+
+    const subDoc = await pwaSubscription.findOne({ userId: String(user._id) });
     if (!subDoc || !Array.isArray(subDoc.subscription) || !subDoc.subscription.length) return;
 
     const payload = JSON.stringify({ type: 'generic', title, body, entityType, entityId, url: notifPath(entityType, entityId) });
@@ -132,11 +136,104 @@ async function sendWebPush(userId, { type, title, body, entityType, entityId }) 
   }
 }
 
+// Maps a notification's entityType to the short-link system's {module,
+// entityType} pair (api/utils/shortLink.js) — a different vocabulary, since a
+// short link also needs to know which SECTION a record lives in — plus the
+// clickable link text shown in the Telegram message, per RECIPIENT language
+// (same rationale as utils/notificationText.js). Types with no specific
+// detail page (e.g. 'task', which only ever deep-links to the general /crm
+// view) are deliberately left unmapped — those messages just don't get a link.
+const ENTITY_TO_SHORTLINK = {
+  customer: {
+    module: 'crm', entityType: 'customer',
+    label: { en: 'Show the customer', fa: 'نمایش مشتری', ar: 'عرض العميل' },
+  },
+  invoice: {
+    module: 'mis', entityType: 'invoice',
+    label: { en: 'Show the invoice', fa: 'نمایش فاکتور', ar: 'عرض الفاتورة' },
+  },
+  rawContent: {
+    module: 'digitalMarketing', entityType: 'rawContent',
+    label: { en: 'Show the raw content', fa: 'نمایش محتوای خام', ar: 'عرض المحتوى الخام' },
+  },
+  readyToUpload: {
+    module: 'digitalMarketing', entityType: 'readyToUpload',
+    label: { en: 'Show the ready-to-upload content', fa: 'نمایش محتوای آماده آپلود', ar: 'عرض المحتوى الجاهز للرفع' },
+  },
+  user: {
+    module: 'users', entityType: 'user',
+    label: { en: 'Show the profile', fa: 'نمایش پروفایل', ar: 'عرض الملف الشخصي' },
+  },
+};
+
+// Telegram messages are sent with parse_mode:'HTML' (see telegramBot.js) so
+// the link can be real clickable text instead of a bare pasted URL — title
+// and body may contain user-typed text (customer names, note bodies, etc.),
+// so they must be escaped before being wrapped in HTML tags, or a stray
+// '<'/'&' would either break the send or accidentally inject formatting.
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Telegram delivery for a persisted notification — mirrors sendWebPush's gating
+// (same per-type opt-out via notificationPrefs) but NOT its linking: a push
+// notification's url is a plain in-app relative path (notifPath()) because the
+// click happens inside the already-logged-in browser/PWA — no session exists
+// in Telegram, so a message needs a REAL clickable URL, and since it may sit
+// unread for days or get forwarded, the permission-checked short-link system
+// (same one the in-app "copy link" buttons use) is the right fit here, not a
+// raw deep path. No-op if the user never linked their account.
+async function sendTelegramNotification(user, { type, title, body, entityType, entityId, lang }) {
+  try {
+    if (!user.telegram || !user.telegram.chatId) return;
+    if (user.telegram.enabled === false) return;   // channel switched off, independent of being linked
+    const prefCat = PREF_BY_TYPE[type];
+    if (prefCat && user.notificationPrefs && user.notificationPrefs[prefCat] === false) return;
+
+    let text = body ? `<b>${escapeHtml(title)}</b>\n${escapeHtml(body)}` : `<b>${escapeHtml(title)}</b>`;
+
+    const mapping = entityType && ENTITY_TO_SHORTLINK[entityType];
+    if (mapping && entityId) {
+      try {
+        const code = await createShortLink({
+          module: mapping.module, entityType: mapping.entityType, entityId,
+          expiresAt: null, createdBy: String(user._id),
+        });
+        const base = process.env.FRONTEND_URL || 'https://xms.lazulitemarble.com';
+        const url  = `${base}/l/${code}`;
+        const label = mapping.label[lang] || mapping.label.en;
+        text += `\n\n<a href="${url}">${escapeHtml(label)}</a>`;
+      } catch (_) { /* link creation is best-effort — message still sends without it */ }
+    }
+
+    await sendTelegramMessage(user.telegram.chatId, text);
+  } catch (err) {
+    console.error('sendTelegramNotification failed:', err && err.message);
+  }
+}
+
 // Send a notification to a specific user via socket AND persist to DB AND, if
-// they have a push subscription + haven't opted out, a browser push.
+// they have a push subscription + haven't opted out, a browser push — AND, if
+// they've linked Telegram, a Telegram message. Text is translated into the
+// RECIPIENT's own language (userModel.language) whenever a textKey is given —
+// pass { textKey, textParams } instead of literal title/body wherever a
+// translation exists in utils/notificationText.js; literal title/body is
+// still supported as a fallback (untranslated) for anything not migrated yet.
 // Other route files import this to push real-time notifications.
-const sendNotificationToUser = async (userId, { fromId = null, fromName = '', type = 'info', title, body = '', entityType = null, entityId = null } = {}) => {
-  if (!userId || !title) return;
+const sendNotificationToUser = async (userId, { fromId = null, fromName = '', type = 'info', textKey = null, textParams = {}, title: rawTitle = null, body: rawBody = '', entityType = null, entityId = null } = {}) => {
+  if (!userId) return;
+  const user = await userM.findById(userId).select('language notificationPrefs pushEnabled telegram').lean();
+  if (!user) return;
+  const lang = ['en', 'fa', 'ar'].includes(user.language) ? user.language : 'en';
+
+  let title = rawTitle, body = rawBody;
+  if (textKey) {
+    const rendered = renderNotificationText(textKey, lang, textParams);
+    if (rendered) { title = rendered.title; body = rendered.body; }
+  }
+  if (!title) return;
+
   let saved;
   try {
     saved = await Notification.create({ userId, fromId, fromName, type, title, body, entityType, entityId });
@@ -146,8 +243,9 @@ const sendNotificationToUser = async (userId, { fromId = null, fromName = '', ty
       _id: saved?._id, userId, fromId, fromName, type, title, body, entityType, entityId, isRead: false, insertDate: new Date(),
     });
   }
-  // Browser push (best-effort, respects per-user prefs)
-  sendWebPush(String(userId), { type, title, body, entityType, entityId });
+  // Browser push + Telegram (both best-effort, both respect per-user prefs)
+  sendWebPush(user, { type, title, body, entityType, entityId });
+  sendTelegramNotification(user, { type, title, body, entityType, entityId, lang });
   return saved;
 };
 
@@ -157,6 +255,16 @@ const sendNotificationToUser = async (userId, { fromId = null, fromName = '', ty
 const emitRawContentMessage = (rawContentId, message) => {
   if (!_io || !rawContentId) return;
   _io.to(`rawContent:${String(rawContentId)}`).emit('dm:chat:new', message);
+};
+
+// Same idea, for a STANDALONE ready-to-upload record's own chat thread (one
+// with no source raw content to attach to — see rawContentChatModel.js).
+// Separate room namespace (readyToUpload:<id> vs rawContent:<id>) so the two
+// never collide even if a rawContentId and a readyToUploadId ever happened to
+// share the same ObjectId value (astronomically unlikely, but free to avoid).
+const emitReadyToUploadMessage = (readyToUploadId, message) => {
+  if (!_io || !readyToUploadId) return;
+  _io.to(`readyToUpload:${String(readyToUploadId)}`).emit('dm:chat:new', message);
 };
 
 // ── Socket.io setup (receives io from server.js) ──────────────────────────────
@@ -201,6 +309,14 @@ const returnRouter = function (io) {
     });
     socket.on('dm:leaveRawContent', (rawContentId) => {
       if (rawContentId) socket.leave(`rawContent:${rawContentId}`);
+    });
+
+    // Same pattern, for a standalone ready-to-upload record's own chat thread.
+    socket.on('dm:joinReadyToUpload', (readyToUploadId) => {
+      if (readyToUploadId) socket.join(`readyToUpload:${readyToUploadId}`);
+    });
+    socket.on('dm:leaveReadyToUpload', (readyToUploadId) => {
+      if (readyToUploadId) socket.leave(`readyToUpload:${readyToUploadId}`);
     });
 
     // ── 'sendRequest' — existing notification relay ─────────────────────────
@@ -335,3 +451,4 @@ const returnRouter = function (io) {
 module.exports = returnRouter;
 module.exports.sendNotificationToUser = sendNotificationToUser;
 module.exports.emitRawContentMessage = emitRawContentMessage;
+module.exports.emitReadyToUploadMessage = emitReadyToUploadMessage;

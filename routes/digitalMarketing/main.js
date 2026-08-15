@@ -14,8 +14,8 @@ const userSchema           = require('../../models/userModel');
 const fileSchema           = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission, getEffectiveScopes, Group } = require('../../utils/rbac');
-const { emitRawContentMessage, sendNotificationToUser } = require('../socket/xmsNotifications');
+const { requirePermission, getEffectiveScopes, getUsersWithPermission, Group } = require('../../utils/rbac');
+const { emitRawContentMessage, emitReadyToUploadMessage, sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -106,12 +106,39 @@ async function getActorName(userId) {
   return actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
 }
 
-// Best-effort view/download audit row — never blocks the actual request.
-async function logDmActivity(subjectType, subjectId, action, userId, actorName, fileMeta = {}) {
+// Broadcasts a notification (in-app + push + Telegram, via the existing
+// sendNotificationToUser) to everyone who currently has digitalMarketing:view
+// — minus whoever just performed the upload (they don't need telling about
+// their own action) and any extra ids the caller already notified separately
+// (e.g. the batch owner, who gets a more specific "your content is ready"
+// message). Fire-and-forget: never awaited by the caller, and one failed
+// send must never affect the others (sendNotificationToUser is itself
+// already best-effort per recipient). textKey/textParams are translated into
+// each RECIPIENT's own language inside sendNotificationToUser — this function
+// never builds English text itself.
+function broadcastToDmViewers(actorId, actorName, { textKey, textParams, entityType, entityId }, extraExcludeIds = []) {
+  (async () => {
+    try {
+      const skip = new Set([String(actorId), ...extraExcludeIds.map(String)]);
+      const userIds = await getUsersWithPermission('digitalMarketing:view');
+      const recipients = userIds.filter((id) => !skip.has(id));
+      await Promise.all(recipients.map((id) =>
+        sendNotificationToUser(id, {
+          fromId: actorId, fromName: actorName, type: 'readyToUpload',
+          textKey, textParams, entityType, entityId,
+        })
+      ));
+    } catch (_) { /* best-effort */ }
+  })();
+}
+
+// Best-effort audit row — never blocks the actual request.
+async function logDmActivity(subjectType, subjectId, action, userId, actorName, meta = {}) {
   try {
     await DmActivity.create({
       subjectType, subjectId, action, actorId: userId, actorName,
-      fileId: fileMeta.fileId || null, fileName: fileMeta.fileName || '',
+      fileId: meta.fileId || null, fileName: meta.fileName || '',
+      oldValue: meta.oldValue ?? null, newValue: meta.newValue ?? null,
     });
   } catch (_) { /* audit trail is non-critical */ }
 }
@@ -178,6 +205,43 @@ async function loadReadyToUpload(req, res, next) {
     }
 
     req.readyToUpload = doc;
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// Same chokepoint as loadRawContent, but ALSO grants access via a derived
+// readyToUpload record — fixes a real bug: the chat is deliberately "one
+// thread, viewable from either side" (readyToUploadDetail.js renders the same
+// RawContentChat, keyed by rawContentId), but ownership is independent on the
+// two documents (whoever graduates someone else's raw content to
+// ready-to-upload becomes the READY-TO-UPLOAD owner, not the raw content's).
+// Under a 'mine'/'group' dmScope, that editor could open their own
+// ready-to-upload record fine (loadReadyToUpload checks ITS owner) but the
+// chat panel inside it 403'd silently (loadRawContent was checking the RAW
+// CONTENT's owner instead) — messages just never loaded and sends silently
+// failed, with no error surfaced anywhere in the UI.
+async function loadRawContentForChat(req, res, next) {
+  try {
+    const doc = await RawContent.findOne({ _id: req.params.id, deleteDate: null });
+    if (!doc) return res.status(404).json({ message: 'Raw content not found' });
+
+    const scopes  = await getEffectiveScopes(req.user.id);
+    const dmScope = scopes.digitalMarketing;
+
+    let allowed = await canAccessRecord(req.user.id, dmScope, doc);
+    if (!allowed) {
+      const derivedReady = await ReadyToUpload.findOne({ rawContentId: doc._id, deleteDate: null }).lean();
+      if (derivedReady && (await canAccessRecord(req.user.id, dmScope, derivedReady))) {
+        allowed = true;
+      }
+    }
+    if (!allowed) {
+      return res.status(403).json({ message: 'Not allowed to access this record' });
+    }
+
+    req.rawContent = doc;
     return next();
   } catch (err) {
     return next(err);
@@ -317,6 +381,12 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
     doc.files = fileEntries;
     await doc.save();
 
+    logDmActivity('rawContent', doc._id, 'created', userId, actorName);
+    broadcastToDmViewers(userId, actorName, {
+      textKey: 'dmRawContentUploaded', textParams: { actorName, batchTitle: doc.title },
+      entityType: 'rawContent', entityId: doc._id,
+    });
+
     return res.status(201).json(doc);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -338,6 +408,7 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
   try {
     const userId = req.user.id;
     const doc    = req.rawContent;
+    const prevStatus = doc.status;
 
     if (req.body.title !== undefined) doc.title = req.body.title;
 
@@ -431,6 +502,11 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
     doc.updatedBy  = userId;
     await doc.save();
 
+    if (doc.status !== prevStatus) {
+      getActorName(userId).then((name) =>
+        logDmActivity('rawContent', doc._id, 'status_changed', userId, name, { oldValue: prevStatus, newValue: doc.status }));
+    }
+
     return res.status(200).json(doc);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -488,21 +564,32 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
     ready.files = fileEntries;
     await ready.save();
 
+    const prevStatus = doc.status;
     doc.status = 'ready_to_upload';
     doc.readyToUploadId = ready._id;
     doc.updateDate = new Date();
     doc.updatedBy  = userId;
     await doc.save();
 
+    logDmActivity('readyToUpload', ready._id, 'created', userId, actorName);
+    if (doc.status !== prevStatus) {
+      logDmActivity('rawContent', doc._id, 'status_changed', userId, actorName, { oldValue: prevStatus, newValue: doc.status });
+    }
+
     // Notify the batch owner that their content is now ready to upload.
     if (doc.owner && String(doc.owner) !== String(userId)) {
       await sendNotificationToUser(String(doc.owner), {
         fromId: userId, fromName: actorName, type: 'readyToUpload',
-        title: 'Content is ready to upload',
-        body: `${actorName} marked "${doc.title || 'a batch'}" ready to upload`,
+        textKey: 'dmReadyToUploadOwner', textParams: { actorName, batchTitle: doc.title },
         entityType: 'readyToUpload', entityId: String(ready._id),
       });
     }
+    // Broadcast to everyone else who can see Digital Marketing (the owner
+    // above already got a more specific message, so they're skipped here too).
+    broadcastToDmViewers(userId, actorName, {
+      textKey: 'dmReadyToUploadBroadcast', textParams: { actorName, batchTitle: doc.title },
+      entityType: 'readyToUpload', entityId: String(ready._id),
+    }, doc.owner ? [doc.owner] : []);
 
     return res.status(201).json({ rawContent: doc, readyToUpload: ready });
   } catch (err) {
@@ -513,7 +600,7 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
 // ── Raw content chat (real-time, one Socket.io room per rawContentId) ────────
 
 // GET /raw-contents/:id/chat — message history, oldest first, paginated
-router.get('/raw-contents/:id/chat', verify, requirePermission('digitalMarketing:rawContent:chat'), loadRawContent, async (req, res) => {
+router.get('/raw-contents/:id/chat', verify, requirePermission('digitalMarketing:rawContent:chat'), loadRawContentForChat, async (req, res) => {
   try {
     const { page = 1, limit = 50 } = req.query;
     const lim  = Math.min(Math.max(Number(limit) || 50, 1), 100);
@@ -533,7 +620,7 @@ router.get('/raw-contents/:id/chat', verify, requirePermission('digitalMarketing
 });
 
 // POST /raw-contents/:id/chat — send a text, voice, or file message
-router.post('/raw-contents/:id/chat', verify, requirePermission('digitalMarketing:rawContent:chat'), loadRawContent,
+router.post('/raw-contents/:id/chat', verify, requirePermission('digitalMarketing:rawContent:chat'), loadRawContentForChat,
   dmUpload.single('file'),
   async (req, res) => {
   try {
@@ -575,8 +662,7 @@ router.post('/raw-contents/:id/chat', verify, requirePermission('digitalMarketin
     if (ownerId && String(ownerId) !== String(userId)) {
       await sendNotificationToUser(String(ownerId), {
         fromId: userId, fromName: actorName, type: 'dmChat',
-        title: 'New message on your content',
-        body: type === 'text' ? body.slice(0, 120) : `Sent a ${type}`,
+        textKey: 'dmChatMessage', textParams: { msgType: type, textPreview: type === 'text' ? body.slice(0, 120) : '' },
         entityType: 'rawContent', entityId: String(req.rawContent._id),
       });
     }
@@ -623,6 +709,12 @@ router.post('/ready-to-upload', verify, requirePermission('digitalMarketing:read
     }
     ready.files = fileEntries;
     await ready.save();
+
+    logDmActivity('readyToUpload', ready._id, 'created', userId, actorName);
+    broadcastToDmViewers(userId, actorName, {
+      textKey: 'dmReadyToUploadStandalone', textParams: { actorName, batchTitle: ready.title },
+      entityType: 'readyToUpload', entityId: String(ready._id),
+    });
 
     return res.status(201).json(ready);
   } catch (err) {
@@ -700,6 +792,87 @@ router.post('/ready-to-upload/:id/files/:fileId/log-download', verify, requirePe
       { fileId: entry.fileId, fileName: entry.name });
   }
   return res.status(200).json({ ok: true });
+});
+
+// ── Ready-to-upload's OWN chat thread ──────────────────────────────────────────
+// Every ready-to-upload record gets a chat now, not just ones graduated from a
+// raw content batch: a graduated record keeps reusing its SOURCE raw content's
+// thread (rawContentId — "same conversation, either side", unchanged, see
+// /raw-contents/:id/chat above), but a STANDALONE record (created via
+// POST /ready-to-upload directly, no source raw content at all) had nowhere
+// for a chat to live. These two routes are that thread — keyed by
+// readyToUploadId instead, same message shape, same shared File-collection
+// attachment convention, separate Socket.io room (readyToUpload:<id>).
+
+// GET /ready-to-upload/:id/chat — message history, oldest first, paginated
+router.get('/ready-to-upload/:id/chat', verify, requirePermission('digitalMarketing:rawContent:chat'), loadReadyToUpload, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const lim  = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * lim;
+
+    const [data, total] = await Promise.all([
+      RawContentChat.find({ readyToUploadId: req.readyToUpload._id })
+        .sort({ date: -1 }).skip(skip).limit(lim).lean(),
+      RawContentChat.countDocuments({ readyToUploadId: req.readyToUpload._id }),
+    ]);
+
+    return res.status(200).json({ data: data.reverse(), total, page: Number(page) || 1, limit: lim });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /ready-to-upload/:id/chat — send a text, voice, or file message
+router.post('/ready-to-upload/:id/chat', verify, requirePermission('digitalMarketing:rawContent:chat'), loadReadyToUpload,
+  dmUpload.single('file'),
+  async (req, res) => {
+  try {
+    const userId    = req.user.id;
+    const actorName = await getActorName(userId);
+    const body      = req.body.body || '';
+
+    if (!body.trim() && !req.file) {
+      return res.status(400).json({ message: 'Message must have text or an attachment' });
+    }
+
+    let type = 'text';
+    let fileId = null, fileName = '', fileMime = '';
+
+    let fileDiskName = '';
+    if (req.file) {
+      const f = await makeFileDoc(req.file, userId, 'readyToUploadChat', req.readyToUpload._id);
+      const kind = classifyFile(req.file.mimetype);
+      type = kind === 'audio' ? 'voice' : 'file';
+      fileId       = f.fileId;
+      fileDiskName = f.diskName;
+      fileName     = f.name;
+      fileMime     = f.mimetype;
+    }
+
+    const message = await RawContentChat.create({
+      readyToUploadId: req.readyToUpload._id,
+      senderId: userId,
+      senderName: actorName,
+      type, body, fileId, fileDiskName, fileName, fileMime,
+      date: new Date(),
+    });
+
+    emitReadyToUploadMessage(req.readyToUpload._id, message);
+
+    const ownerId = req.readyToUpload.owner;
+    if (ownerId && String(ownerId) !== String(userId)) {
+      await sendNotificationToUser(String(ownerId), {
+        fromId: userId, fromName: actorName, type: 'dmChat',
+        textKey: 'dmChatMessage', textParams: { msgType: type, textPreview: type === 'text' ? body.slice(0, 120) : '' },
+        entityType: 'readyToUpload', entityId: String(req.readyToUpload._id),
+      });
+    }
+
+    return res.status(201).json(message);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // PUT /ready-to-upload/:id — edit title/files/language/platform/caption

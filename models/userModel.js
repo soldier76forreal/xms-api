@@ -64,11 +64,57 @@ const userSchema = new mongoose.Schema({
 
   // ── Profile ───────────────────────────────────────────────────────────────
   profileImage:  { type: Object },
+  // Persisted UI language — mirrors the frontend's LANGUAGES codes
+  // (xms/src/i18n/index.js). Written from the language switcher so it's
+  // visible to others (Users section indicator), not just this browser's
+  // localStorage. Defaulted so pre-existing users read as 'en' (the app's
+  // own default) rather than null.
+  language:      { type: String, enum: ['en', 'fa', 'ar'], default: 'en' },
   countryCode:   { type: String, default: null },  // e.g. '+98', '+971'
   city:          { type: String },
   State:        { type: String },
   postalCode:   { type: String },
   address:      { type: String },
+
+  // ── Telegram notification delivery (self-service link via /start <code>) ──
+  // Independent of the SMS/OTP auth system — a separate delivery channel that
+  // mirrors the existing in-app notification events (see sendNotificationToUser
+  // in routes/socket/xmsNotifications.js).
+  telegram: {
+    chatId:               { type: String, default: null },  // set once /start <code> is received
+    username:             { type: String, default: null },  // their Telegram @username, informational only
+    linkedAt:             { type: Date,   default: null },
+    pendingCode:          { type: String, default: null },  // one-time code shown in the "Connect Telegram" UI
+    pendingCodeExpiresAt: { type: Date,   default: null },  // 10 min from generation
+    // ON/OFF for delivery WITHOUT unlinking the account — separate from being
+    // linked at all (chatId set). Checked by sendTelegramNotification.
+    enabled:              { type: Boolean, default: true },
+  },
+  // ON/OFF for web-push delivery, independent of browser permission — that's
+  // whether the BROWSER allows it (Notification.permission); this is whether
+  // the backend should even try. Checked by sendWebPush.
+  pushEnabled: { type: Boolean, default: true },
+
+  // ── WhatsApp Business Cloud API — per-user connected number ────────────────
+  // Admin-provisioned, NOT self-service like Telegram: a phone_number_id only
+  // exists once that number is registered under the company's WABA in Meta
+  // Business Manager (an admin-only action outside this app) — an admin
+  // pastes the resulting id here to associate it with this XMS user. Read by
+  // the separate whatsappApi/ service to route incoming messages to the
+  // right user's CRM view.
+  whatsapp: {
+    phoneNumberId: { type: String, default: null },   // Meta's phone_number_id for this user's connected number
+    displayNumber: { type: String, default: null },   // the actual WhatsApp number, for display only
+    connectedAt:   { type: Date,   default: null },
+    connectedBy:   { type: mongoose.Schema.Types.ObjectId, default: null },  // which admin set this up
+  },
+  // Governs how much autonomy the WhatsApp CRM agent has for THIS user's
+  // conversations: 'review' = the agent still writes communication-log
+  // entries automatically (low-risk audit trail), but a proposed new customer
+  // or a customer detail change waits for this user to approve it; 'automatic'
+  // = the agent applies both directly. Defaults to the safer option — a user
+  // opts INTO full autonomy, not the other way around.
+  crmAgentMode: { type: String, enum: ['review', 'automatic'], default: 'review' },
 
   // ── Job Report (xmsApi-specific embedded data) ────────────────────────────
   jobReport:        [jobReportSchema],
