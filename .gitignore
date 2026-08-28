@@ -26,3 +26,10 @@ logs/*.log
 
 # launch migration backups (server-side, never commit)
 scripts/launchBackup-*/
+
+# User-uploaded content — real production files live on the server's own
+# disk, never in source control. A prior "backup" commit (3b4b1bd) swept this
+# in by accident (860MB+ of dev-session test videos/images), which was
+# stripped back out of the unpushed history on 2026-08-28 — this entry
+# prevents it recurring.
+public/uploads/
