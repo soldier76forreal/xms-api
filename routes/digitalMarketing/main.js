@@ -1227,9 +1227,10 @@ router.post('/whatsapp-shares', verify, requirePermission('inventory:share:whats
   try {
     const userId = req.user.id;
     const {
-      variantId, productId, productName, productNameAr, variantCode, lengthCm, widthCm,
+      variantId, productId, productName, productNameAr, variantCode,
+      unsized, lengthCm, widthCm, thicknessMm,
       language, nameLanguage, includeName, includeDimensions, includeCode, includeContact,
-      branches, contactUserId, contactName, contactWaNumber, text, action,
+      branches, contacts, text, action,
     } = req.body;
 
     if (!text || !text.trim()) return res.status(400).json({ message: 'text is required' });
@@ -1240,12 +1241,12 @@ router.post('/whatsapp-shares', verify, requirePermission('inventory:share:whats
     const doc = await WhatsappShare.create({
       variantId: variantId || null, productId: productId || null,
       productName: productName || '', productNameAr: productNameAr || '', variantCode: variantCode || '',
-      lengthCm: lengthCm ?? null, widthCm: widthCm ?? null,
+      unsized: !!unsized, lengthCm: lengthCm ?? null, widthCm: widthCm ?? null, thicknessMm: thicknessMm ?? null,
       language: ['en', 'fa', 'ar'].includes(language) ? language : 'en',
       nameLanguage: ['en', 'ar'].includes(nameLanguage) ? nameLanguage : 'en',
       includeName: !!includeName, includeDimensions: !!includeDimensions, includeCode: !!includeCode, includeContact: !!includeContact,
       branches: Array.isArray(branches) ? branches : [],
-      contactUserId: contactUserId || null, contactName: contactName || '', contactWaNumber: contactWaNumber || '',
+      contacts: Array.isArray(contacts) ? contacts : [],
       text: text.trim(), action,
       owner: userId, createdBy: userId, createdByName: actorName,
       insertDate: new Date(),

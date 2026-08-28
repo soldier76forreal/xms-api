@@ -18,7 +18,7 @@ const groupSchema              = require('../../models/groupModel');
 const userSchema                = require('../../models/userModel');
 const categorySchema            = require('../../models/categoryModel');
 const verify = require('../users/verifyToken');
-const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess, isSuperAdmin, getUserBranches, Branch } = require('../../utils/rbac');
+const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess, isSuperAdmin, getUserBranches, Branch, UserAccess } = require('../../utils/rbac');
 const { parseStoneCode } = require('../../utils/stoneCodeParser');
 const { stoneTypes, grades, units, quarries } = require('./lookups');
 const { isHeic, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync } = require('../../utils/mediaConvert');
@@ -919,16 +919,29 @@ router.get('/variants/:id/branch-availability', verify, requirePermission('inven
   }
 });
 
-// GET /share-contacts — active users' name + phone, for the WhatsApp contact
-// picker. A separate, narrowly-gated endpoint (not the ungated GET /users/directory
-// used app-wide for avatars) — phone numbers only go to people who already hold
+// GET /share-contacts — active users' name + phone + assigned branch(es), for
+// the WhatsApp contact picker (multi-select — see shareWhatsAppDialog.js). A
+// separate, narrowly-gated endpoint (not the ungated GET /users/directory used
+// app-wide for avatars) — phone numbers only go to people who already hold
 // inventory:share:whatsapp.
 router.get('/share-contacts', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
   try {
     const users = await User.find({ deleteDate: null, phoneNumber: { $exists: true, $ne: '' } })
       .select('firstName lastName phoneNumber countryCode')
       .lean();
-    return res.status(200).json({ data: users });
+
+    const userIds = users.map((u) => u._id);
+    const accessRows = await UserAccess.find({ userId: { $in: userIds.map(String) } }).select('userId branches').lean();
+    const branchIds = [...new Set(accessRows.flatMap((a) => (a.branches || []).map(String)))];
+    const branches = await Branch.find({ _id: { $in: branchIds } }).select('name').lean();
+    const branchNameById = new Map(branches.map((b) => [String(b._id), b.name]));
+    const branchesByUser = new Map(accessRows.map((a) => [
+      String(a.userId),
+      (a.branches || []).map((id) => branchNameById.get(String(id))).filter(Boolean),
+    ]));
+
+    const data = users.map((u) => ({ ...u, branchNames: branchesByUser.get(String(u._id)) || [] }));
+    return res.status(200).json({ data });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

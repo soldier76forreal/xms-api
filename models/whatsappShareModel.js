@@ -19,6 +19,17 @@ const branchSnapshotSchema = new mongoose.Schema({
   unit:       { type: String },
 }, { _id: false });
 
+// One entry per selected WhatsApp contact — multi-select (see
+// shareWhatsAppDialog.js). branchNames snapshots which branch(es) that
+// person was associated with at share time, same immutability principle as
+// everything else on this doc.
+const contactSnapshotSchema = new mongoose.Schema({
+  userId:      { type: mongoose.Schema.Types.ObjectId, default: null },
+  name:        { type: String, default: '' },
+  waNumber:    { type: String, default: '' },
+  branchNames: [{ type: String }],
+}, { _id: false });
+
 const whatsappShareSchema = new mongoose.Schema({
   variantId: { type: mongoose.Schema.Types.ObjectId, default: null },
   productId: { type: mongoose.Schema.Types.ObjectId, default: null },
@@ -26,8 +37,14 @@ const whatsappShareSchema = new mongoose.Schema({
   productName:   { type: String, default: '' },
   productNameAr: { type: String, default: '' },
   variantCode:   { type: String, default: '' },
+  // Unsized slabs (e.g. MA01W00000020 — length/width both 0, only thickness
+  // means anything, per the stone-code convention in utils/stoneCodeParser.js)
+  // display as "slab" rather than a meaningless "0 x 0 cm" — see
+  // whatsappTemplate.js's buildShareText.
+  unsized:       { type: Boolean, default: false },
   lengthCm:      { type: Number, default: null },
   widthCm:       { type: Number, default: null },
+  thicknessMm:   { type: Number, default: null },
 
   language:     { type: String, enum: ['en', 'fa', 'ar'], required: true },
   nameLanguage: { type: String, enum: ['en', 'ar'], required: true },
@@ -39,9 +56,7 @@ const whatsappShareSchema = new mongoose.Schema({
 
   branches: [branchSnapshotSchema],
 
-  contactUserId:   { type: mongoose.Schema.Types.ObjectId, default: null },
-  contactName:     { type: String, default: '' },
-  contactWaNumber: { type: String, default: '' },
+  contacts: [contactSnapshotSchema],
 
   text: { type: String, required: true },
 
