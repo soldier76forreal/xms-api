@@ -18,7 +18,7 @@ const groupSchema              = require('../../models/groupModel');
 const userSchema                = require('../../models/userModel');
 const categorySchema            = require('../../models/categoryModel');
 const verify = require('../users/verifyToken');
-const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess } = require('../../utils/rbac');
+const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess, isSuperAdmin, getUserBranches, Branch } = require('../../utils/rbac');
 const { parseStoneCode } = require('../../utils/stoneCodeParser');
 const { stoneTypes, grades, units, quarries } = require('./lookups');
 const { isHeic, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync } = require('../../utils/mediaConvert');
@@ -877,6 +877,61 @@ router.get('/variants/:id/logs', verify, requirePermission('inventory:view'), as
   ]);
 
   res.json({ data: logs, total });
+});
+
+// ─── Share to WhatsApp ────────────────────────────────────────────────────────
+// GET /variants/:id/branch-availability — the same SKU (variant.code) as it
+// exists in OTHER branches (Inventory is branch-isolated — "the same stone" is
+// a separate InvVariant document per branch). Only ever returns branches the
+// caller actually holds in userAccess.branches (+ superAdmin bypass) — never
+// trust a client-sent branch list, same rule as every other branch check here.
+router.get('/variants/:id/branch-availability', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
+  try {
+    const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null }).lean();
+    if (!variant) return res.status(404).json({ message: 'Variant not found' });
+    if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
+      return res.status(403).json({ message: 'You do not have access to this branch' });
+    }
+
+    const superAdmin = await isSuperAdmin(req.user.id);
+    const query = { code: variant.code, deleteDate: null };
+    if (!superAdmin) {
+      const accessibleIds = await getUserBranches(req.user.id);
+      query.branchId = { $in: accessibleIds };
+    }
+
+    const matches = await InvVariant.find(query).select('branchId quantity unit').lean();
+    const branchIds = matches.map((m) => m.branchId);
+    const branches = await Branch.find({ _id: { $in: branchIds } }).select('name country').lean();
+    const branchById = new Map(branches.map((b) => [String(b._id), b]));
+
+    const data = matches
+      .map((m) => {
+        const b = branchById.get(String(m.branchId));
+        if (!b) return null;
+        return { branchId: m.branchId, branchName: b.name, country: b.country || null, quantity: m.quantity, unit: m.unit };
+      })
+      .filter(Boolean);
+
+    return res.status(200).json({ data });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /share-contacts — active users' name + phone, for the WhatsApp contact
+// picker. A separate, narrowly-gated endpoint (not the ungated GET /users/directory
+// used app-wide for avatars) — phone numbers only go to people who already hold
+// inventory:share:whatsapp.
+router.get('/share-contacts', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
+  try {
+    const users = await User.find({ deleteDate: null, phoneNumber: { $exists: true, $ne: '' } })
+      .select('firstName lastName phoneNumber countryCode')
+      .lean();
+    return res.status(200).json({ data: users });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // ─── update variant (spec / status) ──────────────────────────────────────────

@@ -4,7 +4,7 @@ const customerActivitySchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   type: {
     type: String,
-    enum: ['created','updated','call_logged','note','assigned','status_changed','interest','follow_up_set'],
+    enum: ['created','updated','call_logged','note','assigned','status_changed','interest','follow_up_set','viewed'],
     required: true,
   },
   field:    { type: String },

@@ -11,6 +11,10 @@ const branchSchema = new mongoose.Schema({
   name:        { type: String, required: true, unique: true, trim: true },
   description: { type: String, default: '' },
   status:      { type: String, enum: ['active', 'archived'], default: 'active' },
+  // ISO country code (e.g. 'AE', 'SA', 'IR') — resolves a flag/country for this
+  // branch via xms/src/components/crm/util/countryData.js. Optional: existing
+  // branches predate this field and simply show no flag until an admin sets it.
+  country:     { type: String, default: null },
   insertDate:  { type: Date, default: Date.now },
   updateDate:  { type: Date, default: null },
   deleteDate:  { type: Date, default: null },

@@ -28,6 +28,7 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
     const branch = await Branch.create({
       name: req.body.name,
       description: req.body.description || '',
+      country: req.body.country || null,
       createdBy: req.user.id,
     });
     return res.status(201).json(branch);
@@ -42,7 +43,7 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
   try {
     const branch = await Branch.findOneAndUpdate(
       { _id: req.params.id, deleteDate: null },
-      { $set: { name: req.body.name, description: req.body.description, status: req.body.status, updateDate: new Date() } },
+      { $set: { name: req.body.name, description: req.body.description, status: req.body.status, country: req.body.country || null, updateDate: new Date() } },
       { new: true }
     );
     if (!branch) return res.status(404).json({ message: 'Branch not found' });

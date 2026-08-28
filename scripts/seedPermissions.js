@@ -41,6 +41,7 @@ const PERMISSIONS = [
   { key: 'inventory:media:edit',       module: 'inventory', description: 'Upload and delete media' },
   { key: 'inventory:import',           module: 'inventory', description: 'Import from Excel' },
   { key: 'inventory:export',           module: 'inventory', description: 'Export inventory to Excel' },
+  { key: 'inventory:share:whatsapp',   module: 'inventory', description: 'Build and share a WhatsApp product message' },
   // Users
   { key: 'users:view',                 module: 'users', description: 'View users list and details' },
   { key: 'users:create',               module: 'users', description: 'Create user' },
@@ -92,6 +93,14 @@ const PERMISSIONS = [
   { key: 'digitalMarketing:rawContent:chat',         module: 'digitalMarketing', description: 'Chat on a raw content record' },
   { key: 'digitalMarketing:readyToUpload:edit',      module: 'digitalMarketing', description: 'Edit ready-to-upload content' },
   { key: 'digitalMarketing:readyToUpload:delete',    module: 'digitalMarketing', description: 'Delete ready-to-upload content' },
+  { key: 'digitalMarketing:linkPage:create',         module: 'digitalMarketing', description: 'Create an external link page' },
+  { key: 'digitalMarketing:linkPage:edit',           module: 'digitalMarketing', description: 'Edit an external link page' },
+  { key: 'digitalMarketing:linkPage:delete',         module: 'digitalMarketing', description: 'Delete an external link page' },
+  // Tutorial Center — shared reference material, no row-level dataScope
+  { key: 'tutorials:view',   module: 'tutorials', description: 'View tutorials' },
+  { key: 'tutorials:upload', module: 'tutorials', description: 'Upload a new tutorial' },
+  { key: 'tutorials:edit',   module: 'tutorials', description: 'Edit tutorial metadata / files' },
+  { key: 'tutorials:delete', module: 'tutorials', description: 'Delete a tutorial' },
 ];
 
 // ── Starter roles ─────────────────────────────────────────────────────────────

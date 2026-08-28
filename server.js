@@ -91,6 +91,7 @@ app.use('/inventory/categories' , require('./routes/inventory/categories') )
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
+app.use('/tutorials' , require('./routes/tutorials/main') )
 app.use('/shortlinks' , require('./routes/shortLinks/main') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
@@ -132,8 +133,8 @@ process.on("uncaughtException", (error) => {
 
 // Port 7130 (changed from 3003 for the 2026-07-12 launch) — the reverse proxy
 // maps https://api.lazulitemarble.com onto this local port.
-server.listen(7130, async () => {
-    console.log('server running on port 7130.');
+server.listen(4789, async () => {
+    console.log('server running on port 4789.');
     // On restart all socket connections are gone → mark everyone offline
     let userM = null;
     try {

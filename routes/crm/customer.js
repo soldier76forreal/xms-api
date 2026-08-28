@@ -389,7 +389,40 @@ router.get('/customers/:id', verify, requirePermission('crm:view'), async (req, 
 
     await joinInterestedProducts([customer]);
 
+    // Log a 'viewed' row for anyone OTHER than the owner opening this record
+    // (self-views aren't useful signal) — fire-and-forget, mirrors the same
+    // pattern in digitalMarketing/main.js's GET /raw-contents/:id.
+    if (String(customer.owner) !== String(userId)) {
+      getActorName(userId).then((name) => writeActivity(customer._id, 'viewed', {}, userId, name));
+    }
+
     return res.status(200).json(customer);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── GET /crm/customers/:id/viewed — who viewed this record (and when) ────────
+// Separate from /communication (which is calls/notes/etc, not view-tracking
+// noise) — mirrors digitalMarketing/main.js's GET /raw-contents/:id/activity.
+router.get('/customers/:id/viewed', verify, requirePermission('crm:view'), async (req, res) => {
+  try {
+    const userId   = req.user.id;
+    const scopes   = await getEffectiveScopes(userId);
+    const crmScope = scopes.crm;
+
+    const customer = await Customer.findOne({ _id: req.params.id, deleteDate: null }).select('owner assignedTo').lean();
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    if (crmScope === 'mine') {
+      const isOwner    = String(customer.owner) === String(userId);
+      const isAssigned = (customer.assignedTo || []).map(String).includes(String(userId));
+      if (!isOwner && !isAssigned) return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const rows = await CustomerActivity.find({ customerId: req.params.id, type: 'viewed' })
+      .sort({ date: -1 }).limit(100).lean();
+    return res.status(200).json(rows);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
