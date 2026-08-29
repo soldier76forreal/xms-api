@@ -1229,7 +1229,7 @@ router.post('/whatsapp-shares', verify, requirePermission('inventory:share:whats
     const {
       variantId, productId, productName, productNameAr, variantCode,
       unsized, lengthCm, widthCm, thicknessMm,
-      language, nameLanguage, includeName, includeDimensions, includeCode, includeContact,
+      languages, nameLanguage, includeName, includeDimensions, includeCode, includeContact,
       branches, contacts, text, action,
     } = req.body;
 
@@ -1237,12 +1237,13 @@ router.post('/whatsapp-shares', verify, requirePermission('inventory:share:whats
     if (!['copied', 'openedWhatsApp'].includes(action)) return res.status(400).json({ message: 'Invalid action' });
 
     const actorName = await getActorName(userId);
+    const langs = Array.isArray(languages) ? languages.filter((l) => ['en', 'fa', 'ar'].includes(l)) : [];
 
     const doc = await WhatsappShare.create({
       variantId: variantId || null, productId: productId || null,
       productName: productName || '', productNameAr: productNameAr || '', variantCode: variantCode || '',
       unsized: !!unsized, lengthCm: lengthCm ?? null, widthCm: widthCm ?? null, thicknessMm: thicknessMm ?? null,
-      language: ['en', 'fa', 'ar'].includes(language) ? language : 'en',
+      languages: langs.length ? langs : ['en'],
       nameLanguage: ['en', 'ar'].includes(nameLanguage) ? nameLanguage : 'en',
       includeName: !!includeName, includeDimensions: !!includeDimensions, includeCode: !!includeCode, includeContact: !!includeContact,
       branches: Array.isArray(branches) ? branches : [],

@@ -46,7 +46,21 @@ const whatsappShareSchema = new mongoose.Schema({
   widthCm:       { type: Number, default: null },
   thicknessMm:   { type: Number, default: null },
 
-  language:     { type: String, enum: ['en', 'fa', 'ar'], required: true },
+  // One or more template languages. Sections are always rendered in the
+  // fixed en -> fa -> ar order (see whatsappTemplate.js's buildShareText),
+  // regardless of the order they were picked in. Older records (saved before
+  // multi-language support) only have the singular `language` field this
+  // replaced — that field is left alone on those Mongo docs (never migrated,
+  // matching this model's own immutable-snapshot principle) and the frontend
+  // falls back to it when `languages` is absent.
+  languages: {
+    type: [{ type: String, enum: ['en', 'fa', 'ar'] }],
+    required: true,
+    validate: { validator: (arr) => Array.isArray(arr) && arr.length > 0, message: 'At least one language is required' },
+  },
+  // Only meaningful (and only ever shown as a choice) when a single language
+  // is selected — with 2+ languages each section auto-follows its own
+  // language for the name, see buildShareText.
   nameLanguage: { type: String, enum: ['en', 'ar'], required: true },
 
   includeName:       { type: Boolean, default: true },
