@@ -1,6 +1,7 @@
 const express  = require('express');
 const mongoose = require('mongoose');
 const multer   = require('multer');
+const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -65,7 +66,7 @@ async function joinInterestedProducts(customers) {
   });
 }
 
-const commUpload = multer({ storage: multer.diskStorage({
+const commUpload = multer({ limits: uploadLimits, fileFilter: blockExecutableFiles, storage: multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
   filename:    (req, file, cb) => {
     const ext = file.originalname.match(/\..*$/)?.[0] || '';

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
 const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -32,7 +33,7 @@ const storage = multer.diskStorage({
     cb(null, `inv-${Date.now()}${ext}`);
   },
 });
-const upload = multer({ storage });
+const upload = multer({ storage, limits: uploadLimits, fileFilter: blockExecutableFiles });
 
 const InvProduct   = dbConnection.model('inventoryProduct',   inventoryProductSchema);
 const InvVariant   = dbConnection.model('inventoryVariant',   inventoryVariantSchema);

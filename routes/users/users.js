@@ -4,6 +4,7 @@ const mongoose   = require('mongoose');
 const path       = require('path');
 const crypto     = require('crypto');
 const multer     = require('multer');
+const { blockExecutableFiles, imagesOnly, imageUploadLimits, uploadLimits } = require('../../utils/uploadGuards');
 const sharp      = require('sharp');
 const ffmpeg     = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -52,7 +53,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
   filename:    (req, file, cb) => cb(null, `avatar-${Date.now()}${path.extname(file.originalname)}`),
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage, limits: imageUploadLimits, fileFilter: imagesOnly });
 
 // Personal notes attachments — voice/video/photo/document, up to 5 per note.
 const notesStorage = multer.diskStorage({
@@ -62,7 +63,7 @@ const notesStorage = multer.diskStorage({
     cb(null, `note-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
   },
 });
-const notesUpload = multer({ storage: notesStorage });
+const notesUpload = multer({ storage: notesStorage, limits: uploadLimits, fileFilter: blockExecutableFiles });
 
 // Extracts a single preview frame from a video (10% in) — mirrors the
 // Inventory variant-media-batch / CRM communication-tab convention exactly.

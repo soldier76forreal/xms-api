@@ -10,6 +10,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 ; 
 const multer = require('multer');
+const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
 
 const dbConnection = require("../../connections/xmsPr");
 const user = dbConnection.model('user' , userModel);
@@ -35,7 +36,7 @@ const storage = multer.diskStorage({
   }
 })
 
-const upload = multer({ storage: storage })
+const upload = multer({ storage: storage, limits: uploadLimits, fileFilter: blockExecutableFiles })
 
 const router = express.Router()
 

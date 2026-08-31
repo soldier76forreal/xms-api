@@ -1,5 +1,6 @@
 const express  = require('express');
 const multer   = require('multer');
+const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -27,7 +28,7 @@ const Permission = dbConnection.models.permission || dbConnection.model('permiss
 const User       = dbConnection.models.user       || dbConnection.model('user',       userSchema);
 const File       = dbConnection.models.file       || dbConnection.model('file',       fileSchema);
 
-const tutorialUpload = multer({ storage: multer.diskStorage({
+const tutorialUpload = multer({ limits: uploadLimits, fileFilter: blockExecutableFiles, storage: multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
   filename:    (req, file, cb) => {
     const ext = file.originalname.match(/\..*$/)?.[0] || '';

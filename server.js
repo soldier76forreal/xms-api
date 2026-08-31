@@ -9,6 +9,7 @@ const webpush = require('web-push');
 const dotenv = require("dotenv");
 const crashLogger = require("./utils/crashLogger");
 const { patchExpressRouter } = require("./utils/asyncRouteErrors");
+const { rateLimit } = require("./utils/rateLimit");
 
 patchExpressRouter(express);
 
@@ -34,8 +35,78 @@ dotenv.config();
 //bodyParser middlewear
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
+
+// ── Baseline security headers ────────────────────────────────────────────────
+// Hand-rolled rather than pulling in `helmet`, matching the convention already
+// used for authApi's OTP throttle/lockout (no new dependency for something this
+// small). This API only ever returns JSON and static files — it serves no HTML
+// UI of its own — so a very strict default is safe here and would NOT be
+// appropriate on the frontend host.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');       // no MIME sniffing
+  res.setHeader('X-Frame-Options', 'DENY');                 // no framing/clickjacking
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  // HSTS only matters over TLS, and is set by the reverse proxy in production;
+  // setting it here too is harmless and covers a direct-to-node deployment.
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
+// ── Static files — served, but never executable ──────────────────────────────
+// public/ holds every module's uploads (public/uploads, plus public/files and
+// public/zip) and is served from THIS origin, so an uploaded document that a
+// browser will execute would be stored XSS on api.lazulitemarble.com.
+// utils/uploadGuards.js blocks those at upload time; this is the second half of
+// that defence, covering files uploaded BEFORE the filter existed and anything
+// the filter misses. Applied to the single existing mount rather than adding a
+// second one, so no file can be reached through an unhardened path.
+//
+// `default-src 'none'` + `sandbox` neuters active content without affecting how
+// <img>/<video>/<audio> load the file, which is how the app actually consumes
+// these. Anything that is not plain media (or a PDF, which the in-app viewer
+// opens inline) is additionally forced to download rather than render.
+// Keyed off the file EXTENSION, not res.getHeader('Content-Type') — inside
+// express.static's setHeaders the Content-Type has not been applied yet, so
+// reading it back returns '' and every file (images included) would be forced
+// to download, breaking every <img> in the app.
+const INLINE_SAFE_EXT = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.ico',
+  '.mp4', '.webm', '.ogv', '.mov', '.m4v',
+  '.mp3', '.wav', '.ogg', '.oga', '.m4a', '.aac', '.flac',
+  '.pdf',
+]);
+app.use(express.static('public', {
+  setHeaders: (res, filePath) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; media-src 'self'; sandbox");
+    const dot = String(filePath).lastIndexOf('.');
+    const ext = dot < 0 ? '' : String(filePath).slice(dot).toLowerCase();
+    if (!INLINE_SAFE_EXT.has(ext)) {
+      res.setHeader('Content-Disposition', 'attachment');
+    }
+  },
+}));
 app.use(cookieParser());
+
+// ── Rate limiting ────────────────────────────────────────────────────────────
+// Deliberately placed AFTER the static mount, so loading an inventory grid full
+// of images never eats the API budget.
+//
+// The global cap is generous on purpose: a whole office typically shares one
+// NAT'd IP, and this API is used with infinite-scroll lists and batch uploads.
+// It is sized to stop a runaway client or a flood, NOT to be a per-user quota —
+// setting it tight enough to be that would break normal use.
+app.use(rateLimit({ name: 'global', windowMs: 60_000, max: 1000 }));
+
+// The public, unauthenticated link-page resolver is the one route reachable
+// with no credentials at all, so it gets its own much tighter budget — this is
+// what stops someone brute-forcing page codes.
+app.use('/digitalMarketing/public', rateLimit({ name: 'public', windowMs: 60_000, max: 60 }));
 
 // ── Native file download ──────────────────────────────────────────────────────
 // Streams a public/uploads file with `Content-Disposition: attachment` so the

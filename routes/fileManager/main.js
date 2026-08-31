@@ -13,6 +13,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 const { v4: uuidv4 } = require('uuid'); // Safer than randomstring
 const multer = require('multer');
+const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
 const archiver = require('archiver');
 const dbConnection = require("../../connections/xmsPr");
 const user = dbConnection.model('user' , userModel);
@@ -57,7 +58,7 @@ const storage = multer.diskStorage({
     }
   })
   
-  const upload = multer({ storage: storage })
+  const upload = multer({ storage: storage, limits: uploadLimits, fileFilter: blockExecutableFiles })
 
   var zip = new AdmZip();
 
