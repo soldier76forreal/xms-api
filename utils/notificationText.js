@@ -66,6 +66,21 @@ const TEMPLATES = {
     }),
   },
 
+  tutorialCreated: {
+    en: ({ actorName, tutorialTitle }) => ({
+      title: 'New tutorial available',
+      body: `${actorName} added "${tutorialTitle}"`,
+    }),
+    fa: ({ actorName, tutorialTitle }) => ({
+      title: 'آموزش جدید در دسترس است',
+      body: `${actorName} «${tutorialTitle}» را اضافه کرد`,
+    }),
+    ar: ({ actorName, tutorialTitle }) => ({
+      title: 'شرح جديد متاح',
+      body: `أضاف ${actorName} "${tutorialTitle}"`,
+    }),
+  },
+
   dmReadyToUploadOwner: {
     en: ({ actorName, batchTitle }) => ({
       title: 'Content is ready to upload',

@@ -6,12 +6,14 @@ const ffmpegPath = require('ffmpeg-static');
 
 const dbConnection      = require('../../connections/xmsPr');
 const tutorialSchema    = require('../../models/tutorialModel');
+const tutorialActivitySchema = require('../../models/tutorialActivityModel');
 const permissionSchema  = require('../../models/permissionModel');
 const userSchema        = require('../../models/userModel');
 const fileSchema        = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission } = require('../../utils/rbac');
+const { requirePermission, getUsersWithPermission } = require('../../utils/rbac');
+const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -20,6 +22,7 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 // No row-level dataScope — everyone with tutorials:view sees every tutorial.
 
 const Tutorial   = dbConnection.models.tutorial   || dbConnection.model('tutorial',   tutorialSchema);
+const TutorialActivity = dbConnection.models.tutorialActivity || dbConnection.model('tutorialActivity', tutorialActivitySchema);
 const Permission = dbConnection.models.permission || dbConnection.model('permission', permissionSchema);
 const User       = dbConnection.models.user       || dbConnection.model('user',       userSchema);
 const File       = dbConnection.models.file       || dbConnection.model('file',       fileSchema);
@@ -96,6 +99,40 @@ async function getActorName(userId) {
   return actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
 }
 
+// Best-effort audit row — never blocks the actual request (same convention as
+// digitalMarketing/main.js's logDmActivity and CRM's writeActivity).
+async function writeActivity(tutorialId, type, userId, actorName, meta = {}) {
+  try {
+    await TutorialActivity.create({
+      tutorialId, type, actorId: userId, actorName,
+      field: meta.field, oldValue: meta.oldValue ?? null, newValue: meta.newValue ?? null,
+      body: meta.body,
+      date: new Date(),
+    });
+  } catch (_) { /* audit trail is non-critical */ }
+}
+
+// Announce a newly-published tutorial to everyone who can see tutorials, minus
+// the uploader. Fire-and-forget, mirroring broadcastToDmViewers in
+// digitalMarketing/main.js — text is translated per RECIPIENT inside
+// sendNotificationToUser, so this never builds English strings itself.
+function broadcastNewTutorial(actorId, actorName, tutorial) {
+  (async () => {
+    try {
+      const userIds = await getUsersWithPermission('tutorials:view');
+      const recipients = userIds.filter((id) => String(id) !== String(actorId));
+      await Promise.all(recipients.map((id) =>
+        sendNotificationToUser(id, {
+          fromId: actorId, fromName: actorName, type: 'tutorial',
+          textKey: 'tutorialCreated',
+          textParams: { actorName, tutorialTitle: tutorial.title },
+          entityType: 'tutorial', entityId: tutorial._id,
+        })
+      ));
+    } catch (_) { /* best-effort */ }
+  })();
+}
+
 function parseJsonArray(raw, fallback) {
   if (!raw) return fallback;
   try {
@@ -152,11 +189,72 @@ router.get('/action-tags', verify, requirePermission('tutorials:view'), async (r
   }
 });
 
-// GET /tutorials/:id — detail
+// GET /tutorials/:id/views — the "who watched this" roster + raw view log.
+// MUST stay above GET /:id? No — '/:id/views' can't be captured by '/:id'
+// (different segment count), but it is kept adjacent for readability.
+// Returns one row PER VIEWER (de-duplicated, most-recent first) carrying that
+// person's watch count and last-watched time, plus the total raw view count.
+router.get('/:id/views', verify, requirePermission('tutorials:view'), async (req, res) => {
+  try {
+    const tutorial = await Tutorial.findOne({ _id: req.params.id, deleteDate: null }).select('_id').lean();
+    if (!tutorial) return res.status(404).json({ message: 'Tutorial not found' });
+
+    const rows = await TutorialActivity.find({ tutorialId: req.params.id, type: 'viewed' })
+      .sort({ date: -1 }).limit(1000).lean();
+
+    // De-duplicate to one entry per viewer, keeping their most recent watch
+    // (rows are already newest-first, so the first hit per actor wins).
+    const byViewer = new Map();
+    rows.forEach((r) => {
+      const key = String(r.actorId || r.actorName || 'unknown');
+      const seen = byViewer.get(key);
+      if (seen) { seen.count += 1; return; }
+      byViewer.set(key, {
+        actorId: r.actorId || null,
+        actorName: r.actorName || '',
+        lastViewedAt: r.date,
+        count: 1,
+      });
+    });
+
+    const viewers = Array.from(byViewer.values());
+    return res.status(200).json({
+      viewers,
+      totalViews: rows.length,
+      uniqueViewers: viewers.length,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /tutorials/:id/activity — full audit trail for one tutorial
+// (created/updated/file changes/views), newest first.
+router.get('/:id/activity', verify, requirePermission('tutorials:view'), async (req, res) => {
+  try {
+    const rows = await TutorialActivity.find({ tutorialId: req.params.id })
+      .sort({ date: -1 }).limit(200).lean();
+    return res.status(200).json(rows);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /tutorials/:id — detail. Opening the detail IS the "watch" event, so it
+// writes a 'viewed' activity row (same pattern as CRM's GET /customers/:id and
+// digitalMarketing's GET /raw-contents/:id). Unlike CRM it does NOT skip the
+// owner: the uploader re-watching their own tutorial is still a real view, and
+// the roster is about who has seen the material, not about lead ownership.
 router.get('/:id', verify, requirePermission('tutorials:view'), async (req, res) => {
   try {
     const doc = await Tutorial.findOne({ _id: req.params.id, deleteDate: null }).lean();
     if (!doc) return res.status(404).json({ message: 'Tutorial not found' });
+
+    // Fire-and-forget — a failed audit write must never break the read.
+    getActorName(req.user.id)
+      .then((name) => writeActivity(doc._id, 'viewed', req.user.id, name))
+      .catch(() => {});
+
     return res.status(200).json(doc);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -197,6 +295,9 @@ router.post('/', verify, requirePermission('tutorials:upload'),
     doc.files = fileEntries;
     await doc.save();
 
+    await writeActivity(doc._id, 'created', userId, actorName, { newValue: { title: doc.title, section: doc.section } });
+    broadcastNewTutorial(userId, actorName, doc);
+
     return res.status(201).json(doc);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -233,6 +334,15 @@ router.put('/:id', verify, requirePermission('tutorials:edit'),
     doc.updateDate = new Date();
     await doc.save();
 
+    const actorName = await getActorName(userId);
+    await writeActivity(doc._id, 'updated', userId, actorName, { newValue: { title: doc.title, section: doc.section } });
+    if (removeFileIds.length) {
+      await writeActivity(doc._id, 'file_removed', userId, actorName, { newValue: { count: removeFileIds.length } });
+    }
+    if (uploadedFiles.length) {
+      await writeActivity(doc._id, 'file_added', userId, actorName, { newValue: { count: uploadedFiles.length } });
+    }
+
     return res.status(200).json(doc);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -248,6 +358,10 @@ router.delete('/:id', verify, requirePermission('tutorials:delete'), async (req,
       { new: true }
     );
     if (!doc) return res.status(404).json({ message: 'Tutorial not found' });
+
+    const actorName = await getActorName(req.user.id);
+    await writeActivity(doc._id, 'deleted', req.user.id, actorName, { oldValue: { title: doc.title } });
+
     return res.status(200).json({ message: 'Tutorial deleted' });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });

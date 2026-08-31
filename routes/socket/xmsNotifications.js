@@ -77,6 +77,7 @@ const PREF_BY_TYPE = {
   invoice: 'invoices',
   dmChat: 'dmChat',
   readyToUpload: 'readyToUpload',
+  tutorial: 'tutorials',
 };
 
 // Deep-link path for a push notification click — kept in sync with the frontend
@@ -90,6 +91,7 @@ function notifPath(entityType, entityId) {
     case 'task':          return '/crm';
     case 'customer':      return id ? `/crm?open=${id}` : '/crm';
     case 'user':          return '/users';
+    case 'tutorial':      return id ? `/tutorials?open=${id}` : '/tutorials';
     default:              return '/';
   }
 }
@@ -164,6 +166,10 @@ const ENTITY_TO_SHORTLINK = {
     module: 'users', entityType: 'user',
     label: { en: 'Show the profile', fa: 'نمایش پروفایل', ar: 'عرض الملف الشخصي' },
   },
+  tutorial: {
+    module: 'tutorials', entityType: 'tutorial',
+    label: { en: 'Watch the tutorial', fa: 'مشاهده آموزش', ar: 'مشاهدة الشرح' },
+  },
 };
 
 // Telegram messages are sent with parse_mode:'HTML' (see telegramBot.js) so
@@ -174,6 +180,40 @@ const ENTITY_TO_SHORTLINK = {
 function escapeHtml(str) {
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const PRODUCTION_FRONTEND_URL = 'https://xms.lazulitemarble.com';
+
+// A Telegram (or web-push) link is opened on someone ELSE'S device, outside
+// this network — so a localhost / private-LAN / protocol-less FRONTEND_URL is
+// never a usable link target there, even when the server itself is running in
+// development. Telegram simply refuses to linkify such a host, which is
+// exactly how this surfaced: messages arrived with the label text present but
+// completely unclickable, on every environment whose .env still carried the
+// dev default (FRONTEND_URL=http://localhost:3000).
+//
+// So: use FRONTEND_URL only when it is a publicly-resolvable http(s) origin,
+// and otherwise fall back to the real production domain rather than emitting a
+// link that cannot possibly work.
+function publicFrontendBase() {
+  const raw = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+  if (!raw) return PRODUCTION_FRONTEND_URL;
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    return PRODUCTION_FRONTEND_URL;          // no protocol / unparseable
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return PRODUCTION_FRONTEND_URL;
+  const host = parsed.hostname.toLowerCase();
+  const isLocal =
+    host === 'localhost' || host.endsWith('.localhost') ||
+    host === '127.0.0.1' || host === '::1' || host === '0.0.0.0' ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    !host.includes('.');                      // bare hostname, not a public FQDN
+  return isLocal ? PRODUCTION_FRONTEND_URL : raw;
 }
 
 // Telegram delivery for a persisted notification — mirrors sendWebPush's gating
@@ -200,8 +240,7 @@ async function sendTelegramNotification(user, { type, title, body, entityType, e
           module: mapping.module, entityType: mapping.entityType, entityId,
           expiresAt: null, createdBy: String(user._id),
         });
-        const base = process.env.FRONTEND_URL || 'https://xms.lazulitemarble.com';
-        const url  = `${base}/l/${code}`;
+        const url  = `${publicFrontendBase()}/l/${code}`;
         const label = mapping.label[lang] || mapping.label.en;
         text += `\n\n<a href="${url}">${escapeHtml(label)}</a>`;
       } catch (_) { /* link creation is best-effort — message still sends without it */ }

@@ -56,6 +56,7 @@ const userSchema = new mongoose.Schema({
     invoices:      { type: Boolean, default: true },
     dmChat:        { type: Boolean, default: true },
     readyToUpload: { type: Boolean, default: true },
+    tutorials:     { type: Boolean, default: true },
   },
 
   // ── Access (deprecated — replaced by userAccess RBAC collection) ──────────
