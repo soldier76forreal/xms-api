@@ -338,6 +338,47 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
   }
 });
 
+// ── GET /crm/customers/check-phone — live duplicate pre-check ────────────────
+// customerForm.js now puts the phone number at the very TOP of the form and
+// gates every other field behind this check resolving clear — the point is
+// to catch a duplicate BEFORE the rep spends time re-typing a name/address for
+// someone already in the system, not just at submit time. Gated by crm:view
+// (not :create/:edit) since both the "new customer" and "edit customer" forms
+// call this, and it only confirms existence — same information either form
+// already learns via the POST route's 409 (unscoped by row-level dataScope,
+// same as that existing check; not a new information exposure).
+// `excludeId` lets the edit form check without matching the record itself.
+router.get('/customers/check-phone', verify, requirePermission('crm:view'), async (req, res) => {
+  try {
+    const { phoneNumber, excludeId } = req.query;
+    if (!phoneNumber || !String(phoneNumber).trim()) {
+      return res.status(200).json({ exists: false, customer: null });
+    }
+
+    const query = { phoneNumber: String(phoneNumber).trim(), deleteDate: null };
+    if (excludeId && mongoose.Types.ObjectId.isValid(excludeId)) {
+      query._id = { $ne: excludeId };
+    }
+
+    // firstName/lastName/companyName/customerType live under personalInformation
+    // on this model (NOT top-level — see customerModel.js), unlike phoneNumber.
+    const match = await Customer.findOne(query)
+      .select('personalInformation')
+      .lean();
+
+    if (!match) return res.status(200).json({ exists: false, customer: null });
+
+    const pi = match.personalInformation || {};
+    const name = pi.customerType === 'company'
+      ? (pi.companyName || '')
+      : `${pi.firstName || ''} ${pi.lastName || ''}`.trim();
+
+    return res.status(200).json({ exists: true, customer: { _id: match._id, name } });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ── POST /crm/customers — create ──────────────────────────────────────────────
 router.post('/customers', verify, requirePermission('crm:customer:create'), async (req, res) => {
   try {
