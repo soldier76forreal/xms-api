@@ -1,7 +1,7 @@
 const express  = require('express');
 const mongoose = require('mongoose');
 const multer   = require('multer');
-const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
+const { blockExecutableFiles, uploadLimits, MAX_BATCH_FILES } = require('../../utils/uploadGuards');
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -338,7 +338,7 @@ router.post('/raw-contents/:id/files/:fileId/log-download', verify, requirePermi
 //   voiceDescriptions[]   — voice recordings, IN ORDER, one per `true` flag above
 //   language, useCase, platform — batch-level fields (useCase/platform default 'Anything')
 router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawContent:create'),
-  dmUpload.fields([{ name: 'files', maxCount: 30 }, { name: 'voiceDescriptions', maxCount: 30 }]),
+  dmUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }, { name: 'voiceDescriptions', maxCount: MAX_BATCH_FILES }]),
   async (req, res) => {
   try {
     const userId = req.user.id;
@@ -409,8 +409,8 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
 // atomically via POST /:id/ready-to-upload, see below).
 router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawContent:edit'), loadRawContent,
   dmUpload.fields([
-    { name: 'files', maxCount: 30 },
-    { name: 'voiceDescriptions', maxCount: 30 },
+    { name: 'files', maxCount: MAX_BATCH_FILES },
+    { name: 'voiceDescriptions', maxCount: MAX_BATCH_FILES },
     { name: 'replaceFile', maxCount: 1 },          // per-file edit: swap the actual file
     { name: 'editVoiceDescription', maxCount: 1 }, // per-file edit: set/replace the voice note
   ]),
@@ -536,7 +536,7 @@ router.delete('/raw-contents/:id', verify, requirePermission('digitalMarketing:r
 // POST /raw-contents/:id/ready-to-upload — the ONLY way a readyToUpload record
 // is created. Atomically creates it AND flips the raw content's status.
 router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digitalMarketing:rawContent:edit'), loadRawContent,
-  dmUpload.fields([{ name: 'files', maxCount: 30 }]),
+  dmUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }]),
   async (req, res) => {
   try {
     const userId = req.user.id;
@@ -689,7 +689,7 @@ router.post('/raw-contents/:id/chat', verify, requirePermission('digitalMarketin
 // 2026-07-22 at Pouriya's request — reverses the original graduate-only design;
 // rawContentId is left unset here (the model no longer requires it).
 router.post('/ready-to-upload', verify, requirePermission('digitalMarketing:readyToUpload:edit'),
-  dmUpload.fields([{ name: 'files', maxCount: 30 }]),
+  dmUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }]),
   async (req, res) => {
   try {
     const userId = req.user.id;
@@ -887,7 +887,7 @@ router.post('/ready-to-upload/:id/chat', verify, requirePermission('digitalMarke
 
 // PUT /ready-to-upload/:id — edit title/files/language/platform/caption
 router.put('/ready-to-upload/:id', verify, requirePermission('digitalMarketing:readyToUpload:edit'), loadReadyToUpload,
-  dmUpload.fields([{ name: 'files', maxCount: 30 }, { name: 'replaceFile', maxCount: 1 }]),
+  dmUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }, { name: 'replaceFile', maxCount: 1 }]),
   async (req, res) => {
   try {
     const userId = req.user.id;

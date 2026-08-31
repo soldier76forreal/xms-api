@@ -202,6 +202,20 @@ process.on("uncaughtException", (error) => {
 
 
 
+// ── Timeouts for large uploads ───────────────────────────────────────────────
+// Node caps a single request at `requestTimeout` (default 5 min in Node 18+).
+// A multi-GB raw video on a slow office uplink easily exceeds that and would be
+// killed mid-transfer with a confusing socket error rather than a clear message.
+// 0 disables the per-request cap; headersTimeout stays finite so a client that
+// opens a socket and never sends headers is still reaped (slowloris).
+//
+// ⚠️ The reverse proxy in front of this API has its own timeouts
+// (nginx proxy_read_timeout / proxy_send_timeout / client_body_timeout) — those
+// must be raised too, or the proxy will cut the upload off before Node does.
+server.requestTimeout = 0;
+server.headersTimeout = 120_000;
+server.keepAliveTimeout = 75_000;
+
 // Port 7130 (changed from 3003 for the 2026-07-12 launch) — the reverse proxy
 // maps https://api.lazulitemarble.com onto this local port.
 server.listen(4789, async () => {

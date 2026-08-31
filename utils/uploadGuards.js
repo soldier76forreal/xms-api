@@ -44,11 +44,26 @@ const BLOCKED_MIMETYPES = [
   'application/x-shockwave-flash',
 ];
 
-// 250MB — generous enough for the raw video Digital Marketing and Tutorials
-// legitimately handle, while still bounding how fast an authenticated account
-// can fill the server's disk. Avatars/profile images use a much smaller cap.
-const MAX_UPLOAD_BYTES  = 250 * 1024 * 1024;
-const MAX_IMAGE_BYTES   = 10  * 1024 * 1024;
+// Raw marketing video is the driving case, so the per-file cap is deliberately
+// large. multer's diskStorage STREAMS straight to disk, so a big file costs
+// disk space and time, not RAM — the cap exists to bound runaway/abusive
+// uploads, not because the process can't handle the size.
+//
+// Override with MAX_UPLOAD_MB in .env if the server's disk needs a tighter
+// bound. Avatars keep their own much smaller image-only cap.
+//
+// ⚠️ A cap here is only ever the SECOND limit an upload hits. In production the
+// reverse proxy in front of this API enforces its own body-size limit first
+// (nginx `client_max_body_size`, default 1MB) and will reject the request with
+// 413 before Node sees a byte. That must be raised to match, or this setting
+// does nothing in production.
+const MAX_UPLOAD_BYTES = (Number(process.env.MAX_UPLOAD_MB) || 5120) * 1024 * 1024;   // default 5GB
+const MAX_IMAGE_BYTES  = 10 * 1024 * 1024;
+
+// Per-request file count for the batch endpoints. Uploading a whole shoot in
+// one session is the point, so this is high; multer still enforces the
+// per-file size cap on each one individually.
+const MAX_BATCH_FILES = Number(process.env.MAX_BATCH_FILES) || 200;
 
 function extensionOf(filename = '') {
   const i = String(filename).lastIndexOf('.');
@@ -90,6 +105,7 @@ module.exports = {
   BLOCKED_MIMETYPES,
   MAX_UPLOAD_BYTES,
   MAX_IMAGE_BYTES,
+  MAX_BATCH_FILES,
   blockExecutableFiles,
   imagesOnly,
   uploadLimits,

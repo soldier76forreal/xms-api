@@ -1,6 +1,6 @@
 const express  = require('express');
 const multer   = require('multer');
-const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
+const { blockExecutableFiles, uploadLimits, MAX_BATCH_FILES } = require('../../utils/uploadGuards');
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -265,7 +265,7 @@ router.get('/:id', verify, requirePermission('tutorials:view'), async (req, res)
 // POST /tutorials — create. Multipart: title, description, language, section,
 // tags (JSON array string), files[] (image/video/document, multiple).
 router.post('/', verify, requirePermission('tutorials:upload'),
-  tutorialUpload.fields([{ name: 'files', maxCount: 20 }]),
+  tutorialUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }]),
   async (req, res) => {
   try {
     const userId = req.user.id;
@@ -307,7 +307,7 @@ router.post('/', verify, requirePermission('tutorials:upload'),
 
 // PUT /tutorials/:id — edit metadata + add/remove files
 router.put('/:id', verify, requirePermission('tutorials:edit'),
-  tutorialUpload.fields([{ name: 'files', maxCount: 20 }]),
+  tutorialUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }]),
   async (req, res) => {
   try {
     const userId = req.user.id;

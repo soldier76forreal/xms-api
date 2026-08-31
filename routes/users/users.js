@@ -4,7 +4,7 @@ const mongoose   = require('mongoose');
 const path       = require('path');
 const crypto     = require('crypto');
 const multer     = require('multer');
-const { blockExecutableFiles, imagesOnly, imageUploadLimits, uploadLimits } = require('../../utils/uploadGuards');
+const { blockExecutableFiles, imagesOnly, imageUploadLimits, uploadLimits, MAX_BATCH_FILES } = require('../../utils/uploadGuards');
 const sharp      = require('sharp');
 const ffmpeg     = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -254,7 +254,7 @@ router.get('/me/notes', verify, async (req, res) => {
 });
 
 // POST /users/me/notes — create a note (text + up to 5 voice/video/photo/document attachments).
-router.post('/me/notes', verify, notesUpload.array('files', 5), async (req, res) => {
+router.post('/me/notes', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
   try {
     const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
     const uploadedFiles = req.files || [];
@@ -391,7 +391,7 @@ async function makeJobReportFileEntry(file, userId, reportId) {
 }
 
 // POST /users/me/jobReports — create your OWN report (text + up to 5 voice/video/photo/document attachments).
-router.post('/me/jobReports', verify, notesUpload.array('files', 5), async (req, res) => {
+router.post('/me/jobReports', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
   try {
     const reportDate = req.body.reportDate ? new Date(req.body.reportDate) : new Date();
     const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
@@ -414,7 +414,7 @@ router.post('/me/jobReports', verify, notesUpload.array('files', 5), async (req,
 });
 
 // PUT /users/me/jobReports/:reportId — edit your OWN report (real edit — date/text + add/remove files).
-router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', 5), async (req, res) => {
+router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
   try {
     const report = await UserJobReport.findOne({ _id: req.params.reportId, userId: req.user.id, deleteDate: null });
     if (!report) return res.status(404).json({ message: 'Report not found' });

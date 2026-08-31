@@ -1,7 +1,7 @@
 const express  = require('express');
 const mongoose = require('mongoose');
 const multer   = require('multer');
-const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
+const { blockExecutableFiles, uploadLimits, MAX_BATCH_FILES } = require('../../utils/uploadGuards');
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -671,7 +671,7 @@ router.get('/customers/:id/communication', verify, requirePermission('crm:commun
 // to 5 attached files (multipart) — voice recordings, images, or video clips —
 // stored via the shared File Manager (scope:'crm', attachedTo:'customerActivity').
 router.post('/customers/:id/communication', verify, requirePermission('crm:communication:create'),
-  commUpload.array('files', 5), async (req, res) => {
+  commUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
   try {
     const userId = req.user.id;
     const { type = 'call_logged', body = '', channel } = req.body;

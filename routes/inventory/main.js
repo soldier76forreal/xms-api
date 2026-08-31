@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
+const { blockExecutableFiles, uploadLimits, MAX_BATCH_FILES } = require('../../utils/uploadGuards');
 const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
@@ -1175,7 +1175,7 @@ router.post('/variants/:id/media', verify, requirePermission('inventory:media:ed
 // every removed + added file still gets its own inventoryChangeLogs row,
 // same shape/discipline as the single-file route above.
 
-router.post('/variants/:id/media-batch', verify, requirePermission('inventory:media:edit'), upload.array('files', 20), async (req, res) => {
+router.post('/variants/:id/media-batch', verify, requirePermission('inventory:media:edit'), upload.array('files', MAX_BATCH_FILES), async (req, res) => {
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
   if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
@@ -1372,7 +1372,7 @@ router.post('/products/:id/media', verify, requirePermission('inventory:media:ed
 // gallery, not a versioned set — this just adds N independent File docs in one
 // request, giving the upload a single XHR (real onUploadProgress) instead of
 // the old one-request-per-file loop the frontend used to do.
-router.post('/products/:id/media-batch', verify, requirePermission('inventory:media:edit'), upload.array('files', 20), async (req, res) => {
+router.post('/products/:id/media-batch', verify, requirePermission('inventory:media:edit'), upload.array('files', MAX_BATCH_FILES), async (req, res) => {
   const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null });
   if (!product) return res.status(404).json({ message: 'Product not found' });
   if (!(await assertBranchAccess(req.user.id, product.branchId))) {
