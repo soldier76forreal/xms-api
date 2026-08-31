@@ -164,6 +164,7 @@ app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
 app.use('/shortlinks' , require('./routes/shortLinks/main') )
+app.use('/ghost' , require('./routes/ghost/main') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
 app.use((err, req, res, next) => {
@@ -228,6 +229,27 @@ server.listen(4789, async () => {
         userM = dbConnection.model('user', userSchema);
         await userM.updateMany({ isOnline: true }, { $set: { isOnline: false, lastSeen: new Date() } });
     } catch (_) {}
+
+    // ── Ghost-session cleanup ────────────────────────────────────────────────
+    // A ghost sandbox must never outlive its session. Closing the browser tells
+    // the server nothing, and a crash can strand a whole cloned database, so
+    // cleanup runs on boot (catching anything left by the previous process) and
+    // then on a timer against each session's TTL. The in-app "exit ghost"
+    // button is the fast path, not the only one.
+    try {
+        const { sweepGhostSessions } = require('./utils/ghost');
+        const boot = await sweepGhostSessions('startupSweep');
+        if (boot.endedCount || boot.orphanCount) {
+            console.log(`Ghost cleanup on boot: ${boot.endedCount} expired session(s), ${boot.orphanCount} orphaned database(s) dropped.`);
+        }
+        const SWEEP_EVERY_MS = 5 * 60 * 1000;
+        setInterval(() => {
+            sweepGhostSessions('expired').catch(() => {});
+        }, SWEEP_EVERY_MS).unref();   // must not hold the process open on shutdown
+    } catch (err) {
+        console.error('Ghost cleanup scheduler failed to start:', err && err.message);
+    }
+
     if (!userM) return;   // the Telegram /start handler needs the User model too
 
     // ── Telegram bot — /start <code> completes the self-service link started

@@ -19,6 +19,12 @@ const userAccessSchema = new mongoose.Schema({
   // branch per session and sends it as branchId on every inventory/MIS call —
   // always re-validated server-side against this list, never trusted from the client.
   branches: [{ type: mongoose.Schema.Types.ObjectId }],   // ref: 'branches' collection
+  // May this user "ghost in" to another account for testing? A THIRD access
+  // axis, separate from both permission keys and isSuperAdmin: it can only be
+  // set by the owner account (see utils/ghost.js OWNER_PHONE), specifically so
+  // that impersonation rights cannot be handed around by whoever currently
+  // holds an admin role. Never grantable through the normal roles/groups UI.
+  canGhost: { type: Boolean, default: false },
   insertDate: { type: Date, default: Date.now },
   updateDate: { type: Date, default: null },
 });
