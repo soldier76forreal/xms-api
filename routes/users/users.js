@@ -26,7 +26,8 @@ const readyToUploadSchema      = require('../../models/readyToUploadModel');
 const userJobReportModel       = require('../../models/userJobReportModel');
 const dbConnection        = require('../../connections/xmsPr');
 const verify              = require('./verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, UserAccess, Role } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, UserAccess, Role, Group } = require('../../utils/rbac');
+const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 const dotenv = require('dotenv');
 dotenv.config();
@@ -322,10 +323,125 @@ router.delete('/me/notes/:noteId', verify, async (req, res) => {
   }
 });
 
-// ── Job Reports — self-authored, but VISIBLE to anyone who can view this
-// user's profile (users:view) — unlike Notes above, these are not private.
-// Shown in Users > (their profile) > Job Reports, organized/filterable by
-// reportDate (distinct from insertDate — the date the entry was typed up).
+// ── Job Reports ────────────────────────────────────────────────────────────
+// Now a standalone top-level section (nav item just before Tutorials) with
+// two modes, not just a Users-profile sub-tab:
+//   USER mode  — every authenticated user files/edits their OWN reports and
+//                can add a follow-up to their own record. Unconditional, no
+//                permission key — same precedent as personal notes / activity.
+//   ADMIN mode — jobReports:viewAll (see + filter every user's reports by
+//                user/date) and jobReports:reply (reply on any report, which
+//                notifies that report's owner). Two separate keys so a role
+//                can hold view without reply, matching the Inventory
+//                price/quantity split precedent.
+// Self-authored, but VISIBLE to anyone who can view this user's profile
+// (users:view) — unlike Notes above, these are not private. reportDate is
+// what the list is organized/filtered by — distinct from insertDate (when the
+// entry was typed up) and lastActivityAt (latest reply/follow-up/edit, what
+// the ADMIN list actually sorts by).
+
+// Recomputes lastActivityAt from every date on the doc — called after any
+// write that can move it (create, edit, reply, follow-up), in the same
+// operation, mirroring the inventoryChangeLogs/customerActivity convention of
+// never letting a derived field drift from what it's derived from.
+function touchLastActivity(report) {
+  const dates = [report.reportDate, report.updateDate, report.insertDate,
+    ...(report.replies || []).map((r) => r.date),
+    ...(report.followUps || []).map((f) => f.date)].filter(Boolean).map((d) => new Date(d).getTime());
+  report.lastActivityAt = new Date(Math.max(...dates));
+}
+
+// Every member's group(s) -> that group's admins, minus the actor themselves
+// (no self-notify) and de-duplicated (one user in two groups only gets one
+// notification). A user in no group notifies nobody — there is no fallback
+// "global admin" list here on purpose, since that would defeat the point of
+// routing through each group's OWN admins.
+async function groupAdminsFor(userId, excludeUserId) {
+  const groups = await Group.find({ members: userId, deleteDate: null }).select('admins').lean();
+  const ids = new Set();
+  groups.forEach((g) => (g.admins || []).forEach((a) => {
+    const s = String(a);
+    if (s !== String(excludeUserId)) ids.add(s);
+  }));
+  return Array.from(ids);
+}
+
+async function notifyGroupAdminsOfJobReport(actorId, actorName, report, textKey) {
+  try {
+    const adminIds = await groupAdminsFor(report.userId, actorId);
+    await Promise.all(adminIds.map((adminId) => sendNotificationToUser(adminId, {
+      fromId: actorId, fromName: actorName, type: 'jobReport',
+      textKey, textParams: { actorName, reportTitle: report.title || '' },
+      entityType: 'jobReport', entityId: report._id,
+    })));
+  } catch (_) { /* best-effort — a notification failure must never affect the save that triggered it */ }
+}
+
+// GET /users/jobReports — ADMIN MODE: every user's reports, filterable by
+// user + date range. MUST be registered before GET /:id/jobReports so
+// 'jobReports' is never captured as an :id (same lesson as CRM's
+// /customers/bulk vs /customers/:id).
+// ?userId=&dateFrom=&dateTo=&page=&limit=
+router.get('/jobReports', verify, requirePermission('jobReports:viewAll'), async (req, res) => {
+  try {
+    const { userId, dateFrom, dateTo, page = 1, limit = 30 } = req.query;
+    const filter = { deleteDate: null };
+    if (userId) filter.userId = userId;
+    if (dateFrom || dateTo) {
+      filter.reportDate = {};
+      if (dateFrom) filter.reportDate.$gte = new Date(dateFrom);
+      if (dateTo)   filter.reportDate.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    }
+
+    const lim = Math.min(100, Number(limit) || 30);
+    const pg  = Math.max(1, Number(page) || 1);
+    const [data, total] = await Promise.all([
+      UserJobReport.find(filter).sort({ lastActivityAt: -1 }).skip((pg - 1) * lim).limit(lim).lean(),
+      UserJobReport.countDocuments(filter),
+    ]);
+
+    // The admin list's whole point is "who filed this and when" — join the
+    // author's name onto each row rather than making the frontend resolve N
+    // separate user lookups (same batched-join pattern as
+    // crm/customer.js's createdByName resolution).
+    const authorIds = [...new Set(data.map((r) => String(r.userId)))];
+    const authors = await userM.find({ _id: { $in: authorIds } }).select('firstName lastName').lean();
+    const nameById = new Map(authors.map((u) => [String(u._id), `${u.firstName || ''} ${u.lastName || ''}`.trim()]));
+    data.forEach((r) => { r.authorName = nameById.get(String(r.userId)) || ''; });
+
+    return res.status(200).json({ data, total, page: pg, limit: lim });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /users/jobReports/:reportId — single report, mode-agnostic. Exists for
+// notification deep-links (a create/edit notification goes to a group admin
+// who needs jobReports:viewAll to open it; a reply notification goes to the
+// report's own owner, who always can) — the click target doesn't know in
+// advance which mode the viewer should be in, so it needs one fetch that
+// works either way. Same access rule as the list route below: owner always,
+// otherwise users:view or jobReports:viewAll.
+router.get('/jobReports/:reportId', verify, async (req, res) => {
+  try {
+    const report = await UserJobReport.findOne({ _id: req.params.reportId, deleteDate: null }).lean();
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+
+    if (String(report.userId) !== String(req.user.id)) {
+      const perms = await getEffectivePermissions(req.user.id);
+      if (!perms.has('users:view') && !perms.has('jobReports:viewAll')) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    const author = await userM.findById(report.userId).select('firstName lastName').lean();
+    report.authorName = author ? `${author.firstName || ''} ${author.lastName || ''}`.trim() : '';
+
+    return res.status(200).json(report);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // GET /users/:id/jobReports — the OWNER can always see their own; anyone else
 // needs users:view (same gate as GET /:id and GET /:id/logs).
@@ -390,6 +506,11 @@ async function makeJobReportFileEntry(file, userId, reportId) {
   return { fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail };
 }
 
+async function getJobReportActorName(userId) {
+  const actor = await userM.findById(userId).select('firstName lastName').lean();
+  return actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
+}
+
 // POST /users/me/jobReports — create your OWN report (text + up to 5 voice/video/photo/document attachments).
 router.post('/me/jobReports', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
   try {
@@ -404,8 +525,12 @@ router.post('/me/jobReports', verify, notesUpload.array('files', MAX_BATCH_FILES
       const files = [];
       for (const file of uploadedFiles) files.push(await makeJobReportFileEntry(file, req.user.id, report._id));
       report.files = files;
-      await report.save();
     }
+    touchLastActivity(report);
+    await report.save();
+
+    const actorName = await getJobReportActorName(req.user.id);
+    notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupCreated');
 
     return res.status(201).json(report);
   } catch (err) {
@@ -435,8 +560,67 @@ router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', MAX_BA
     }
 
     report.updateDate = new Date();
+    touchLastActivity(report);
     await report.save();
+
+    const actorName = await getJobReportActorName(req.user.id);
+    notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupUpdated');
+
     return res.status(200).json(report);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /users/me/jobReports/:reportId/followUp — append a dated update to
+// YOUR OWN report, without overwriting the original entry the way PUT does.
+router.post('/me/jobReports/:reportId/followUp', verify, async (req, res) => {
+  try {
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!body) return res.status(400).json({ message: 'body is required' });
+
+    const report = await UserJobReport.findOne({ _id: req.params.reportId, userId: req.user.id, deleteDate: null });
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+
+    const actorName = await getJobReportActorName(req.user.id);
+    report.followUps.push({ body, authorId: req.user.id, authorName: actorName, date: new Date() });
+    touchLastActivity(report);
+    await report.save();
+
+    notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportFollowUp');
+
+    return res.status(201).json(report);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /users/jobReports/:reportId/reply — ADMIN MODE: reply on ANY user's
+// report. Notifies that report's owner (never the group admins — a reply is
+// already an admin-to-user conversation, not something the group needs
+// re-notified about).
+router.post('/jobReports/:reportId/reply', verify, requirePermission('jobReports:reply'), async (req, res) => {
+  try {
+    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
+    if (!body) return res.status(400).json({ message: 'body is required' });
+
+    const report = await UserJobReport.findOne({ _id: req.params.reportId, deleteDate: null });
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+
+    const actorName = await getJobReportActorName(req.user.id);
+    report.replies.push({ body, authorId: req.user.id, authorName: actorName, date: new Date() });
+    touchLastActivity(report);
+    await report.save();
+
+    if (String(report.userId) !== String(req.user.id)) {
+      sendNotificationToUser(report.userId, {
+        fromId: req.user.id, fromName: actorName, type: 'jobReport',
+        textKey: 'jobReportReplied', textParams: { actorName, reportTitle: report.title || '' },
+        entityType: 'jobReport', entityId: report._id,
+      }).catch(() => {});
+    }
+
+    return res.status(201).json(report);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

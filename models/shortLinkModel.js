@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 // rule lives.
 const shortLinkSchema = new mongoose.Schema({
   code:       { type: String, required: true, unique: true, index: true },
-  module:     { type: String, required: true, enum: ['crm', 'mis', 'inventory', 'digitalMarketing', 'users', 'files', 'tutorials'] },
+  module:     { type: String, required: true, enum: ['crm', 'mis', 'inventory', 'digitalMarketing', 'users', 'files', 'tutorials', 'jobReports'] },
   entityType: { type: String, required: true },
   entityId:   { type: mongoose.Schema.Types.ObjectId, default: null },
   // File Manager only — the {document, msg, showName} share payload.

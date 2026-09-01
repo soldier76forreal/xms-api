@@ -101,6 +101,11 @@ const PERMISSIONS = [
   { key: 'tutorials:upload', module: 'tutorials', description: 'Upload a new tutorial' },
   { key: 'tutorials:edit',   module: 'tutorials', description: 'Edit tutorial metadata / files' },
   { key: 'tutorials:delete', module: 'tutorials', description: 'Delete a tutorial' },
+  // Job Reports — admin-mode capabilities only. Filing/editing/following-up on
+  // your OWN report needs no permission key (same precedent as personal
+  // notes/activity) — see routes/users/users.js's jobReports route family.
+  { key: 'jobReports:viewAll', module: 'jobReports', description: 'View and filter every user’s job reports' },
+  { key: 'jobReports:reply',   module: 'jobReports', description: 'Reply to a user’s job report' },
 ];
 
 // ── Starter roles ─────────────────────────────────────────────────────────────

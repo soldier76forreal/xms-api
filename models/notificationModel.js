@@ -7,7 +7,7 @@ const notificationSchema = new mongoose.Schema({
   type:       {
     type: String,
     enum: ['info', 'task', 'taskClaimed', 'taskDone', 'request', 'system', 'unlock',
-           'assignment', 'invoice', 'dmChat', 'readyToUpload', 'tutorial'],
+           'assignment', 'invoice', 'dmChat', 'readyToUpload', 'tutorial', 'jobReport'],
     default: 'info',
   },
   title:      { type: String, required: true },

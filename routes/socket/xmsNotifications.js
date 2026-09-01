@@ -13,6 +13,7 @@ dotenv.config();
 const multer = require('multer');
 const { blockExecutableFiles, uploadLimits } = require('../../utils/uploadGuards');
 const dbConnection = require('../../connections/xmsPr');
+const crashLogger = require('../../utils/crashLogger');
 
 const userM           = dbConnection.model('user',            userModel);
 const invoice         = dbConnection.model('invoice',         invoiceModel);
@@ -79,6 +80,7 @@ const PREF_BY_TYPE = {
   dmChat: 'dmChat',
   readyToUpload: 'readyToUpload',
   tutorial: 'tutorials',
+  jobReport: 'jobReports',
 };
 
 // Deep-link path for a push notification click — kept in sync with the frontend
@@ -93,6 +95,7 @@ function notifPath(entityType, entityId) {
     case 'customer':      return id ? `/crm?open=${id}` : '/crm';
     case 'user':          return '/users';
     case 'tutorial':      return id ? `/tutorials?open=${id}` : '/tutorials';
+    case 'jobReport':     return id ? `/jobReports?open=${id}` : '/jobReports';
     default:              return '/';
   }
 }
@@ -166,6 +169,10 @@ const ENTITY_TO_SHORTLINK = {
   user: {
     module: 'users', entityType: 'user',
     label: { en: 'Show the profile', fa: 'نمایش پروفایل', ar: 'عرض الملف الشخصي' },
+  },
+  jobReport: {
+    module: 'jobReports', entityType: 'jobReport',
+    label: { en: 'Show the job report', fa: 'نمایش گزارش کار', ar: 'عرض تقرير العمل' },
   },
   tutorial: {
     module: 'tutorials', entityType: 'tutorial',
@@ -277,7 +284,14 @@ const sendNotificationToUser = async (userId, { fromId = null, fromName = '', ty
   let saved;
   try {
     saved = await Notification.create({ userId, fromId, fromName, type, title, body, entityType, entityId });
-  } catch (_) {}
+  } catch (err) {
+    // Caught a real instance of this: a new `type` value used by a caller
+    // before being added to notificationModel.js's enum throws a validation
+    // error here, which — swallowed silently — looked exactly like "the
+    // notification system just isn't firing" with zero diagnostic trail.
+    // Logged now so the next missing-enum-value mistake is findable.
+    crashLogger.logError(err, { type: 'notificationCreateFailed', notifType: type, userId: String(userId) });
+  }
   if (_io) {
     _io.to(`user:${String(userId)}`).emit('notification:new', {
       _id: saved?._id, userId, fromId, fromName, type, title, body, entityType, entityId, isRead: false, insertDate: new Date(),
