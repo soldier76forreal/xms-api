@@ -147,6 +147,15 @@ const userSchema = new mongoose.Schema({
     },
   },
 
+  // Per-user UI preferences that must follow the person across devices rather
+  // than living in one browser's localStorage — same reasoning as
+  // filterMemory above. sidebarWidths is a flat { sidebarKey: px } map (the
+  // nav rail plus each section's master-detail panel); Mixed because sections
+  // come and go and a schema change per sidebar would be pure friction.
+  uiPrefs: {
+    sidebarWidths: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+
   insertDate: { type: Date, default: Date.now },
   updateDate: { type: Date, default: null     },
   deleteDate: { type: Date, default: null     },

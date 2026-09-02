@@ -123,6 +123,50 @@ router.put('/me/profile', verify, async (req, res) => {
 // visible to others (Users list/detail indicator), not just this browser's
 // localStorage. No permission key — it's the caller's own preference.
 const VALID_LANGUAGES = ['en', 'fa', 'ar'];
+// ── GET /users/me/ui-prefs — this user's saved sidebar widths ────────────────
+// Server-side rather than localStorage so a resized sidebar follows the person
+// to another machine, same reasoning as filterMemory. No permission key — it
+// is the caller's own preference, like /me/language above.
+router.get('/me/ui-prefs', verify, async (req, res) => {
+  try {
+    const doc = await userM.findById(req.user.id).select('uiPrefs').lean();
+    return res.status(200).json({ sidebarWidths: (doc && doc.uiPrefs && doc.uiPrefs.sidebarWidths) || {} });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── PUT /users/me/ui-prefs — save sidebar widths ────────────────────────────
+// Merges rather than replaces, so two sections saving concurrently can't wipe
+// each other's entry. Values are clamped server-side too — a width is a UI
+// preference, but it still shouldn't be possible to store nonsense.
+router.put('/me/ui-prefs', verify, async (req, res) => {
+  try {
+    const incoming = req.body && req.body.sidebarWidths;
+    if (!incoming || typeof incoming !== 'object') {
+      return res.status(400).json({ message: 'sidebarWidths object is required' });
+    }
+
+    const doc = await userM.findById(req.user.id).select('uiPrefs').lean();
+    const current = (doc && doc.uiPrefs && doc.uiPrefs.sidebarWidths) || {};
+
+    const merged = { ...current };
+    for (const [key, value] of Object.entries(incoming)) {
+      const px = Number(value);
+      if (!Number.isFinite(px)) continue;
+      merged[String(key).slice(0, 64)] = Math.min(900, Math.max(40, Math.round(px)));
+    }
+
+    await userM.updateOne(
+      { _id: req.user.id },
+      { $set: { 'uiPrefs.sidebarWidths': merged, updateDate: new Date() } }
+    );
+    return res.status(200).json({ sidebarWidths: merged });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.put('/me/language', verify, async (req, res) => {
   try {
     const { language } = req.body;
