@@ -240,7 +240,8 @@ const PURPOSES = {
 
   // ── Inventory media ──────────────────────────────────────────────────────
   // Mirrors POST /inventory/variants/:id/media, including the change-log row
-  // that every media mutation in that module is required to write.
+  // that every media mutation in that module is required to write, and the
+  // auto-set-cover step that route has but this purpose was missing until now.
   inventoryMedia: {
     permission: 'inventory:media:edit',
     prefix: 'files',
@@ -252,9 +253,10 @@ const PURPOSES = {
       }
 
       const isVideo = String(file.mimetype || '').startsWith('video/');
+      const isImage = String(file.mimetype || '').startsWith('image/');
       let thumbnail = null;
       let webPreview = null;
-      if (String(file.mimetype || '').startsWith('image/')) {
+      if (isImage) {
         thumbnail = await makeThumbnail(file);
         webPreview = await convertHeicIfNeeded(file);
       } else if (isVideo) {
@@ -282,6 +284,148 @@ const PURPOSES = {
         mediaRef: { fileId: created._id, action: 'added', name: created.name },
         source: 'manual', changedBy: userId,
       });
+
+      // Atomic guard (matches on coverMediaId:null) so two images completing
+      // close together can't both win the race to become the cover.
+      if (isImage) {
+        await InvProduct.updateOne(
+          { _id: variant.productId, coverMediaId: null },
+          { $set: { coverMediaId: created._id, coverThumbnail: thumbnail || null } }
+        );
+      }
+
+      return { fileId: created._id, file: created };
+    },
+  },
+
+  // ── Inventory product media (accumulating gallery, not a batch/replace) ──
+  // Mirrors POST /inventory/products/:id/media-batch's PER-FILE logic exactly,
+  // just running once per background upload instead of once per multipart
+  // request — purely additive, unlike the variant batch below.
+  inventoryProductMedia: {
+    permission: 'inventory:media:edit',
+    prefix: 'files',
+    async complete({ file, session, userId }) {
+      const product = await InvProduct.findOne({ _id: session.targetId, deleteDate: null });
+      if (!product) { const e = new Error('Product not found'); e.status = 404; throw e; }
+      if (!(await assertBranchAccess(userId, product.branchId))) {
+        const e = new Error('You do not have access to this branch'); e.status = 403; throw e;
+      }
+
+      const isVideo = String(file.mimetype || '').startsWith('video/');
+      const isImage = String(file.mimetype || '').startsWith('image/');
+      let thumbnail = null;
+      let webPreview = null;
+      if (isImage) {
+        thumbnail = await makeThumbnail(file);
+        webPreview = await convertHeicIfNeeded(file);
+      } else if (isVideo) {
+        thumbnail = await extractVideoThumbnail(file.path, `thumb-${file.filename}.jpg`);
+      }
+
+      const actor = await UserM.findById(userId).select('firstName lastName').lean();
+      const uploaderName = actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
+
+      const created = await File.create({
+        name: session.filename.split('.')[0],
+        supFolder: null,
+        metaData: file,
+        format: extOf(session.filename).replace('.', ''),
+        generatedBy: userId,
+        uploadedByName: uploaderName,
+        thumbnail,
+        webPreview,
+        transcodeStatus: isVideo ? 'pending' : 'none',
+        scope: 'inventory',
+        attachedTo: { type: 'inventoryProduct', id: product._id },
+      });
+
+      if (isVideo) transcodeVideoAsync(File, created, file.path);
+
+      await InvChangeLog.create({
+        subjectType: 'product', subjectId: product._id, productId: product._id,
+        changeType: 'media',
+        mediaRef: { fileId: created._id, action: 'added', name: created.name },
+        source: 'manual', changedBy: userId, changedByName: uploaderName,
+      });
+
+      if (isImage) {
+        await InvProduct.updateOne(
+          { _id: product._id, coverMediaId: null },
+          { $set: { coverMediaId: created._id, coverThumbnail: thumbnail || null } }
+        );
+      }
+
+      return { fileId: created._id, file: created };
+    },
+  },
+
+  // ── Inventory VARIANT media batch (delete + replace, shared batch fields) ─
+  // Unlike every other purpose in this file, this one can't stand alone: the
+  // "delete the variant's current batch" step must run exactly ONCE per
+  // batch submission, not once per file, so it happens in a dedicated
+  // POST /inventory/variants/:id/media-batch/start call BEFORE any file's
+  // Upload Center session begins — that call returns the batchId/uploadDate/
+  // expirationDate this purpose expects on session.extra and stamps onto
+  // every file in the batch, mirroring POST /variants/:id/media-batch.
+  inventoryVariantMediaBatch: {
+    permission: 'inventory:media:edit',
+    prefix: 'files',
+    async complete({ file, session, userId }) {
+      const variant = await InvVariant.findOne({ _id: session.targetId, deleteDate: null });
+      if (!variant) { const e = new Error('Variant not found'); e.status = 404; throw e; }
+      if (!(await assertBranchAccess(userId, variant.branchId))) {
+        const e = new Error('You do not have access to this branch'); e.status = 403; throw e;
+      }
+      const { batchId } = session.extra || {};
+      if (!batchId) { const e = new Error('batchId is required — call media-batch/start first'); e.status = 400; throw e; }
+      const uploadDate = session.extra.uploadDate ? new Date(session.extra.uploadDate) : new Date();
+      const expirationDate = session.extra.expirationDate ? new Date(session.extra.expirationDate) : null;
+
+      const isVideo = String(file.mimetype || '').startsWith('video/');
+      const isImage = String(file.mimetype || '').startsWith('image/');
+      let thumbnail = null;
+      let webPreview = null;
+      if (isImage) {
+        thumbnail = await makeThumbnail(file);
+        webPreview = await convertHeicIfNeeded(file);
+      } else if (isVideo) {
+        thumbnail = await extractVideoThumbnail(file.path, `thumb-${file.filename}.jpg`);
+      }
+
+      const actor = await UserM.findById(userId).select('firstName lastName').lean();
+      const uploaderName = actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
+
+      const created = await File.create({
+        name: session.filename.split('.')[0],
+        supFolder: null,
+        metaData: file,
+        format: extOf(session.filename).replace('.', ''),
+        generatedBy: userId,
+        uploadedByName: uploaderName,
+        thumbnail,
+        webPreview,
+        transcodeStatus: isVideo ? 'pending' : 'none',
+        scope: 'inventory',
+        attachedTo: { type: 'inventoryVariant', id: variant._id },
+        batchId, uploadDate, expirationDate,
+      });
+
+      if (isVideo) transcodeVideoAsync(File, created, file.path);
+
+      await InvChangeLog.create({
+        subjectType: 'variant', subjectId: variant._id, productId: variant.productId,
+        changeType: 'media',
+        mediaRef: { fileId: created._id, action: 'added', name: created.name },
+        source: 'manual', changedBy: userId, changedByName: uploaderName,
+      });
+
+      if (isImage) {
+        await InvProduct.updateOne(
+          { _id: variant.productId, coverMediaId: null },
+          { $set: { coverMediaId: created._id, coverThumbnail: thumbnail || null } }
+        );
+      }
 
       return { fileId: created._id, file: created };
     },
@@ -365,14 +509,32 @@ const PURPOSES = {
   },
 
   // ── Avatar (own profile) ─────────────────────────────────────────────────
+  // Mirrors POST /users/me/avatar in routes/users/users.js exactly — same
+  // File doc + thumbnail + {fileId,url,thumbnail,filename} shape, since every
+  // avatar consumer app-wide (userAvatar.js, users.js, myProfileModal.js, …)
+  // reads .url/.thumbnail/.filename off profileImage.
   avatar: {
     permission: null,
     prefix: 'avatar',
     imagesOnly: true,
     async complete({ file, session, userId }) {
+      const thumbnail = await makeThumbnail(file);
+
+      const fileDoc = await File.create({
+        name: session.filename,
+        metaData: file,
+        format: extOf(session.filename).replace('.', ''),
+        generatedBy: userId,
+        thumbnail,
+        scope: 'users',
+        attachedTo: { type: 'user', id: userId },
+      });
+
       const profileImage = {
-        name: session.filename, diskName: file.filename,
-        mimetype: file.mimetype, size: file.size,
+        fileId: fileDoc._id,
+        url: `/uploads/${file.filename}`,
+        thumbnail: thumbnail ? `/uploads/${thumbnail}` : null,
+        filename: file.filename,
       };
       await UserM.updateOne({ _id: userId }, { $set: { profileImage, updateDate: new Date() } });
       return { profileImage };

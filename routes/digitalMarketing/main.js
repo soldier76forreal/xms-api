@@ -153,8 +153,15 @@ async function logDmActivity(subjectType, subjectId, action, userId, actorName, 
   } catch (_) { /* audit trail is non-critical */ }
 }
 
+// Accepts either a JSON-encoded string (multipart/FormData, which can only
+// carry strings) or an already-real array (a plain-object JSON body, as sent
+// by callers migrated onto the Upload Center's split-metadata-from-files
+// pattern) — passing a real array straight to JSON.parse silently stringifies
+// it to "[object Object]" first and fails, which used to make links/tags
+// vanish on every plain-JSON save. Both shapes now round-trip correctly.
 function parseJsonArray(raw, fallback = []) {
   if (!raw) return fallback;
+  if (Array.isArray(raw)) return raw;
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : fallback;
