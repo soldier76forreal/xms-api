@@ -151,6 +151,93 @@ const PURPOSES = {
     },
   },
 
+  // Attaches a voice-description recording to an ALREADY-uploaded raw content
+  // file, matched by extra.mainFileId. Sequenced client-side (the voice
+  // recording only enqueues once the main file's upload has completed and its
+  // real fileId is known), so this never races the entry it is attaching to —
+  // no placeholder/correlation bookkeeping needed.
+  dmRawContentVoice: {
+    permission: 'digitalMarketing:rawContent:edit',
+    prefix: 'dm',
+    async complete({ file, session, userId }) {
+      const dm = require('../digitalMarketing/main');
+      const mainFileId = session.extra && session.extra.mainFileId;
+      if (!mainFileId) { const e = new Error('mainFileId is required'); e.status = 400; throw e; }
+
+      const entry = await dm.makeFileDoc(file, userId, 'rawContent', session.targetId);
+      const result = await dm.RawContent.updateOne(
+        { _id: session.targetId, 'files.fileId': mainFileId },
+        { $set: { 'files.$.voiceDescriptionFileId': entry.fileId, 'files.$.voiceDescriptionDiskName': entry.diskName } }
+      );
+      if (result.matchedCount === 0) { const e = new Error('Target file entry not found'); e.status = 404; throw e; }
+      return { fileId: entry.fileId, entry };
+    },
+  },
+
+  // In-place file swap on an existing raw content entry (the "replace" action
+  // in rawContentDetail.js) — keeps the entry's name/description, only the
+  // underlying file/thumbnail/mimetype change. Matched by extra.editFileId.
+  dmRawContentReplace: {
+    permission: 'digitalMarketing:rawContent:edit',
+    prefix: 'dm',
+    async complete({ file, session, userId }) {
+      const dm = require('../digitalMarketing/main');
+      const editFileId = session.extra && session.extra.editFileId;
+      if (!editFileId) { const e = new Error('editFileId is required'); e.status = 400; throw e; }
+
+      const entry = await dm.makeFileDoc(file, userId, 'rawContent', session.targetId);
+      const result = await dm.RawContent.updateOne(
+        { _id: session.targetId, 'files.fileId': editFileId },
+        { $set: {
+          'files.$.fileId': entry.fileId, 'files.$.diskName': entry.diskName,
+          'files.$.mimetype': entry.mimetype, 'files.$.thumbnail': entry.thumbnail,
+        } }
+      );
+      if (result.matchedCount === 0) { const e = new Error('Target file entry not found'); e.status = 404; throw e; }
+      return { fileId: entry.fileId, entry };
+    },
+  },
+
+  // Same in-place swap, for a ready-to-upload entry (mirrors dmRawContentReplace).
+  dmReadyToUploadReplace: {
+    permission: 'digitalMarketing:readyToUpload:edit',
+    prefix: 'dm',
+    async complete({ file, session, userId }) {
+      const dm = require('../digitalMarketing/main');
+      const editFileId = session.extra && session.extra.editFileId;
+      if (!editFileId) { const e = new Error('editFileId is required'); e.status = 400; throw e; }
+
+      const entry = await dm.makeFileDoc(file, userId, 'readyToUpload', session.targetId);
+      const result = await dm.ReadyToUpload.updateOne(
+        { _id: session.targetId, 'files.fileId': editFileId },
+        { $set: {
+          'files.$.fileId': entry.fileId, 'files.$.diskName': entry.diskName,
+          'files.$.mimetype': entry.mimetype, 'files.$.thumbnail': entry.thumbnail,
+        } }
+      );
+      if (result.matchedCount === 0) { const e = new Error('Target file entry not found'); e.status = 404; throw e; }
+      return { fileId: entry.fileId, entry };
+    },
+  },
+
+  // Sets (never appends — a page has exactly one) the cover image on an
+  // external link page. Works identically whether called right after
+  // creation (page created with no cover, then this attaches one) or as a
+  // later edit — by the time this runs the page already exists either way,
+  // so both cases are gated by :edit.
+  dmLinkPageCover: {
+    permission: 'digitalMarketing:linkPage:edit',
+    prefix: 'dm',
+    imagesOnly: true,
+    async complete({ file, session, userId }) {
+      const dm = require('../digitalMarketing/main');
+      const entry = await dm.makeFileDoc(file, userId, 'linkPage', session.targetId);
+      const coverImage = { fileId: entry.fileId, diskName: entry.diskName, name: entry.name, mimetype: entry.mimetype };
+      await dm.ExternalLinkPage.updateOne({ _id: session.targetId }, { $set: { coverImage } });
+      return { fileId: entry.fileId, coverImage };
+    },
+  },
+
   // ── Inventory media ──────────────────────────────────────────────────────
   // Mirrors POST /inventory/variants/:id/media, including the change-log row
   // that every media mutation in that module is required to write.

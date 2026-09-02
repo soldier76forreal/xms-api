@@ -343,9 +343,10 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
   try {
     const userId = req.user.id;
     const contentFiles = (req.files && req.files.files) || [];
-    if (!contentFiles.length) {
-      return res.status(400).json({ message: 'At least one file is required' });
-    }
+    // Files are optional at creation now -- the Upload Center attaches them
+    // asynchronously afterward via the dmRawContent purpose, using this
+    // record's id as the target. The multipart path above still works too
+    // (kept for any other caller), it just isn't required to carry files.
 
     const descriptions = parseJsonArray(req.body.descriptions, []);
     const names         = parseJsonArray(req.body.names, []);
@@ -547,9 +548,8 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
     }
 
     const files = (req.files && req.files.files) || [];
-    if (!files.length) {
-      return res.status(400).json({ message: 'At least one edited file is required' });
-    }
+    // Files are optional here too, for the same reason as raw-content create —
+    // see the note there.
 
     const actorName = await getActorName(userId);
 
@@ -694,9 +694,7 @@ router.post('/ready-to-upload', verify, requirePermission('digitalMarketing:read
   try {
     const userId = req.user.id;
     const files = (req.files && req.files.files) || [];
-    if (!files.length) {
-      return res.status(400).json({ message: 'At least one file is required' });
-    }
+    // Files optional — see the note on POST /raw-contents.
 
     const actorName = await getActorName(userId);
 
@@ -1283,3 +1281,5 @@ module.exports = router;
 module.exports.makeFileDoc = makeFileDoc;
 module.exports.RawContent = RawContent;
 module.exports.ReadyToUpload = ReadyToUpload;
+module.exports.ExternalLinkPage = ExternalLinkPage;
+module.exports.File = File;
