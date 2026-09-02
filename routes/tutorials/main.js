@@ -370,3 +370,7 @@ router.delete('/:id', verify, requirePermission('tutorials:delete'), async (req,
 });
 
 module.exports = router;
+// Reused by routes/uploads/purposes.js so a resumable upload finishes through
+// the SAME file-processing path a classic multipart upload does.
+module.exports.makeFileDoc = makeFileDoc;
+module.exports.Tutorial = Tutorial;

@@ -1279,3 +1279,7 @@ router.delete('/whatsapp-shares/:id', verify, requirePermission('inventory:share
 });
 
 module.exports = router;
+// Reused by routes/uploads/purposes.js — see the note in tutorials/main.js.
+module.exports.makeFileDoc = makeFileDoc;
+module.exports.RawContent = RawContent;
+module.exports.ReadyToUpload = ReadyToUpload;

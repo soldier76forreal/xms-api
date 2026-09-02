@@ -1209,3 +1209,7 @@ router.post('/deleteUser', verify, async (req, res) => {
 });
 
 module.exports = router;
+// Reused by routes/uploads/purposes.js — see the note in tutorials/main.js.
+module.exports.makeJobReportFileEntry = makeJobReportFileEntry;
+module.exports.UserJobReport = UserJobReport;
+module.exports.userM = userM;
