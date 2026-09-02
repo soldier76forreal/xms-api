@@ -7,7 +7,7 @@ const { getEffectivePermissions } = require('../../utils/rbac');
 const { PURPOSES } = require('./purposes');
 const {
   createSession, getSession, appendChunk, completeSession,
-  markCompleted, markFailed, cancelSession, listActiveSessions,
+  markCompleted, markFailed, cancelSession, listActiveSessions, listUploadHistory,
 } = require('../../utils/resumableUpload');
 const crashLogger = require('../../utils/crashLogger');
 
@@ -95,6 +95,30 @@ router.get('/sessions', verify, async (req, res) => {
         insertDate: s.insertDate, expiresAt: s.expiresAt,
       })),
       chunkSize: SUGGESTED_CHUNK_BYTES,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── GET /uploads/sessions/history — every upload this user has ever started ──
+// The Upload Center's "history" is tied to the ACCOUNT, not the browser: log
+// in on a different device and the same history is there, because it was
+// never only sitting in that first device's IndexedDB. MUST be registered
+// before GET /sessions/:id so 'history' is never captured as a session id.
+router.get('/sessions/history', verify, async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await listUploadHistory(req.user.id, { page, limit });
+    return res.status(200).json({
+      ...result,
+      data: result.data.map((s) => ({
+        sessionId: s._id, purpose: s.purpose, targetId: s.targetId,
+        filename: s.filename, mimetype: s.mimetype,
+        totalBytes: s.totalBytes, receivedBytes: s.receivedBytes,
+        status: s.status, error: s.error, result: s.result,
+        insertDate: s.insertDate, updateDate: s.updateDate,
+      })),
     });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });

@@ -209,6 +209,23 @@ async function listActiveSessions(userId) {
 }
 
 /**
+ * Every upload this user has ever started — completed, cancelled and failed
+ * included, not just what is still in flight. This is what makes the Upload
+ * Center's history genuinely the USER's, not the browser's: reload the app on
+ * a different device and the same history is there, because it was never
+ * only in that first device's IndexedDB. Paginated since it only grows.
+ */
+async function listUploadHistory(userId, { page = 1, limit = 50 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const skip = (Math.max(Number(page) || 1, 1) - 1) * lim;
+  const [data, total] = await Promise.all([
+    UploadSession.find({ userId }).sort({ updateDate: -1 }).skip(skip).limit(lim).lean(),
+    UploadSession.countDocuments({ userId }),
+  ]);
+  return { data, total, page: Math.max(1, Number(page) || 1), limit: lim };
+}
+
+/**
  * Reclaim abandoned sessions and any stray .part files with no session row.
  * Runs on boot and on an interval — same shape as the ghost-session sweep.
  */
@@ -260,5 +277,6 @@ module.exports = {
   markFailed,
   cancelSession,
   listActiveSessions,
+  listUploadHistory,
   sweepUploadSessions,
 };
