@@ -328,10 +328,36 @@ const returnRouter = function (io) {
   io.on('connection', (socket) => {
 
     // ── 'newUser' — emitted by frontend after login (auth.js) ──────────────
-    // Payload: userId string (from decoded JWT)
-    socket.on('newUser', async (userId) => {
+    // Payload: { userId, ghostSessionId } (ghostSessionId is null for a real
+    // session). Accepts a bare string too, for any client still on the old
+    // shape.
+    //
+    // Ghost sessions are handled here, not through connections/xmsPr.js's
+    // AsyncLocalStorage routing: a socket connection is long-lived and has no
+    // single call chain to wrap the way an HTTP request does (that machinery
+    // only wraps the Express request/response cycle in verifyToken.js). A
+    // ghost socket carries the TARGET user's real id (by design — see
+    // routes/ghost/main.js), so without this check it would silently mark the
+    // impersonated person online, overwrite their real lastSeen on disconnect,
+    // and — worse — corrupt the shared per-user ref-count map: if that person
+    // ALSO has a real session open, the ghost tab closing would decrement
+    // their count and wrongly flip them offline. None of that is acceptable
+    // for a feature whose entire point is "must not touch the target's data."
+    socket.on('newUser', async (payload) => {
+      const { userId, ghostSessionId } = (payload && typeof payload === 'object')
+        ? payload : { userId: payload, ghostSessionId: null };
       if (!userId) return;
       const uid = String(userId);
+
+      if (ghostSessionId) {
+        // Still join the room so a ghost sees real-time notifications the way
+        // the impersonated user would (read-only — nothing written here) —
+        // just never touch presence or the ref-count map.
+        socket.data.userId = null;
+        socket.data.isGhost = true;
+        socket.join(`user:${uid}`);
+        return;
+      }
 
       // Legacy presence (for sendRequest compatibility)
       addNewUser(uid, socket.id);
