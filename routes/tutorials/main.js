@@ -134,12 +134,8 @@ function broadcastNewTutorial(actorId, actorName, tutorial) {
   })();
 }
 
-// Accepts either a JSON-encoded string (multipart/FormData) or an already-real
-// array (a plain-object JSON body) — see the identical note in
-// digitalMarketing/main.js, where this same bug was first found.
 function parseJsonArray(raw, fallback) {
   if (!raw) return fallback;
-  if (Array.isArray(raw)) return raw;
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : fallback;
@@ -266,12 +262,8 @@ router.get('/:id', verify, requirePermission('tutorials:view'), async (req, res)
   }
 });
 
-// POST /tutorials — create. Accepts either the classic multipart body
-// (title, description, language, section, tags as a JSON array string,
-// files[]) or a plain-JSON metadata-only body with no files — the Upload
-// Center's split-create-from-files pattern (see purposes.js's `tutorial`
-// entry): the record is created first, then each file attaches afterward via
-// its own resumable session, keyed by the real _id this route returns.
+// POST /tutorials — create. Multipart: title, description, language, section,
+// tags (JSON array string), files[] (image/video/document, multiple).
 router.post('/', verify, requirePermission('tutorials:upload'),
   tutorialUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }]),
   async (req, res) => {
@@ -286,6 +278,7 @@ router.post('/', verify, requirePermission('tutorials:upload'),
     if (!['crm', 'mis', 'inventory', 'digitalMarketing', 'users', 'files', 'general'].includes(section)) {
       return res.status(400).json({ message: 'A valid section is required' });
     }
+    if (!uploadedFiles.length) return res.status(400).json({ message: 'At least one file is required' });
 
     const actorName = await getActorName(userId);
 
@@ -377,7 +370,3 @@ router.delete('/:id', verify, requirePermission('tutorials:delete'), async (req,
 });
 
 module.exports = router;
-// Reused by routes/uploads/purposes.js so a resumable upload finishes through
-// the SAME file-processing path a classic multipart upload does.
-module.exports.makeFileDoc = makeFileDoc;
-module.exports.Tutorial = Tutorial;

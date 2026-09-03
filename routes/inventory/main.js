@@ -1268,51 +1268,6 @@ router.post('/variants/:id/media-batch', verify, requirePermission('inventory:me
   res.status(201).json({ data: uploadedFileDocs });
 });
 
-// ─── begin a variant media batch via the Upload Center ───────────────────────
-// The classic route above does "delete old batch, then create every new file"
-// as one multipart request. The Upload Center instead sends one file per
-// background session, so the delete-old-batch step (which must run exactly
-// ONCE per batch, not once per file) is split out here — the frontend calls
-// this first, then hands each file to the Upload Center with the returned
-// batchId/uploadDate/expirationDate as `extra` (see purposes.js's
-// inventoryVariantMediaBatch, which stamps them onto each file as it lands).
-router.post('/variants/:id/media-batch/start', verify, requirePermission('inventory:media:edit'), async (req, res) => {
-  try {
-    const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });
-    if (!variant) return res.status(404).json({ message: 'Variant not found' });
-    if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
-      return res.status(403).json({ message: 'You do not have access to this branch' });
-    }
-
-    const uploaderName  = await getUploaderName(req.user.id);
-    const uploadDate     = req.body.uploadDate     ? new Date(req.body.uploadDate)     : new Date();
-    const expirationDate = req.body.expirationDate ? new Date(req.body.expirationDate) : null;
-
-    const oldFiles = await File.find({
-      scope: 'inventory',
-      'attachedTo.type': 'inventoryVariant',
-      'attachedTo.id':   variant._id,
-      deleteDate:        null,
-    });
-    if (oldFiles.length) {
-      await File.updateMany(
-        { _id: { $in: oldFiles.map((f) => f._id) } },
-        { $set: { deleteDate: new Date() } }
-      );
-      await InvChangeLog.insertMany(oldFiles.map((f) => ({
-        subjectType: 'variant', subjectId: variant._id, productId: variant.productId,
-        changeType: 'media', mediaRef: { fileId: f._id, action: 'removed', name: f.name },
-        source: 'manual', changedBy: req.user.id, changedByName: uploaderName,
-      })));
-    }
-
-    const batchId = new mongoose.Types.ObjectId();
-    return res.status(201).json({ batchId, uploadDate, expirationDate });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // ─── download the whole variant media batch as one .zip ──────────────────────
 router.get('/variants/:id/media-batch/zip', verify, requirePermission('inventory:view'), async (req, res) => {
   const variant = await InvVariant.findOne({ _id: req.params.id, deleteDate: null });

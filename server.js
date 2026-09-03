@@ -165,7 +165,6 @@ app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
 app.use('/shortlinks' , require('./routes/shortLinks/main') )
 app.use('/ghost' , require('./routes/ghost/main') )
-app.use('/uploads' , require('./routes/uploads/sessions') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
 app.use((err, req, res, next) => {
@@ -249,24 +248,6 @@ server.listen(4789, async () => {
         }, SWEEP_EVERY_MS).unref();   // must not hold the process open on shutdown
     } catch (err) {
         console.error('Ghost cleanup scheduler failed to start:', err && err.message);
-    }
-
-    // ── Upload Center cleanup ────────────────────────────────────────────────
-    // A resumable upload that is never resumed (user closed the browser and
-    // never came back, or cancelled while offline) leaves a .part file on
-    // disk. Same shape as the ghost sweep above: reclaim on boot, then on a
-    // timer, against each session's TTL.
-    try {
-        const { sweepUploadSessions } = require('./utils/resumableUpload');
-        const boot = await sweepUploadSessions();
-        if (boot.expired || boot.orphans) {
-            console.log(`Upload cleanup on boot: ${boot.expired} expired session(s), ${boot.orphans} orphaned partial file(s) removed.`);
-        }
-        setInterval(() => {
-            sweepUploadSessions().catch(() => {});
-        }, 15 * 60 * 1000).unref();
-    } catch (err) {
-        console.error('Upload cleanup scheduler failed to start:', err && err.message);
     }
 
     if (!userM) return;   // the Telegram /start handler needs the User model too

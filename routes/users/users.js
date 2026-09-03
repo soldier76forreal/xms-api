@@ -299,18 +299,13 @@ router.get('/me/notes', verify, async (req, res) => {
 });
 
 // POST /users/me/notes — create a note (text + up to 5 voice/video/photo/document attachments).
-// The "text or at least one attachment" rule is enforced client-side, not
-// here: an attachment-only note is created with an empty body in the SAME
-// request that used to carry both, or (via the Upload Center's split-create-
-// from-files pattern) with the body alone, with each file attaching
-// afterward through its own resumable session — so this route can't tell
-// "genuinely empty" apart from "text-less note whose only attachment hasn't
-// landed yet" and must trust the client the same way tutorials/DM/job
-// reports already do.
 router.post('/me/notes', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
   try {
     const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
     const uploadedFiles = req.files || [];
+    if (!body && uploadedFiles.length === 0) {
+      return res.status(400).json({ message: 'A note needs text or at least one attachment' });
+    }
 
     const note = await UserNote.create({ userId: req.user.id, body, insertDate: new Date() });
 
@@ -597,16 +592,8 @@ router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', MAX_BA
     if (req.body.title      !== undefined) report.title      = req.body.title.trim();
     if (req.body.body       !== undefined) report.body       = req.body.body.trim();
 
-    // Accepts either a JSON-encoded string (multipart/FormData) or an
-    // already-real array (a plain-object JSON body) — see the identical note
-    // by parseJsonArray in digitalMarketing/main.js and tutorials/main.js,
-    // where JSON.parse(realArray) silently stringifies-then-fails instead of
-    // throwing something catchable, so the removal used to just no-op.
     let removeFileIds = [];
-    try {
-      const raw = req.body.removeFileIds;
-      removeFileIds = (Array.isArray(raw) ? raw : JSON.parse(raw || '[]')).map(String);
-    } catch (_) { /* ignore */ }
+    try { removeFileIds = JSON.parse(req.body.removeFileIds || '[]').map(String); } catch (_) { /* ignore */ }
     if (removeFileIds.length) {
       report.files = report.files.filter((f) => !removeFileIds.includes(String(f.fileId)));
     }
@@ -1266,7 +1253,3 @@ router.post('/deleteUser', verify, async (req, res) => {
 });
 
 module.exports = router;
-// Reused by routes/uploads/purposes.js — see the note in tutorials/main.js.
-module.exports.makeJobReportFileEntry = makeJobReportFileEntry;
-module.exports.UserJobReport = UserJobReport;
-module.exports.userM = userM;
