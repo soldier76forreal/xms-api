@@ -35,6 +35,14 @@ const folder = dbConnection.model('folder' , folderModel);
 const file = dbConnection.model('file' , fileModal);
 const filesFoldersTags = dbConnection.model('fileFoldersTag' , filesFoldersTagsModel);
 const sizeOf = require('image-size')
+// sizeOf() throws synchronously on a corrupt/truncated image (real prod
+// incident: one bad JPEG on disk was taking down the ENTIRE file-listing
+// response, since every call site below sits inside one big try/catch that
+// has no per-file granularity). Never let a single bad file kill a whole
+// list — skip just that file's dimensions instead.
+function safeSizeOf(path) {
+    try { return sizeOf(path); } catch (_) { return null; }
+}
 var AdmZip = require("adm-zip");
 var randomstring = require("randomstring");
 const storage = multer.diskStorage({
@@ -626,7 +634,7 @@ router.get('/storageStats', verify, requirePermission('files:view'), async (req,
                         for(var d = 0 ; findFiles.length > d ; d++){
                             if(JSON.stringify(findFiles[d]._id) === JSON.stringify(findFolders[i].subFiles[q])){
                                 if(findFiles[d].format === 'jpg' || findFiles[d].format === 'JPG' || findFiles[d].format === 'png' ||findFiles[d].format === 'svg' || findFiles[d].format === 'jpeg' || findFiles[d].format === 'JPGE'|| findFiles[d].format === 'PNG' || findFiles[d].format === 'SVG'){
-                                    temp.push({file:findFiles[d] , dim:sizeOf(`./public/uploads/${findFiles[d].metaData.filename}`)})
+                                    temp.push({file:findFiles[d] , dim:safeSizeOf(`./public/uploads/${findFiles[d].metaData.filename}`)})
                                 }else{
                                     temp.push({file:findFiles[d]})
                                 }
@@ -644,7 +652,7 @@ router.get('/storageStats', verify, requirePermission('files:view'), async (req,
             }
             const filesOfRoot = findFiles.filter(e=>{return e.supFolder === 'root'}).map(e=>{
                 if(e.format === 'jpg' || e.format === 'JPG' || e.format === 'png' ||e.format === 'svg' || e.format === 'jpeg' || e.format === 'JPGE'|| e.format === 'PNG' || e.format === 'SVG'){
-                    return {file:e , dim:sizeOf(`./public/uploads/${e.metaData.filename}`)}
+                    return {file:e , dim:safeSizeOf(`./public/uploads/${e.metaData.filename}`)}
                 }else{
                     return {file:e}
                 }
@@ -924,7 +932,7 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
                 }else if(documents[i].type === 'file'){
                     const tempDoc = await file.findOne({_id:documents[i].id}).lean()
                     if (!tempDoc) continue;
-                    tempDoc.dim = sizeOf(`./public/uploads/${tempDoc.metaData.filename}`)
+                    tempDoc.dim = safeSizeOf(`./public/uploads/${tempDoc.metaData.filename}`)
                     if(tempDoc.format === 'jpg' || tempDoc.format === 'JPG' || tempDoc.format === 'png' ||tempDoc.format === 'svg' || tempDoc.format === 'jpeg' || tempDoc.format === 'JPGE'|| tempDoc.format === 'PNG' || tempDoc.format === 'SVG'){
                         finalArr.push({type:'file',doc:tempDoc})
                     }else{
@@ -943,7 +951,7 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
                     for(var o = 0 ; tempFi.length>o ; o++){
                         if(tempFi[o].format === 'jpg' || tempFi[o].format === 'JPG' || tempFi[o].format === 'png' ||tempFi[o].format === 'svg' || tempFi[o].format === 'jpeg' || tempFi[o].format === 'JPGE'|| tempFi[o].format === 'PNG' || tempFi[o].format === 'SVG'){
                             var temp = tempFi[o];
-                            temp.dim=sizeOf(`./public/uploads/${tempFi[o].metaData.filename}`)
+                            temp.dim=safeSizeOf(`./public/uploads/${tempFi[o].metaData.filename}`)
                             finalFi.push(temp)
                         }else{
                             finalFi.push(tempFi[o])
