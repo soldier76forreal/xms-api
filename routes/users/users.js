@@ -167,6 +167,41 @@ router.put('/me/ui-prefs', verify, async (req, res) => {
   }
 });
 
+// ── GET /users/me/last-seen — this user's per-list "seen up to" timestamps ──
+// Powers the unread-record indicator (a dot + tinted row) on every record
+// list — a record inserted by someone ELSE after the stored value for that
+// section is "unread". No permission key — the caller's own read-state.
+router.get('/me/last-seen', verify, async (req, res) => {
+  try {
+    const doc = await userM.findById(req.user.id).select('recordsLastSeenAt').lean();
+    return res.status(200).json({ recordsLastSeenAt: (doc && doc.recordsLastSeenAt) || {} });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── PUT /users/me/last-seen — mark one section "seen up to now" ────────────
+// Called once a list finishes loading (see tools/hooks/useUnreadRecords.js).
+// Always stamps the SERVER's current time — never a client-supplied one, so a
+// skewed device clock can't make later inserts wrongly look already-seen.
+router.put('/me/last-seen', verify, async (req, res) => {
+  try {
+    const { section } = req.body;
+    if (!section || typeof section !== 'string') {
+      return res.status(400).json({ message: 'section is required' });
+    }
+    const key = section.slice(0, 64);
+    const now = new Date();
+    await userM.updateOne(
+      { _id: req.user.id },
+      { $set: { [`recordsLastSeenAt.${key}`]: now } }
+    );
+    return res.status(200).json({ section: key, lastSeenAt: now });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.put('/me/language', verify, async (req, res) => {
   try {
     const { language } = req.body;

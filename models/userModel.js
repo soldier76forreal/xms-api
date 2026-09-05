@@ -156,6 +156,14 @@ const userSchema = new mongoose.Schema({
     sidebarWidths: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
 
+  // Per-user, per-list "seen up to" timestamps that drive the unread-record
+  // indicator (dot + tinted row) on every record list — same flat Mixed-map
+  // convention as uiPrefs.sidebarWidths, keyed by section (crm/mis/inventory/
+  // tutorials/dmRawContent/...). A record inserted by someone ELSE after the
+  // stored value for that section is "unread"; the frontend refreshes the
+  // stored value to now each time that list is opened.
+  recordsLastSeenAt: { type: mongoose.Schema.Types.Mixed, default: {} },
+
   insertDate: { type: Date, default: Date.now },
   updateDate: { type: Date, default: null     },
   deleteDate: { type: Date, default: null     },
