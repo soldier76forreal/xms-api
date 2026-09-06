@@ -107,6 +107,10 @@ app.use(rateLimit({ name: 'global', windowMs: 60_000, max: 1000 }));
 // with no credentials at all, so it gets its own much tighter budget — this is
 // what stops someone brute-forcing page codes.
 app.use('/digitalMarketing/public', rateLimit({ name: 'public', windowMs: 60_000, max: 60 }));
+// File Manager share links (GET /files/public/share/:code) are the second such
+// route — same reasoning, same budget: the 48-bit code IS the credential, so
+// the only real attack is guessing codes, and this is what makes that hopeless.
+app.use('/files/public', rateLimit({ name: 'public', windowMs: 60_000, max: 60 }));
 
 // ── Native file download ──────────────────────────────────────────────────────
 // Streams a public/uploads file with `Content-Disposition: attachment` so the

@@ -6,7 +6,7 @@ const userModel = require("../../models/userModel");
 const invoiceModel = require("../../models/invoiceModel");
 const verify = require('../users/verifyToken');
 const { requirePermission } = require('../../utils/rbac');
-const { createShortLink, resolveShortLink } = require('../../utils/shortLink');
+const { ShortLink, createShortLink, resolveShortLink } = require('../../utils/shortLink');
 const path = require('path');
 const pwaSubscriptionModel = require('../../models/pwaSubscriptionModel');
 const dotenv = require("dotenv");
@@ -878,11 +878,13 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
 
 
     
-    // Unified short-link system (2026-07-30): File Manager share links now go
+    // Unified short-link system (2026-07-30): File Manager share links go
     // through the same shortLink model every other section's "copy link"
-    // button uses — internal-only, requires login. The old flow minted a raw
-    // signed JWT as the "link" (200+ chars, and deliberately public/no-login);
-    // that public, no-login sharing is intentionally retired.
+    // button uses (the old flow minted a raw signed JWT as the "link", 200+
+    // chars). CREATING a link needs files:share; OPENING one does not need an
+    // account at all — see GET /public/share/:code below. That public,
+    // no-login read was restored 2026-09-06 at Pouriya's request: a share link
+    // that only company staff can open is not a share link.
     router.post('/createNewLink', verify , requirePermission('files:share') , async(req , res)=>{
         try{
             var decoded = jwt_decode(req.headers.authorization);
@@ -914,11 +916,25 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
 
 
 
-    router.get('/shortlinks/:code', verify, requirePermission('files:view'), async(req , res)=>{
+    // PUBLIC — no verify, no requirePermission, by design. A file share link is
+    // meant for someone OUTSIDE the company (a customer, a supplier) who has no
+    // XMS account at all; gating it behind login + files:view made every shared
+    // link unopenable for its actual audience. Same deliberate exception as
+    // GET /digitalMarketing/public/link-pages/:code, and it only ever exposes
+    // the documents the sharer explicitly picked into THIS link's payload —
+    // never a folder listing, never a lookup by file id. The 48-bit random code
+    // is the credential, and /files/public is rate-limited in server.js to stop
+    // code-guessing. Expiry is still honoured (410, distinct from an unknown
+    // code, so a logged-out visitor sees "expired" instead of a login page).
+    router.get('/public/share/:code', async(req , res)=>{
         try{
             const link = await resolveShortLink(req.params.code);
             if (!link || link.module !== 'files') {
-                return res.status(404).json({ message: 'This link is no longer valid' });
+                // Distinguish "expired/revoked file share" from "never existed"
+                // so the frontend can show the right message to a visitor who
+                // has no account to log into.
+                const stale = await ShortLink.findOne({ code: req.params.code, module: 'files' }).select('_id').lean();
+                return res.status(stale ? 410 : 404).json({ message: 'This link is no longer valid' });
             }
             const linkDoc = link.payload || {};
             const documents = Array.isArray(linkDoc.document) ? linkDoc.document : [];
@@ -930,7 +946,7 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
                 if(documents[i].type === 'folder'){
                     folders.push(documents[i].id)
                 }else if(documents[i].type === 'file'){
-                    const tempDoc = await file.findOne({_id:documents[i].id}).lean()
+                    const tempDoc = await file.findOne({_id:documents[i].id, deleteDate:null}).lean()
                     if (!tempDoc) continue;
                     tempDoc.dim = safeSizeOf(`./public/uploads/${tempDoc.metaData.filename}`)
                     if(tempDoc.format === 'jpg' || tempDoc.format === 'JPG' || tempDoc.format === 'png' ||tempDoc.format === 'svg' || tempDoc.format === 'jpeg' || tempDoc.format === 'JPGE'|| tempDoc.format === 'PNG' || tempDoc.format === 'SVG'){
@@ -943,10 +959,10 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
             }
             if(folders.length>0){
                 for(var p = 0 ; folders.length>p ; p++){
-                    var doc = await folder.findOne({_id:folders[p]});
+                    var doc = await folder.findOne({_id:folders[p], deleteDate:null});
                     if (!doc) continue;
-                    var tempFi = await file.find({_id: { $in: doc.subFiles}}).lean();
-                    var tempFo = await folder.find({_id: { $in: doc.subFolders}} );
+                    var tempFi = await file.find({_id: { $in: doc.subFiles}, deleteDate:null}).lean();
+                    var tempFo = await folder.find({_id: { $in: doc.subFolders}, deleteDate:null} );
                     var finalFi = []
                     for(var o = 0 ; tempFi.length>o ; o++){
                         if(tempFi[o].format === 'jpg' || tempFi[o].format === 'JPG' || tempFi[o].format === 'png' ||tempFi[o].format === 'svg' || tempFi[o].format === 'jpeg' || tempFi[o].format === 'JPGE'|| tempFi[o].format === 'PNG' || tempFi[o].format === 'SVG'){
