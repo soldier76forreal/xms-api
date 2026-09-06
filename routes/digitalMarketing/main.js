@@ -13,14 +13,11 @@ const rawContentChatSchema = require('../../models/rawContentChatModel');
 const readyToUploadSchema  = require('../../models/readyToUploadModel');
 const dmActivitySchema     = require('../../models/dmActivityModel');
 const externalLinkPageSchema = require('../../models/externalLinkPageModel');
-const whatsappShareSchema  = require('../../models/whatsappShareModel');
-const inventoryProductSchema = require('../../models/inventoryProductModel');
-const inventoryVariantSchema = require('../../models/inventoryVariantModel');
 const userSchema           = require('../../models/userModel');
 const fileSchema           = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission, getEffectiveScopes, getUsersWithPermission, isSuperAdmin, getUserBranches, Branch, Group } = require('../../utils/rbac');
+const { requirePermission, getEffectiveScopes, getUsersWithPermission, isSuperAdmin, Group } = require('../../utils/rbac');
 const { emitRawContentMessage, emitReadyToUploadMessage, sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -36,9 +33,6 @@ const RawContentChat = dbConnection.models.rawContentChat || dbConnection.model(
 const ReadyToUpload  = dbConnection.models.readyToUpload  || dbConnection.model('readyToUpload',  readyToUploadSchema);
 const DmActivity     = dbConnection.models.dmActivity     || dbConnection.model('dmActivity',     dmActivitySchema);
 const ExternalLinkPage = dbConnection.models.externalLinkPage || dbConnection.model('externalLinkPage', externalLinkPageSchema);
-const WhatsappShare   = dbConnection.models.whatsappShare  || dbConnection.model('whatsappShare',  whatsappShareSchema);
-const InvProduct      = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
-const InvVariant      = dbConnection.models.inventoryVariant || dbConnection.model('inventoryVariant', inventoryVariantSchema);
 const User           = dbConnection.models.user           || dbConnection.model('user',           userSchema);
 const File           = dbConnection.models.file           || dbConnection.model('file',           fileSchema);
 
@@ -1108,171 +1102,6 @@ router.get('/public/link-pages/:code', async (req, res) => {
       .select('companyName coverImage links language').lean();
     if (!doc) return res.status(404).json({ message: 'Not found' });
     return res.status(200).json(doc);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// ── WhatsApp Share — product/variant picker + persistent share history ────────
-// See models/whatsappShareModel.js for the full design rationale (immutable
-// snapshot, saved on Copy/Open not on a manual save step).
-
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// GET /products-lookup — search across every branch the caller can access
-// (NOT pinned to one active branch like mis/crm's own products-lookup routes
-// — this feature's whole premise is cross-branch availability). Mirrors their
-// exact response shape (products, each with a nested `variants` array) plus
-// branchId/branchName per variant, which the existing pattern doesn't carry
-// since it never needed to look past one branch.
-router.get('/products-lookup', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
-  try {
-    const { search = '', stoneType = '', branchId = '' } = req.query;
-
-    const superAdmin = await isSuperAdmin(req.user.id);
-    const accessibleIds = superAdmin ? null : await getUserBranches(req.user.id);
-
-    const query = { deleteDate: null, status: 'active' };
-    if (accessibleIds) query.branchId = { $in: accessibleIds };
-    if (branchId) {
-      const requested = branchId.split(',').filter(Boolean);
-      const allowed = accessibleIds ? requested.filter((id) => accessibleIds.some((a) => String(a) === id)) : requested;
-      if (allowed.length) query.branchId = { $in: allowed };
-    }
-    if (stoneType) query.stoneType = stoneType.toUpperCase();
-    if (search.trim()) {
-      const re = new RegExp(escapeRegex(search.trim()), 'i');
-      query.$or = [{ name: re }, { nameAr: re }, { code: re }];
-    }
-
-    const products = await InvProduct.find(query)
-      .select('_id branchId code name nameAr stoneType quarryCode defaultUnit')
-      .sort('name')
-      .limit(30)
-      .lean();
-
-    const productIds = products.map((p) => p._id);
-    const variants = await InvVariant.find({ productId: { $in: productIds }, deleteDate: null, status: 'active' })
-      .select('_id productId branchId code unit quantity price currency spec.lengthCm spec.widthCm spec.thicknessMm spec.unsized')
-      .lean();
-
-    const branchIds = [...new Set([...products, ...variants].map((d) => String(d.branchId)))];
-    const branches = await Branch.find({ _id: { $in: branchIds } }).select('name country').lean();
-    const branchById = new Map(branches.map((b) => [String(b._id), b]));
-
-    const byProduct = {};
-    for (const v of variants) {
-      const b = branchById.get(String(v.branchId));
-      (byProduct[String(v.productId)] = byProduct[String(v.productId)] || []).push({
-        ...v, branchName: b?.name || '', country: b?.country || null,
-      });
-    }
-    const data = products.map((p) => {
-      const b = branchById.get(String(p.branchId));
-      return { ...p, branchName: b?.name || '', country: b?.country || null, variants: byProduct[String(p._id)] || [] };
-    });
-
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.get('/whatsapp-shares', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const scopes  = await getEffectiveScopes(userId);
-    const dmScope = scopes.digitalMarketing;
-
-    const { page = 1, limit = 40 } = req.query;
-    const query = { deleteDate: null };
-    const scopeFilter = await buildScopeFilter(userId, dmScope);
-    if (scopeFilter) Object.assign(query, scopeFilter);
-
-    const lim  = Math.min(Math.max(Number(limit) || 40, 1), 100);
-    const skip = (Math.max(Number(page) || 1, 1) - 1) * lim;
-
-    const [data, total] = await Promise.all([
-      WhatsappShare.find(query).sort({ insertDate: -1 }).skip(skip).limit(lim).lean(),
-      WhatsappShare.countDocuments(query),
-    ]);
-
-    return res.status(200).json({ data, total, page: Number(page) || 1, limit: lim });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.get('/whatsapp-shares/:id', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
-  try {
-    const doc = await WhatsappShare.findOne({ _id: req.params.id, deleteDate: null }).lean();
-    if (!doc) return res.status(404).json({ message: 'Not found' });
-
-    const scopes  = await getEffectiveScopes(req.user.id);
-    const dmScope = scopes.digitalMarketing;
-    if (!(await canAccessRecord(req.user.id, dmScope, doc))) {
-      return res.status(403).json({ message: 'Not allowed to access this record' });
-    }
-
-    return res.status(200).json(doc);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// POST /whatsapp-shares — called by the dialog itself right after a real Copy
-// text / Open in WhatsApp action, not by a form submit button.
-router.post('/whatsapp-shares', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const {
-      variantId, productId, productName, productNameAr, variantCode,
-      unsized, lengthCm, widthCm, thicknessMm,
-      languages, nameLanguage, includeName, includeDimensions, includeCode, includeContact,
-      branches, contacts, text, action,
-    } = req.body;
-
-    if (!text || !text.trim()) return res.status(400).json({ message: 'text is required' });
-    if (!['copied', 'openedWhatsApp'].includes(action)) return res.status(400).json({ message: 'Invalid action' });
-
-    const actorName = await getActorName(userId);
-    const langs = Array.isArray(languages) ? languages.filter((l) => ['en', 'fa', 'ar'].includes(l)) : [];
-
-    const doc = await WhatsappShare.create({
-      variantId: variantId || null, productId: productId || null,
-      productName: productName || '', productNameAr: productNameAr || '', variantCode: variantCode || '',
-      unsized: !!unsized, lengthCm: lengthCm ?? null, widthCm: widthCm ?? null, thicknessMm: thicknessMm ?? null,
-      languages: langs.length ? langs : ['en'],
-      nameLanguage: ['en', 'ar'].includes(nameLanguage) ? nameLanguage : 'en',
-      includeName: !!includeName, includeDimensions: !!includeDimensions, includeCode: !!includeCode, includeContact: !!includeContact,
-      branches: Array.isArray(branches) ? branches : [],
-      contacts: Array.isArray(contacts) ? contacts : [],
-      text: text.trim(), action,
-      owner: userId, createdBy: userId, createdByName: actorName,
-      insertDate: new Date(),
-    });
-
-    return res.status(201).json(doc);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-router.delete('/whatsapp-shares/:id', verify, requirePermission('inventory:share:whatsapp'), async (req, res) => {
-  try {
-    const doc = await WhatsappShare.findOne({ _id: req.params.id, deleteDate: null });
-    if (!doc) return res.status(404).json({ message: 'Not found' });
-
-    const scopes  = await getEffectiveScopes(req.user.id);
-    const dmScope = scopes.digitalMarketing;
-    if (!(await canAccessRecord(req.user.id, dmScope, doc))) {
-      return res.status(403).json({ message: 'Not allowed to access this record' });
-    }
-
-    await WhatsappShare.updateOne({ _id: doc._id }, { $set: { deleteDate: new Date() } });
-    return res.status(200).json({ message: 'Deleted' });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

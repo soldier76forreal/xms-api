@@ -3,13 +3,11 @@ const permissionSchema  = require('../models/permissionModel');
 const roleSchema        = require('../models/roleModel');
 const groupSchema       = require('../models/groupModel');
 const userAccessSchema  = require('../models/userAccessModel');
-const branchSchema      = require('../models/branchModel');
 
 const Permission = dbConnection.model('permission', permissionSchema);
 const Role       = dbConnection.model('role',       roleSchema);
 const Group      = dbConnection.model('group',      groupSchema);
 const UserAccess = dbConnection.model('userAccess', userAccessSchema);
-const Branch     = dbConnection.models.branch || dbConnection.model('branch', branchSchema);
 
 // ── Permission cache ──────────────────────────────────────────────────────────
 // Short-lived so revocations take effect quickly (max 60s lag).
@@ -154,47 +152,9 @@ function requireSuperAdmin() {
   };
 }
 
-// ── Branch access ──────────────────────────────────────────────────────────────
-// Inventory/MIS are fully isolated per branch. Every list/detail/mutation route
-// in those modules requires a branchId and must call assertBranchAccess to
-// confirm the requesting user is actually assigned to it — never trust a
-// branchId from the client without this check.
-async function getUserBranches(userId) {
-  const access = await UserAccess.findOne({ userId: String(userId) }).lean();
-  return (access && access.branches) || [];
-}
-
-async function assertBranchAccess(userId, branchId) {
-  if (!branchId) return false;
-  const branches = await getUserBranches(userId);
-  if (branches.some((b) => String(b) === String(branchId))) return true;
-  // superAdmin holds every branch implicitly — GET /branches already lists them
-  // all for a superAdmin, so without this bypass switching to a branch not in
-  // their own userAccess.branches 403'd every Inventory/MIS request.
-  return isSuperAdmin(userId);
-}
-
-// requireBranch — reads branchId from query (GET) or body (mutations), 400s if
-// missing/malformed, 403s if the user isn't assigned to it. Exposes the
-// validated id as req.branchId for the route handler to use directly.
-function requireBranch() {
-  return async (req, res, next) => {
-    try {
-      const branchId = req.query.branchId || req.body.branchId;
-      if (!branchId) return res.status(400).json({ message: 'No branch selected', code: 'BRANCH_REQUIRED' });
-      const ok = await assertBranchAccess(req.user.id, branchId);
-      if (!ok) return res.status(403).json({ message: 'You do not have access to this branch' });
-      req.branchId = branchId;
-      return next();
-    } catch (err) {
-      return next(err);
-    }
-  };
-}
-
 module.exports = {
   getEffectivePermissions, getEffectiveScopes, requirePermission, clearPermissionCache,
   getUsersWithPermission,
-  isSuperAdmin, requireSuperAdmin, getUserBranches, assertBranchAccess, requireBranch,
-  Permission, Role, Group, UserAccess, Branch,
+  isSuperAdmin, requireSuperAdmin,
+  Permission, Role, Group, UserAccess,
 };

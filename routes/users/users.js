@@ -10,23 +10,16 @@ const ffmpeg     = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 
 const userModel              = require('../../models/userModel');
-const notficationModel       = require('../../models/notficationsModel');
-const invoiceModel           = require('../../models/invoiceModel');
 const fileModel              = require('../../models/fileModel');
 const userNoteModel            = require('../../models/userNoteModel');
-const inventoryChangeLogSchema = require('../../models/inventoryChangeLogModel');
-const inventoryProductSchema   = require('../../models/inventoryProductModel');
 const customerActivitySchema   = require('../../models/customerActivityModel');
 const customerSchema           = require('../../models/customerModel');
-const invoiceActivitySchema    = require('../../models/invoiceActivityModel');
-const misInvoiceSchema         = require('../../models/misInvoiceModel');
 const dmActivitySchema         = require('../../models/dmActivityModel');
 const rawContentSchema         = require('../../models/rawContentModel');
 const readyToUploadSchema      = require('../../models/readyToUploadModel');
-const userJobReportModel       = require('../../models/userJobReportModel');
 const dbConnection        = require('../../connections/xmsPr');
 const verify              = require('./verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, UserAccess, Role, Group } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, UserAccess, Role } = require('../../utils/rbac');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 const dotenv = require('dotenv');
@@ -35,20 +28,13 @@ dotenv.config();
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 const userM        = dbConnection.model('user',       userModel);
-const notfication  = dbConnection.model('notfication', notficationModel);
-const invoice      = dbConnection.model('invoice',     invoiceModel);
 const File         = dbConnection.model('file',        fileModel);
 const UserNote     = dbConnection.models.userNote || dbConnection.model('userNote', userNoteModel);
-const InvChangeLog = dbConnection.models.inventoryChangeLog || dbConnection.model('inventoryChangeLog', inventoryChangeLogSchema);
-const InvProduct   = dbConnection.models.inventoryProduct   || dbConnection.model('inventoryProduct',   inventoryProductSchema);
 const CustomerActivity = dbConnection.models.customerActivity || dbConnection.model('customerActivity', customerActivitySchema);
 const Customer         = dbConnection.models.customer         || dbConnection.model('customer',         customerSchema);
-const InvoiceActivity  = dbConnection.models.invoiceActivity   || dbConnection.model('invoiceActivity',  invoiceActivitySchema);
-const MisInvoice       = dbConnection.models.misInvoice        || dbConnection.model('misInvoice',       misInvoiceSchema);
 const DmActivity       = dbConnection.models.dmActivity        || dbConnection.model('dmActivity',       dmActivitySchema);
 const RawContent       = dbConnection.models.rawContent        || dbConnection.model('rawContent',       rawContentSchema);
 const ReadyToUpload    = dbConnection.models.readyToUpload     || dbConnection.model('readyToUpload',    readyToUploadSchema);
-const UserJobReport    = dbConnection.models.userJobReport     || dbConnection.model('userJobReport',    userJobReportModel);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
@@ -97,7 +83,7 @@ router.get('/me/permissions', verify, async (req, res) => {
 
 // ── PUT /users/me/profile — self-service: edit your OWN name ──────────────────
 // Any authenticated user, no permission key — it's their own record. Only
-// firstName/lastName are writable here (roles/branches/validation stay
+// firstName/lastName are writable here (roles/validation stay
 // admin-controlled through PUT /users/:id). Defined before /:id routes so
 // 'me' is never captured as an ObjectId.
 router.put('/me/profile', verify, async (req, res) => {
@@ -221,8 +207,8 @@ router.put('/me/language', verify, async (req, res) => {
 });
 
 // ── GET /users/me/notification-prefs — read your OWN push preferences ─────────
-const NOTIF_PREF_KEYS = ['tasks', 'assignments', 'invoices', 'dmChat', 'readyToUpload'];
-const DEFAULT_NOTIF_PREFS = { tasks: true, assignments: true, invoices: true, dmChat: true, readyToUpload: true };
+const NOTIF_PREF_KEYS = ['tasks', 'assignments', 'dmChat', 'readyToUpload'];
+const DEFAULT_NOTIF_PREFS = { tasks: true, assignments: true, dmChat: true, readyToUpload: true };
 
 router.get('/me/notification-prefs', verify, async (req, res) => {
   try {
@@ -402,324 +388,6 @@ router.delete('/me/notes/:noteId', verify, async (req, res) => {
   }
 });
 
-// ── Job Reports ────────────────────────────────────────────────────────────
-// Now a standalone top-level section (nav item just before Tutorials) with
-// two modes, not just a Users-profile sub-tab:
-//   USER mode  — every authenticated user files/edits their OWN reports and
-//                can add a follow-up to their own record. Unconditional, no
-//                permission key — same precedent as personal notes / activity.
-//   ADMIN mode — jobReports:viewAll (see + filter every user's reports by
-//                user/date) and jobReports:reply (reply on any report, which
-//                notifies that report's owner). Two separate keys so a role
-//                can hold view without reply, matching the Inventory
-//                price/quantity split precedent.
-// Self-authored, but VISIBLE to anyone who can view this user's profile
-// (users:view) — unlike Notes above, these are not private. reportDate is
-// what the list is organized/filtered by — distinct from insertDate (when the
-// entry was typed up) and lastActivityAt (latest reply/follow-up/edit, what
-// the ADMIN list actually sorts by).
-
-// Recomputes lastActivityAt from every date on the doc — called after any
-// write that can move it (create, edit, reply, follow-up), in the same
-// operation, mirroring the inventoryChangeLogs/customerActivity convention of
-// never letting a derived field drift from what it's derived from.
-function touchLastActivity(report) {
-  const dates = [report.reportDate, report.updateDate, report.insertDate,
-    ...(report.replies || []).map((r) => r.date),
-    ...(report.followUps || []).map((f) => f.date)].filter(Boolean).map((d) => new Date(d).getTime());
-  report.lastActivityAt = new Date(Math.max(...dates));
-}
-
-// Every member's group(s) -> that group's admins, minus the actor themselves
-// (no self-notify) and de-duplicated (one user in two groups only gets one
-// notification). A user in no group notifies nobody — there is no fallback
-// "global admin" list here on purpose, since that would defeat the point of
-// routing through each group's OWN admins.
-async function groupAdminsFor(userId, excludeUserId) {
-  const groups = await Group.find({ members: userId, deleteDate: null }).select('admins').lean();
-  const ids = new Set();
-  groups.forEach((g) => (g.admins || []).forEach((a) => {
-    const s = String(a);
-    if (s !== String(excludeUserId)) ids.add(s);
-  }));
-  return Array.from(ids);
-}
-
-async function notifyGroupAdminsOfJobReport(actorId, actorName, report, textKey) {
-  try {
-    const adminIds = await groupAdminsFor(report.userId, actorId);
-    await Promise.all(adminIds.map((adminId) => sendNotificationToUser(adminId, {
-      fromId: actorId, fromName: actorName, type: 'jobReport',
-      textKey, textParams: { actorName, reportTitle: report.title || '' },
-      entityType: 'jobReport', entityId: report._id,
-    })));
-  } catch (_) { /* best-effort — a notification failure must never affect the save that triggered it */ }
-}
-
-// GET /users/jobReports — ADMIN MODE: every user's reports, filterable by
-// user + date range. MUST be registered before GET /:id/jobReports so
-// 'jobReports' is never captured as an :id (same lesson as CRM's
-// /customers/bulk vs /customers/:id).
-// ?userId=&dateFrom=&dateTo=&page=&limit=
-router.get('/jobReports', verify, requirePermission('jobReports:viewAll'), async (req, res) => {
-  try {
-    const { userId, dateFrom, dateTo, page = 1, limit = 30 } = req.query;
-    const filter = { deleteDate: null };
-    if (userId) filter.userId = userId;
-    if (dateFrom || dateTo) {
-      filter.reportDate = {};
-      if (dateFrom) filter.reportDate.$gte = new Date(dateFrom);
-      if (dateTo)   filter.reportDate.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
-    }
-
-    const lim = Math.min(100, Number(limit) || 30);
-    const pg  = Math.max(1, Number(page) || 1);
-    const [data, total] = await Promise.all([
-      UserJobReport.find(filter).sort({ lastActivityAt: -1 }).skip((pg - 1) * lim).limit(lim).lean(),
-      UserJobReport.countDocuments(filter),
-    ]);
-
-    // The admin list's whole point is "who filed this and when" — join the
-    // author's name onto each row rather than making the frontend resolve N
-    // separate user lookups (same batched-join pattern as
-    // crm/customer.js's createdByName resolution).
-    const authorIds = [...new Set(data.map((r) => String(r.userId)))];
-    const authors = await userM.find({ _id: { $in: authorIds } }).select('firstName lastName').lean();
-    const nameById = new Map(authors.map((u) => [String(u._id), `${u.firstName || ''} ${u.lastName || ''}`.trim()]));
-    data.forEach((r) => { r.authorName = nameById.get(String(r.userId)) || ''; });
-
-    return res.status(200).json({ data, total, page: pg, limit: lim });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// GET /users/jobReports/:reportId — single report, mode-agnostic. Exists for
-// notification deep-links (a create/edit notification goes to a group admin
-// who needs jobReports:viewAll to open it; a reply notification goes to the
-// report's own owner, who always can) — the click target doesn't know in
-// advance which mode the viewer should be in, so it needs one fetch that
-// works either way. Same access rule as the list route below: owner always,
-// otherwise users:view or jobReports:viewAll.
-router.get('/jobReports/:reportId', verify, async (req, res) => {
-  try {
-    const report = await UserJobReport.findOne({ _id: req.params.reportId, deleteDate: null }).lean();
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-
-    if (String(report.userId) !== String(req.user.id)) {
-      const perms = await getEffectivePermissions(req.user.id);
-      if (!perms.has('users:view') && !perms.has('jobReports:viewAll')) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-    }
-
-    const author = await userM.findById(report.userId).select('firstName lastName').lean();
-    report.authorName = author ? `${author.firstName || ''} ${author.lastName || ''}`.trim() : '';
-
-    return res.status(200).json(report);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// GET /users/:id/jobReports — the OWNER can always see their own; anyone else
-// needs users:view (same gate as GET /:id and GET /:id/logs).
-// ?dateFrom=&dateTo=&page=&limit=
-router.get('/:id/jobReports', verify, async (req, res) => {
-  try {
-    const targetId = req.params.id;
-    if (String(targetId) !== String(req.user.id)) {
-      const perms = await getEffectivePermissions(req.user.id);
-      if (!perms.has('users:view')) return res.status(403).json({ message: 'Access denied' });
-    }
-
-    const { dateFrom, dateTo, page = 1, limit = 20 } = req.query;
-    const filter = { userId: targetId, deleteDate: null };
-    if (dateFrom || dateTo) {
-      filter.reportDate = {};
-      if (dateFrom) filter.reportDate.$gte = new Date(dateFrom);
-      if (dateTo)   filter.reportDate.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
-    }
-
-    const lim = Math.min(50, Number(limit) || 20);
-    const pg  = Math.max(1, Number(page) || 1);
-    const [data, total] = await Promise.all([
-      UserJobReport.find(filter).sort({ reportDate: -1, insertDate: -1 }).skip((pg - 1) * lim).limit(lim).lean(),
-      UserJobReport.countDocuments(filter),
-    ]);
-    return res.status(200).json({ data, total });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-async function makeJobReportFileEntry(file, userId, reportId) {
-  const mime = file.mimetype || '';
-  const kind = mime.startsWith('audio/') ? 'audio'
-    : mime.startsWith('video/') ? 'video'
-    : mime.startsWith('image/') ? 'image'
-    : 'document';
-
-  let thumbnail = null;
-  if (kind === 'image') {
-    try {
-      const thumbFilename = `thumb-${file.filename}`;
-      await sharp(file.path).resize(300).jpeg({ quality: 80 }).toFile(`public/uploads/${thumbFilename}`);
-      thumbnail = thumbFilename;
-    } catch (_) { /* non-fatal */ }
-  } else if (kind === 'video') {
-    thumbnail = await extractNoteVideoThumbnail(file.path, `thumb-${file.filename}.png`);
-  }
-
-  const fileDoc = await File.create({
-    name: file.originalname.split('.')[0],
-    supFolder: null,
-    metaData: file,
-    format: file.originalname.slice(file.originalname.lastIndexOf('.') + 1),
-    generatedBy: userId,
-    thumbnail,
-    scope: 'users',
-    attachedTo: { type: 'userJobReport', id: reportId },
-  });
-
-  return { fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail };
-}
-
-async function getJobReportActorName(userId) {
-  const actor = await userM.findById(userId).select('firstName lastName').lean();
-  return actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
-}
-
-// POST /users/me/jobReports — create your OWN report (text + up to 5 voice/video/photo/document attachments).
-router.post('/me/jobReports', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
-  try {
-    const reportDate = req.body.reportDate ? new Date(req.body.reportDate) : new Date();
-    const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
-    const body  = typeof req.body.body  === 'string' ? req.body.body.trim()  : '';
-    const uploadedFiles = req.files || [];
-
-    const report = await UserJobReport.create({ userId: req.user.id, reportDate, title, body, insertDate: new Date() });
-
-    if (uploadedFiles.length) {
-      const files = [];
-      for (const file of uploadedFiles) files.push(await makeJobReportFileEntry(file, req.user.id, report._id));
-      report.files = files;
-    }
-    touchLastActivity(report);
-    await report.save();
-
-    const actorName = await getJobReportActorName(req.user.id);
-    notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupCreated');
-
-    return res.status(201).json(report);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// PUT /users/me/jobReports/:reportId — edit your OWN report (real edit — date/text + add/remove files).
-router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', MAX_BATCH_FILES), async (req, res) => {
-  try {
-    const report = await UserJobReport.findOne({ _id: req.params.reportId, userId: req.user.id, deleteDate: null });
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-
-    if (req.body.reportDate !== undefined) report.reportDate = new Date(req.body.reportDate);
-    if (req.body.title      !== undefined) report.title      = req.body.title.trim();
-    if (req.body.body       !== undefined) report.body       = req.body.body.trim();
-
-    let removeFileIds = [];
-    try { removeFileIds = JSON.parse(req.body.removeFileIds || '[]').map(String); } catch (_) { /* ignore */ }
-    if (removeFileIds.length) {
-      report.files = report.files.filter((f) => !removeFileIds.includes(String(f.fileId)));
-    }
-
-    const uploadedFiles = req.files || [];
-    for (const file of uploadedFiles) {
-      report.files.push(await makeJobReportFileEntry(file, req.user.id, report._id));
-    }
-
-    report.updateDate = new Date();
-    touchLastActivity(report);
-    await report.save();
-
-    const actorName = await getJobReportActorName(req.user.id);
-    notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupUpdated');
-
-    return res.status(200).json(report);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// POST /users/me/jobReports/:reportId/followUp — append a dated update to
-// YOUR OWN report, without overwriting the original entry the way PUT does.
-router.post('/me/jobReports/:reportId/followUp', verify, async (req, res) => {
-  try {
-    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
-    if (!body) return res.status(400).json({ message: 'body is required' });
-
-    const report = await UserJobReport.findOne({ _id: req.params.reportId, userId: req.user.id, deleteDate: null });
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-
-    const actorName = await getJobReportActorName(req.user.id);
-    report.followUps.push({ body, authorId: req.user.id, authorName: actorName, date: new Date() });
-    touchLastActivity(report);
-    await report.save();
-
-    notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportFollowUp');
-
-    return res.status(201).json(report);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// POST /users/jobReports/:reportId/reply — ADMIN MODE: reply on ANY user's
-// report. Notifies that report's owner (never the group admins — a reply is
-// already an admin-to-user conversation, not something the group needs
-// re-notified about).
-router.post('/jobReports/:reportId/reply', verify, requirePermission('jobReports:reply'), async (req, res) => {
-  try {
-    const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
-    if (!body) return res.status(400).json({ message: 'body is required' });
-
-    const report = await UserJobReport.findOne({ _id: req.params.reportId, deleteDate: null });
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-
-    const actorName = await getJobReportActorName(req.user.id);
-    report.replies.push({ body, authorId: req.user.id, authorName: actorName, date: new Date() });
-    touchLastActivity(report);
-    await report.save();
-
-    if (String(report.userId) !== String(req.user.id)) {
-      sendNotificationToUser(report.userId, {
-        fromId: req.user.id, fromName: actorName, type: 'jobReport',
-        textKey: 'jobReportReplied', textParams: { actorName, reportTitle: report.title || '' },
-        entityType: 'jobReport', entityId: report._id,
-      }).catch(() => {});
-    }
-
-    return res.status(201).json(report);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// DELETE /users/me/jobReports/:reportId — soft-delete your OWN report.
-router.delete('/me/jobReports/:reportId', verify, async (req, res) => {
-  try {
-    const report = await UserJobReport.findOneAndUpdate(
-      { _id: req.params.reportId, userId: req.user.id, deleteDate: null },
-      { $set: { deleteDate: new Date(), updateDate: new Date() } },
-      { new: true }
-    );
-    if (!report) return res.status(404).json({ message: 'Report not found' });
-    return res.status(200).json({ ok: true });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // ── Telegram — self-service link, mirrors existing notification events ────────
 // Independent of the SMS/OTP auth system. verify-only, self only (no
 // permission key — it's the caller's own data, same rationale as Notes/My
@@ -814,7 +482,7 @@ router.get('/userProfileData', verify, async (req, res) => {
   const decoded = jwt_decode(req.headers.authorization);
   try {
     const theUser = await userM.findOne({ _id: decoded.id }).select(
-      'jobReport jobReportPresets firstName lastName phoneNumber filterMemory insertDate updateDate access isOnline lastSeen profileImage'
+      'firstName lastName phoneNumber filterMemory insertDate updateDate access isOnline lastSeen profileImage'
     );
     return res.status(200).json(theUser);
   } catch (err) {
@@ -825,22 +493,13 @@ router.get('/userProfileData', verify, async (req, res) => {
 // ── GET /users — list (search / filter / sort) ────────────────────────────────
 router.get('/', verify, requirePermission('users:view'), async (req, res) => {
   try {
-    const { search = '', sort = '-insertDate', limit = 50, skip = 0, branchId = '' } = req.query;
+    const { search = '', sort = '-insertDate', limit = 50, skip = 0 } = req.query;
     const query = { deleteDate: null };
     if (search) {
       const re = new RegExp(search, 'i');
       query.$or = [{ firstName: re }, { lastName: re }, { phoneNumber: re }];
     }
 
-    // Optional branch filter (e.g. the invoice "Send to" picker) — only users
-    // assigned to this branch. Caller must hold the branch themselves.
-    if (branchId) {
-      if (!(await assertBranchAccess(req.user.id, branchId))) {
-        return res.status(403).json({ message: 'You do not have access to this branch' });
-      }
-      const branchAccess = await UserAccess.find({ branches: branchId }).select('userId').lean();
-      query._id = { $in: branchAccess.map(a => a.userId) };
-    }
     const [users, total] = await Promise.all([
       userM.find(query)
         .select('firstName lastName phoneNumber profileImage validation access isOnline lastSeen insertDate auth.lockedUntil language')
@@ -895,9 +554,8 @@ router.get('/:id', verify, requirePermission('users:view'), async (req, res) => 
 // ── GET /users/:id/logs — activity timeline ───────────────────────────────────
 // The OWNER can always see their own (powers the self-service "My Activity"
 // page, reachable from the profile popup regardless of users:view — see
-// myActivityPage.js); anyone else needs users:view. Same pattern as
-// GET /:id/jobReports below.
-// ?section=all|inventory|crm|mis|digitalMarketing   (default: all)
+// myActivityPage.js); anyone else needs users:view.
+// ?section=all|crm|digitalMarketing   (default: all)
 // ?page=1&limit=30
 router.get('/:id/logs', verify, async (req, res) => {
   try {
@@ -912,42 +570,6 @@ router.get('/:id/logs', verify, async (req, res) => {
     const skip    = (page - 1) * limit;
 
     let entries = [];
-
-    // ── Inventory logs ───────────────────────────────────────────────────────
-    if (section === 'all' || section === 'inventory') {
-      const invLogs = await InvChangeLog.find({ changedBy: uid })
-        .sort({ createdAt: -1 })
-        .lean();
-
-      // Enrich with product name
-      const productIds = [...new Set(invLogs.map(l => String(l.productId)))];
-      const products   = await InvProduct.find({ _id: { $in: productIds } }).select('name code').lean();
-      const prodMap    = {};
-      products.forEach(p => { prodMap[String(p._id)] = p; });
-
-      invLogs.forEach(log => {
-        const prod = prodMap[String(log.productId)];
-        entries.push({
-          _id:         String(log._id),
-          section:     'inventory',
-          changeType:  log.changeType,
-          subjectType: log.subjectType,
-          subjectCode: log.subjectId,       // variant code stored as ObjectId ref
-          productName: prod?.name  || '',
-          productCode: prod?.code  || '',
-          field:       log.field,
-          oldValue:    log.oldValue,
-          newValue:    log.newValue,
-          delta:       log.delta,
-          unit:        log.unit,
-          currency:    log.currency,
-          mediaRef:    log.mediaRef,
-          reason:      log.reason,
-          source:      log.source,
-          date:        log.createdAt || log.date,
-        });
-      });
-    }
 
     // ── CRM logs (customerActivity, keyed by actorId) ────────────────────────
     if (section === 'all' || section === 'crm') {
@@ -971,37 +593,6 @@ router.get('/:id/logs', verify, async (req, res) => {
           section:     'crm',
           changeType:  log.type,
           productName: custName,   // reused generic field — the customer's display name
-          field:       log.field,
-          oldValue:    log.oldValue,
-          newValue:    log.newValue,
-          body:        log.body,
-          date:        log.date || log.createdAt,
-        });
-      });
-    }
-
-    // ── MIS / Invoices logs (invoiceActivity, keyed by actorId) ──────────────
-    if (section === 'all' || section === 'mis') {
-      const misLogs = await InvoiceActivity.find({ actorId: uid })
-        .sort({ date: -1 })
-        .lean();
-
-      const invoiceIds = [...new Set(misLogs.map(l => String(l.invoiceId)))];
-      const invoices    = await MisInvoice.find({ _id: { $in: invoiceIds } })
-        .select('docNumber docType customerSnapshot.name')
-        .lean();
-      const invMap = {};
-      invoices.forEach(d => { invMap[String(d._id)] = d; });
-
-      misLogs.forEach(log => {
-        const doc = invMap[String(log.invoiceId)];
-        entries.push({
-          _id:         String(log._id),
-          section:     'mis',
-          changeType:  log.type,
-          docType:     log.docType || doc?.docType,
-          docNumber:   doc?.docNumber,
-          productName: doc?.customerSnapshot?.name || '',
           field:       log.field,
           oldValue:    log.oldValue,
           newValue:    log.newValue,
@@ -1073,10 +664,6 @@ router.post('/', verify, requirePermission('users:create'), async (req, res) => 
     });
     const saved = await newUser.save();
 
-    // Branch assignment is superAdmin-only (branches gate Inventory/MIS isolation);
-    // a non-superAdmin creating a user can never set branches.
-    const superAdmin = await isSuperAdmin(req.user.id);
-
     // Always upsert a userAccess doc (handles retries / empty arrays safely)
     await UserAccess.findOneAndUpdate(
       { userId: saved._id },
@@ -1086,7 +673,6 @@ router.post('/', verify, requirePermission('users:create'), async (req, res) => 
         groups: req.body.groups || [],
         grants: req.body.grants || [],
         denies: req.body.denies || [],
-        ...(superAdmin && Array.isArray(req.body.branches) ? { branches: req.body.branches } : {}),
       }},
       { upsert: true, new: true }
     );
@@ -1126,19 +712,13 @@ router.put('/:id', verify, requirePermission('users:edit'), async (req, res) => 
     );
     if (!updated) return res.status(404).json({ message: 'User not found' });
 
-    // Branch assignment is superAdmin-only (branches gate Inventory/MIS isolation) —
-    // a non-superAdmin with users:edit can never write branches (would bypass isolation).
-    const superAdmin = await isSuperAdmin(req.user.id);
-    const wantsBranchUpdate = superAdmin && req.body.branches !== undefined;
-
     // Update RBAC assignment if provided
-    if (req.body.roles !== undefined || req.body.groups !== undefined || wantsBranchUpdate) {
+    if (req.body.roles !== undefined || req.body.groups !== undefined || req.body.grants !== undefined || req.body.denies !== undefined) {
       const rbacUpdate = {};
       if (req.body.roles  !== undefined) rbacUpdate.roles  = req.body.roles;
       if (req.body.groups !== undefined) rbacUpdate.groups = req.body.groups;
       if (req.body.grants !== undefined) rbacUpdate.grants = req.body.grants;
       if (req.body.denies !== undefined) rbacUpdate.denies = req.body.denies;
-      if (wantsBranchUpdate)             rbacUpdate.branches = req.body.branches;
       rbacUpdate.updateDate = new Date();
       await UserAccess.findOneAndUpdate(
         { userId: req.params.id },

@@ -1,26 +1,5 @@
 const mongoose = require('mongoose');
 
-var jobReportSchema = new mongoose.Schema({
-  status:        { type: String },
-  calenderDate:  { type: Date, unique: true, sparse: true },
-  reportContent: [{ title: '', explanation: '' }],
-  files:         { type: Array },
-  lock:          { type: Boolean },
-  updateDate:    { type: Date },
-  insertDate:    { type: Date, default: Date.now },
-  logsStatus:    { status: { type: String }, msg: { type: String } },
-  logs:          [mongoose.Mixed],
-});
-
-var jobReportPresets = new mongoose.Schema({
-  title:       { type: String },
-  explanation: { type: String },
-  updateDate:  { type: Date },
-  insertDate:  { type: Date, default: Date.now },
-  logsStatus:  { status: { type: String }, msg: { type: String } },
-  logs:        [mongoose.Mixed],
-});
-
 const userSchema = new mongoose.Schema({
   // ── Identity ──────────────────────────────────────────────────────────────
   firstName:   { type: String, require: true, min: 1,  max: 50   },
@@ -53,11 +32,9 @@ const userSchema = new mongoose.Schema({
   notificationPrefs: {
     tasks:         { type: Boolean, default: true },
     assignments:   { type: Boolean, default: true },
-    invoices:      { type: Boolean, default: true },
     dmChat:        { type: Boolean, default: true },
     readyToUpload: { type: Boolean, default: true },
     tutorials:     { type: Boolean, default: true },
-    jobReports:    { type: Boolean, default: true },
   },
 
   // ── Access (deprecated — replaced by userAccess RBAC collection) ──────────
@@ -118,17 +95,7 @@ const userSchema = new mongoose.Schema({
   // opts INTO full autonomy, not the other way around.
   crmAgentMode: { type: String, enum: ['review', 'automatic'], default: 'review' },
 
-  // ── Job Report (xmsApi-specific embedded data) ────────────────────────────
-  jobReport:        [jobReportSchema],
-  jobReportPresets: [jobReportPresets],
-
   // ── Misc ──────────────────────────────────────────────────────────────────
-  recivedRequests: [{
-    from:       { type: mongoose.Schema.Types.ObjectId },
-    deleteDate: { type: Date, default: null },
-    date:       { type: Date },
-    document:   { type: mongoose.Schema.Types.ObjectId },
-  }],
   products:  { type: Array },
   savedPost: { type: Array },
   filterMemory: {
@@ -136,14 +103,6 @@ const userSchema = new mongoose.Schema({
       sort:   { type: String, default: null },
       order:  { type: String, default: null },    // Phase 5: 'asc' | 'desc'
       filter: { type: mongoose.Schema.Types.Mixed, default: {} },  // Phase 5: flexible shape
-    },
-    mis: {
-      sort:   { type: String, default: null },
-      order:  { type: String, default: null },    // Phase 6: 'asc' | 'desc'
-      // Phase 6: flexible shape { docType, status, customerId, dateRange } —
-      // same Mixed pattern as filterMemory.crm (Session 33); old stored keys
-      // (requestType/sentTo/sentBy) still read fine through Mixed.
-      filter: { type: mongoose.Schema.Types.Mixed, default: {} },
     },
   },
 

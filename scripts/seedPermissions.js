@@ -30,18 +30,6 @@ function waitForConnection(conn) {
 // ── Permission catalog ────────────────────────────────────────────────────────
 // Convention: module:resource:action — append-only, born with the feature they guard
 const PERMISSIONS = [
-  // Inventory
-  { key: 'inventory:view',             module: 'inventory', description: 'View products and inventory' },
-  { key: 'inventory:product:create',   module: 'inventory', description: 'Create product' },
-  { key: 'inventory:subproduct:create',module: 'inventory', description: 'Create sub-product (variant)' },
-  { key: 'inventory:edit',             module: 'inventory', description: 'Edit product descriptive info' },
-  { key: 'inventory:delete',           module: 'inventory', description: 'Delete product or variant' },
-  { key: 'inventory:quantity:edit',    module: 'inventory', description: 'Adjust stock quantity' },
-  { key: 'inventory:price:edit',       module: 'inventory', description: 'Change price' },
-  { key: 'inventory:media:edit',       module: 'inventory', description: 'Upload and delete media' },
-  { key: 'inventory:import',           module: 'inventory', description: 'Import from Excel' },
-  { key: 'inventory:export',           module: 'inventory', description: 'Export inventory to Excel' },
-  { key: 'inventory:share:whatsapp',   module: 'inventory', description: 'Build and share a WhatsApp product message' },
   // Users
   { key: 'users:view',                 module: 'users', description: 'View users list and details' },
   { key: 'users:create',               module: 'users', description: 'Create user' },
@@ -60,27 +48,10 @@ const PERMISSIONS = [
   { key: 'crm:task:assign',            module: 'crm', description: 'Assign customers to a user/group (My Desk)' },
   { key: 'crm:communication:view',     module: 'crm', description: 'View communication history' },
   { key: 'crm:communication:create',   module: 'crm', description: 'Log a call / note' },
-  // MIS (Phase 6 — mis:invoice:view renamed → mis:view; PDF/convert/payment/settings added)
-  { key: 'mis:view',                   module: 'mis', description: 'View invoices and pre-invoices' },
-  { key: 'mis:invoice:create',         module: 'mis', description: 'Create invoice' },
-  { key: 'mis:invoice:edit',           module: 'mis', description: 'Edit invoice' },
-  { key: 'mis:invoice:delete',         module: 'mis', description: 'Delete invoice' },
-  { key: 'mis:invoice:pdf',            module: 'mis', description: 'Download invoice PDF' },
-  { key: 'mis:preinvoice:create',      module: 'mis', description: 'Create pre-invoice' },
-  { key: 'mis:preinvoice:edit',        module: 'mis', description: 'Edit pre-invoice' },
-  { key: 'mis:preinvoice:delete',      module: 'mis', description: 'Delete pre-invoice' },
-  { key: 'mis:preinvoice:pdf',         module: 'mis', description: 'Download pre-invoice PDF' },
-  { key: 'mis:preinvoice:convert',     module: 'mis', description: 'Convert pre-invoice to invoice' },
-  { key: 'mis:payment:edit',           module: 'mis', description: 'Record / edit invoice payment' },
-  { key: 'mis:settings:edit',          module: 'mis', description: 'Edit company settings (invoice header)' },
-  // Files
-  { key: 'files:view',                 module: 'files', description: 'View files' },
-  { key: 'files:upload',               module: 'files', description: 'Upload files' },
-  { key: 'files:delete',               module: 'files', description: 'Delete files' },
-  { key: 'files:share',                module: 'files', description: 'Share files' },
-  // Job Report + Projects modules were removed 2026-07-09 — their keys are
-  // deleted from the catalog and cleaned from roles/groups/userAccess by
-  // scripts/removeRetiredModules.js (permission keys are otherwise append-only).
+  // MIS, Inventory, Files, and Job Reports modules were removed for the
+  // DamoonCars re-scope — their keys are deleted from the catalog and cleaned
+  // from roles/groups/userAccess by scripts/removeDamoonCarsModules.js
+  // (permission keys are otherwise append-only).
   // Tasks
   { key: 'tasks:view',                 module: 'tasks', description: 'View tasks' },
   { key: 'tasks:create',               module: 'tasks', description: 'Create and assign tasks' },
@@ -101,11 +72,6 @@ const PERMISSIONS = [
   { key: 'tutorials:upload', module: 'tutorials', description: 'Upload a new tutorial' },
   { key: 'tutorials:edit',   module: 'tutorials', description: 'Edit tutorial metadata / files' },
   { key: 'tutorials:delete', module: 'tutorials', description: 'Delete a tutorial' },
-  // Job Reports — admin-mode capabilities only. Filing/editing/following-up on
-  // your OWN report needs no permission key (same precedent as personal
-  // notes/activity) — see routes/users/users.js's jobReports route family.
-  { key: 'jobReports:viewAll', module: 'jobReports', description: 'View and filter every user’s job reports' },
-  { key: 'jobReports:reply',   module: 'jobReports', description: 'Reply to a user’s job report' },
 ];
 
 // ── Starter roles ─────────────────────────────────────────────────────────────
@@ -128,25 +94,11 @@ const ROLES = [
     permissions: ALL_KEYS.filter(k => k.endsWith(':view')),
     isSystem: false,
   },
-  {
-    name: 'StockOperator',
-    description: 'Stock operator — view + quantity + price',
-    permissions: ['inventory:view', 'inventory:quantity:edit', 'inventory:price:edit'],
-    isSystem: false,
-  },
-  {
-    name: 'InventoryManager',
-    description: 'Inventory manager — all inventory permissions',
-    permissions: ALL_KEYS.filter(k => k.startsWith('inventory:')),
-    isSystem: false,
-  },
 ];
 
 // Keys renamed across phases — old key is removed from the catalog and swapped
 // to the new key inside every role that held it (idempotent).
-const RENAMED_KEYS = [
-  { from: 'mis:invoice:view', to: 'mis:view' },   // Phase 6
-];
+const RENAMED_KEYS = [];
 
 async function seed() {
   await waitForConnection(dbConnection);

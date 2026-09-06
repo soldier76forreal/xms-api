@@ -1,10 +1,8 @@
 const express              = require('express');
 const mongoose             = require('mongoose');
 const jwt_decode           = require('jwt-decode');
-const notficationModel     = require('../../models/notficationsModel');
 const notificationModel    = require('../../models/notificationModel');
 const userModel            = require('../../models/userModel');
-const invoiceModel         = require('../../models/invoiceModel');
 const verify               = require('../users/verifyToken');
 const pwaSubscriptionModel = require('../../models/pwaSubscriptionModel');
 const dotenv               = require('dotenv');
@@ -16,8 +14,6 @@ const dbConnection = require('../../connections/xmsPr');
 const crashLogger = require('../../utils/crashLogger');
 
 const userM           = dbConnection.model('user',            userModel);
-const invoice         = dbConnection.model('invoice',         invoiceModel);
-const notfication     = dbConnection.model('notfication',     notficationModel);
 const Notification    = dbConnection.model('notification',    notificationModel);
 const pwaSubscription = dbConnection.model('pwaSubscription', pwaSubscriptionModel);
 
@@ -76,11 +72,9 @@ let _io = null;
 const PREF_BY_TYPE = {
   task: 'tasks', taskClaimed: 'tasks', taskDone: 'tasks',
   assignment: 'assignments',
-  invoice: 'invoices',
   dmChat: 'dmChat',
   readyToUpload: 'readyToUpload',
   tutorial: 'tutorials',
-  jobReport: 'jobReports',
 };
 
 // Deep-link path for a push notification click — kept in sync with the frontend
@@ -88,14 +82,12 @@ const PREF_BY_TYPE = {
 function notifPath(entityType, entityId) {
   const id = entityId ? String(entityId) : '';
   switch (entityType) {
-    case 'invoice':       return id ? `/mis?open=${id}` : '/mis';
     case 'rawContent':    return id ? `/digitalMarketing?dm=raw&open=${id}`   : '/digitalMarketing?dm=raw';
     case 'readyToUpload': return id ? `/digitalMarketing?dm=ready&open=${id}` : '/digitalMarketing?dm=ready';
     case 'task':          return '/crm';
     case 'customer':      return id ? `/crm?open=${id}` : '/crm';
     case 'user':          return '/users';
     case 'tutorial':      return id ? `/tutorials?open=${id}` : '/tutorials';
-    case 'jobReport':     return id ? `/jobReports?open=${id}` : '/jobReports';
     default:              return '/';
   }
 }
@@ -154,10 +146,6 @@ const ENTITY_TO_SHORTLINK = {
     module: 'crm', entityType: 'customer',
     label: { en: 'Show the customer', fa: 'نمایش مشتری', ar: 'عرض العميل' },
   },
-  invoice: {
-    module: 'mis', entityType: 'invoice',
-    label: { en: 'Show the invoice', fa: 'نمایش فاکتور', ar: 'عرض الفاتورة' },
-  },
   rawContent: {
     module: 'digitalMarketing', entityType: 'rawContent',
     label: { en: 'Show the raw content', fa: 'نمایش محتوای خام', ar: 'عرض المحتوى الخام' },
@@ -169,10 +157,6 @@ const ENTITY_TO_SHORTLINK = {
   user: {
     module: 'users', entityType: 'user',
     label: { en: 'Show the profile', fa: 'نمایش پروفایل', ar: 'عرض الملف الشخصي' },
-  },
-  jobReport: {
-    module: 'jobReports', entityType: 'jobReport',
-    label: { en: 'Show the job report', fa: 'نمایش گزارش کار', ar: 'عرض تقرير العمل' },
   },
   tutorial: {
     module: 'tutorials', entityType: 'tutorial',
@@ -190,7 +174,7 @@ function escapeHtml(str) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const PRODUCTION_FRONTEND_URL = 'https://xms.lazulitemarble.com';
+const PRODUCTION_FRONTEND_URL = 'https://xms.damooncars.com';
 
 // A Telegram (or web-push) link is opened on someone ELSE'S device, outside
 // this network — so a localhost / private-LAN / protocol-less FRONTEND_URL is
@@ -433,37 +417,7 @@ const returnRouter = function (io) {
 
   });
 
-  // ── REST routes (notification + PWA subscription) ─────────────────────────
-
-  router.post('/saveNotif', verify, async (req, res) => {
-    const document = await invoice.findOne({ _id: req.body.document });
-    const from     = await userM.findOne({ _id: req.body.from });
-    try {
-      for (let i = 0; i < req.body.to.length; i++) {
-        const newNotif = new notfication({
-          from: req.body.from, document: req.body.document,
-          to: req.body.to[i], type: req.body.type,
-        });
-        const response = await newNotif.save();
-        const payload  = JSON.stringify({
-          sendFrom: `${from.firstName} ${from.lastName}`,
-          document: `${document.preInvoice.productName}-${document.preInvoice.meterage} meters`,
-          status: document.status, type: req.body.type,
-        });
-        const subscriptions = await pwaSubscription.findOne({ userId: req.body.to[i] });
-        if (subscriptions) {
-          for (let j = 0; j < subscriptions.subscription.length; j++) {
-            try {
-              await webpush.sendNotification(JSON.parse(subscriptions.subscription[j]), payload);
-              res.status(200).send('notif sent!');
-            } catch (err) {
-              res.status(403).send(err);
-            }
-          }
-        }
-      }
-    } catch (_) {}
-  });
+  // ── REST routes (PWA subscription) ─────────────────────────────────────────
 
   router.post('/saveSubsToDb', verify, async (req, res) => {
     try {
@@ -482,46 +436,6 @@ const returnRouter = function (io) {
       }
     } catch (err) {
       res.status(403).send('error!');
-    }
-  });
-
-  router.get('/getNotficationBasedOnUser', verify, async (req, res) => {
-    try {
-      const received = await notfication.find({ to: req.query.id });
-      const notifs   = await Promise.all(received.map(async (n) => ({
-        id:         n._id,
-        status:     n.status,
-        from:       await userM.findOne({ _id: n.from }),
-        document:   await invoice.findOne({ _id: n.document }),
-        to:         await userM.findOne({ _id: n.to }),
-        type:       n.type,
-        insertDate: n.insertDate,
-      })));
-      res.status(200).json(notifs);
-    } catch (err) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
-
-  router.get('/switchStatus', verify, async (req, res) => {
-    try {
-      const id          = mongoose.Types.ObjectId(req.query.id.trim());
-      const switchStatus = await notfication.findOne({ _id: id });
-      await notfication.findOneAndUpdate({ _id: id }, { status: switchStatus.status === 0 ? 1 : 0 });
-      res.status(200).send('switched!');
-    } catch (err) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
-
-  router.get('/deleteSubs', verify, async (req, res) => {
-    try {
-      const id           = mongoose.Types.ObjectId(req.query.id.trim());
-      const switchStatus = await notfication.findOne({ _id: id });
-      await notfication.findOneAndUpdate({ _id: id }, { status: switchStatus.status === 0 ? 1 : 0 });
-      res.status(200).send('switched!');
-    } catch (err) {
-      res.status(500).json({ message: 'Server error' });
     }
   });
 

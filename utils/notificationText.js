@@ -66,66 +66,6 @@ const TEMPLATES = {
     }),
   },
 
-  jobReportReplied: {
-    en: ({ actorName, reportTitle }) => ({
-      title: 'Reply on your job report',
-      body: `${actorName} replied to ${reportTitle ? `"${reportTitle}"` : 'your report'}`,
-    }),
-    fa: ({ actorName, reportTitle }) => ({
-      title: 'پاسخ به گزارش کار شما',
-      body: `${actorName} به ${reportTitle ? `«${reportTitle}»` : 'گزارش شما'} پاسخ داد`,
-    }),
-    ar: ({ actorName, reportTitle }) => ({
-      title: 'رد على تقرير عملك',
-      body: `رد ${actorName} على ${reportTitle ? `"${reportTitle}"` : 'تقريرك'}`,
-    }),
-  },
-
-  jobReportGroupCreated: {
-    en: ({ actorName, reportTitle }) => ({
-      title: 'New job report',
-      body: `${actorName} submitted a job report${reportTitle ? `: "${reportTitle}"` : ''}`,
-    }),
-    fa: ({ actorName, reportTitle }) => ({
-      title: 'گزارش کار جدید',
-      body: `${actorName} یک گزارش کار ثبت کرد${reportTitle ? `: «${reportTitle}»` : ''}`,
-    }),
-    ar: ({ actorName, reportTitle }) => ({
-      title: 'تقرير عمل جديد',
-      body: `قدّم ${actorName} تقرير عمل${reportTitle ? `: "${reportTitle}"` : ''}`,
-    }),
-  },
-
-  jobReportGroupUpdated: {
-    en: ({ actorName, reportTitle }) => ({
-      title: 'Job report updated',
-      body: `${actorName} updated a job report${reportTitle ? `: "${reportTitle}"` : ''}`,
-    }),
-    fa: ({ actorName, reportTitle }) => ({
-      title: 'گزارش کار ویرایش شد',
-      body: `${actorName} یک گزارش کار را ویرایش کرد${reportTitle ? `: «${reportTitle}»` : ''}`,
-    }),
-    ar: ({ actorName, reportTitle }) => ({
-      title: 'تم تحديث تقرير العمل',
-      body: `حدّث ${actorName} تقرير عمل${reportTitle ? `: "${reportTitle}"` : ''}`,
-    }),
-  },
-
-  jobReportFollowUp: {
-    en: ({ actorName, reportTitle }) => ({
-      title: 'Follow-up added',
-      body: `${actorName} added a follow-up to ${reportTitle ? `"${reportTitle}"` : 'a job report'}`,
-    }),
-    fa: ({ actorName, reportTitle }) => ({
-      title: 'پیگیری جدید اضافه شد',
-      body: `${actorName} به ${reportTitle ? `«${reportTitle}»` : 'یک گزارش کار'} پیگیری اضافه کرد`,
-    }),
-    ar: ({ actorName, reportTitle }) => ({
-      title: 'تمت إضافة متابعة',
-      body: `أضاف ${actorName} متابعة إلى ${reportTitle ? `"${reportTitle}"` : 'تقرير عمل'}`,
-    }),
-  },
-
   tutorialCreated: {
     en: ({ actorName, tutorialTitle }) => ({
       title: 'New tutorial available',
@@ -203,21 +143,6 @@ const TEMPLATES = {
       title: 'رسالة جديدة على محتواك',
       body: msgType === 'text' ? textPreview : (msgType === 'voice' ? 'أرسل رسالة صوتية' : 'أرسل ملفًا'),
     }),
-  },
-
-  misInvoiceSent: {
-    en: ({ label, docNumber, actorName }) => ({
-      title: `${label} #${docNumber} was sent to you`,
-      body: `${actorName} sent this ${label.toLowerCase()} to you`,
-    }),
-    fa: ({ label, docNumber, actorName }) => {
-      const labelFa = label === 'Invoice' ? 'فاکتور' : 'پیش‌فاکتور';
-      return { title: `${labelFa} شماره ${docNumber} برای شما ارسال شد`, body: `${actorName} این ${labelFa} را برای شما ارسال کرد` };
-    },
-    ar: ({ label, docNumber, actorName }) => {
-      const labelAr = label === 'Invoice' ? 'الفاتورة' : 'عرض السعر';
-      return { title: `تم إرسال ${labelAr} رقم ${docNumber} إليك`, body: `أرسل لك ${actorName} ${labelAr}` };
-    },
   },
 
   taskAssignedUser: {

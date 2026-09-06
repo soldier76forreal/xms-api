@@ -97,11 +97,6 @@ var personalInformationSchema = new mongoose.Schema({
       nextFollowUpAt: { type: Date },
       owner: { type: mongoose.Schema.Types.ObjectId },
       assignedTo: [{ type: mongoose.Schema.Types.ObjectId }],
-      interestedProducts: [{
-        productId: { type: mongoose.Schema.Types.ObjectId },
-        variantId: { type: mongoose.Schema.Types.ObjectId },
-        note: { type: String },
-      }],
       createdBy: { type: mongoose.Schema.Types.ObjectId },
       // Phase 6 — additive: customer VAT number (ب.ضـ) for the MIS tax-invoice
       // customer block; snapshotted into invoice.customerSnapshot at issue-time.

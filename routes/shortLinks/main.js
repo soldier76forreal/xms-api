@@ -4,7 +4,7 @@ const { createShortLink, resolveShortLink } = require('../../utils/shortLink');
 
 const router = express.Router();
 
-const VALID_MODULES = ['crm', 'mis', 'inventory', 'digitalMarketing', 'users', 'files'];
+const VALID_MODULES = ['crm', 'digitalMarketing', 'users'];
 
 // POST /shortlinks — mint a short code for a record the caller is already
 // viewing. No extra permission gate on purpose: reaching this button at all

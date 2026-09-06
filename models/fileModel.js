@@ -24,13 +24,12 @@ var fileSchema = new mongoose.Schema({
     deleteDate: { type: Date, default: null },
     scope: {
       type: String,
-      enum: ['file_manager', 'inventory', 'users', 'crm', 'mis', 'jobReport', 'projectManager', 'digitalMarketing', 'tutorials'],
-      default: 'file_manager',
+      enum: ['users', 'crm', 'digitalMarketing', 'tutorials'],
     },
     attachedTo: {
       type: {
         type: String,
-        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'userJobReport', 'tutorial', 'linkPage'],
+        enum: ['user', 'customer', 'customerActivity', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'tutorial', 'linkPage'],
       },
       id: { type: mongoose.Schema.Types.ObjectId },
     },
@@ -40,7 +39,7 @@ var fileSchema = new mongoose.Schema({
     uploadDate:      { type: Date, default: Date.now },
     expirationDate:  { type: Date, default: null },
     uploadedByName:  { type: String },
-    // Phase 9 — per-user pins (see folderModel)
+    // Phase 9 — per-user pins (File Manager, retired; field left in place, unused)
     pinnedBy:       [{ type: mongoose.Schema.Types.ObjectId }],
   });
 module.exports = fileSchema;

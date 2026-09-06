@@ -10,13 +10,11 @@ const dbConnection           = require('../../connections/xmsPr');
 const customerSchema         = require('../../models/customerModel');
 const customerActivitySchema = require('../../models/customerActivityModel');
 const userSchema             = require('../../models/userModel');
-const inventoryProductSchema = require('../../models/inventoryProductModel');
-const inventoryVariantSchema = require('../../models/inventoryVariantModel');
 const taskSchema             = require('../../models/taskModel');
 const fileSchema             = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group } = require('../../utils/rbac');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -24,47 +22,8 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 const Customer         = dbConnection.models.customer         || dbConnection.model('customer',         customerSchema);
 const CustomerActivity = dbConnection.models.customerActivity || dbConnection.model('customerActivity', customerActivitySchema);
 const User             = dbConnection.models.user             || dbConnection.model('user',             userSchema);
-const InvProduct       = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
-const InvVariant       = dbConnection.models.inventoryVariant || dbConnection.model('inventoryVariant', inventoryVariantSchema);
 const Task             = dbConnection.models.task             || dbConnection.model('task',             taskSchema);
 const File             = dbConnection.models.file             || dbConnection.model('file',             fileSchema);
-
-// Denormalizes interestedProducts[] entries with productName/productCode/variantCode
-// for display — the schema (customerModel.js) only stores raw productId/variantId
-// refs, so every read path that shows this needs the join done here rather than
-// kept as a stale copy on the customer doc. Batches product/variant lookups across
-// ALL customers passed in (one query pair, not N+1) — used by both the list route
-// (many customers) and the detail route (a single customer wrapped in an array).
-async function joinInterestedProducts(customers) {
-  const productIds = new Set();
-  const variantIds = new Set();
-  customers.forEach((c) => {
-    (c.interestedProducts || []).forEach((ip) => {
-      if (ip.productId) productIds.add(String(ip.productId));
-      if (ip.variantId) variantIds.add(String(ip.variantId));
-    });
-  });
-  if (productIds.size === 0) return;
-
-  const [products, variants] = await Promise.all([
-    InvProduct.find({ _id: { $in: [...productIds] } }).select('_id name code').lean(),
-    variantIds.size
-      ? InvVariant.find({ _id: { $in: [...variantIds] } }).select('_id code').lean()
-      : [],
-  ]);
-  const productMap = new Map(products.map((p) => [String(p._id), p]));
-  const variantMap = new Map(variants.map((v) => [String(v._id), v]));
-
-  customers.forEach((c) => {
-    if (!c.interestedProducts || c.interestedProducts.length === 0) return;
-    c.interestedProducts = c.interestedProducts.map((ip) => ({
-      ...ip,
-      productName: productMap.get(String(ip.productId))?.name || null,
-      productCode: productMap.get(String(ip.productId))?.code || null,
-      variantCode: ip.variantId ? (variantMap.get(String(ip.variantId))?.code || null) : null,
-    }));
-  });
-}
 
 const commUpload = multer({ limits: uploadLimits, fileFilter: blockExecutableFiles, storage: multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'public/uploads'),
@@ -128,43 +87,6 @@ async function getActorName(userId) {
   return actor ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() : '';
 }
 
-// ── GET /crm/products-lookup — inventory products for the multi-select ────────
-// BEFORE /:id to avoid capture
-router.get('/products-lookup', verify, requirePermission('crm:view'), requireBranch(), async (req, res) => {
-  try {
-    const { search = '' } = req.query;
-    const query = { branchId: req.branchId, deleteDate: null, status: 'active' };
-    if (search) {
-      const re = new RegExp(escapeRegex(search), 'i');
-      query.$or = [{ name: re }, { code: re }];
-    }
-    const products = await InvProduct.find(query)
-      .select('_id code name stoneType quarryCode totalsByUnit')
-      .sort('name')
-      .limit(50)
-      .lean();
-
-    // Include each product's active variants so the interested-products picker
-    // can target a specific variety (grade/dims/finish SKU), not just the root
-    // stone type — mirrors the pattern already used by /mis/products-lookup.
-    const productIds = products.map((p) => p._id);
-    const variants = await InvVariant.find({
-      productId: { $in: productIds }, deleteDate: null, status: 'active',
-    })
-      .select('_id productId code unit quantity price')
-      .lean();
-    const byProduct = {};
-    for (const v of variants) {
-      (byProduct[String(v.productId)] = byProduct[String(v.productId)] || []).push(v);
-    }
-    const data = products.map((p) => ({ ...p, variants: byProduct[String(p._id)] || [] }));
-
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
 // ── PUT /crm/filter-memory — persist user's active CRM filter/sort state ──────
 // BEFORE /:id to avoid capture
 router.put('/filter-memory', verify, async (req, res) => {
@@ -210,7 +132,6 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
       status = '', tags = '',
       dateFrom = '', dateTo = '',
       sort = 'insertDate', order = 'desc',
-      interestedIn = '',
       page = 1, limit = 30,
     } = req.query;
 
@@ -285,12 +206,7 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
       filters.push({ lastCallAt: df });
     }
 
-    // reverse lookup — who wants this product
-    if (interestedIn && mongoose.Types.ObjectId.isValid(interestedIn)) {
-      filters.push({ 'interestedProducts.productId': new mongoose.Types.ObjectId(interestedIn) });
-    }
-
-    // "created by" filter — meaningless (and disabled client-side) when
+// "created by" filter — meaningless (and disabled client-side) when
     // crmScope === 'mine', since the scope filter below already pins results
     // to the current user's own/assigned records
     if (req.query.createdBy && mongoose.Types.ObjectId.isValid(req.query.createdBy) && crmScope !== 'mine') {
@@ -329,8 +245,6 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
       const nameById = new Map(creators.map((u) => [String(u._id), `${u.firstName || ''} ${u.lastName || ''}`.trim()]));
       data.forEach((c) => { c.createdByName = c.createdBy ? (nameById.get(String(c.createdBy)) || '') : ''; });
     }
-
-    await joinInterestedProducts(data);
 
     return res.status(200).json({ data, total, page: Number(page) || 1, limit: lim });
   } catch (err) {
@@ -404,8 +318,6 @@ router.post('/customers', verify, requirePermission('crm:customer:create'), asyn
     const actorName = await getActorName(userId);
     await writeActivity(doc._id, 'created', {}, userId, actorName);
 
-    await joinInterestedProducts([doc]);
-
     return res.status(201).json(doc);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -428,8 +340,6 @@ router.get('/customers/:id', verify, requirePermission('crm:view'), async (req, 
       const isAssigned = (customer.assignedTo || []).map(String).includes(String(userId));
       if (!isOwner && !isAssigned) return res.status(403).json({ message: 'Access denied' });
     }
-
-    await joinInterestedProducts([customer]);
 
     // Log a 'viewed' row for anyone OTHER than the owner opening this record
     // (self-views aren't useful signal) — fire-and-forget, mirrors the same
@@ -611,19 +521,11 @@ router.put('/customers/:id', verify, requirePermission('crm:customer:edit'), asy
       }
     }
 
-    if (req.body.interestedProducts !== undefined) {
-      await writeActivity(existing._id, 'interest', {
-        newValue: req.body.interestedProducts,
-      }, userId, actorName);
-    }
-
     const updated = await Customer.findOneAndUpdate(
       { _id: req.params.id },
       { $set: { ...req.body, updatedBy: userId, updateDate: new Date() } },
       { new: true }
     ).lean();
-
-    await joinInterestedProducts([updated]);
 
     return res.status(200).json(updated);
   } catch (err) {
@@ -770,44 +672,6 @@ router.put('/customers/:id/follow-up', verify, requirePermission('crm:customer:e
     }, userId, actorName);
 
     return res.status(200).json({ ok: true, nextFollowUpAt: date });
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// ── GET /crm/customers/:id/requests — this customer's MIS invoices ────────────
-// Phase 6 (Session 42): wired to the new misInvoice collection — the customer's
-// invoices + pre-invoices, newest first (reverse lookup by customerId).
-router.get('/customers/:id/requests', verify, requirePermission('crm:view'), async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid ID' });
-    }
-    const misInvoiceSchema = require('../../models/misInvoiceModel');
-    const MisInvoice = dbConnection.models.misInvoice || dbConnection.model('misInvoice', misInvoiceSchema);
-
-    const { docType = 'all', order = 'desc' } = req.query;
-    const query = { customerId: req.params.id, deleteDate: null };
-    if (docType === 'invoice' || docType === 'pre_invoice') query.docType = docType;
-    const sortDir = order === 'asc' ? 1 : -1;
-
-    const [rows, total] = await Promise.all([
-      MisInvoice.find(query)
-        .select('docType docNumber status issueDate grandTotal currency customerSnapshot.name lineItems.code')
-        .sort({ issueDate: sortDir, _id: sortDir })
-        .limit(100)
-        .lean(),
-      MisInvoice.countDocuments(query),
-    ]);
-
-    // Expose just the line codes (what was on this doc) — not the full lineItems payload.
-    const data = rows.map((doc) => {
-      const codes = (doc.lineItems || []).map((li) => li.code).filter(Boolean);
-      const { lineItems, ...rest } = doc;
-      return { ...rest, codes };
-    });
-
-    return res.status(200).json({ data, total });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

@@ -16,10 +16,11 @@ patchExpressRouter(express);
 //express middlewear
 const app = express();
 var server = require('http').createServer(app);
-// Production origins (launched 2026-07-12) + localhost for development.
+// Production origins (DamoonCars re-scope, 2026-09-06 — placeholder domains,
+// update once the real DamoonCars domain is registered) + localhost for dev.
 const ALLOWED_ORIGINS = [
-  'https://xms.lazulitemarble.com',
-  'https://auth.lazulitemarble.com',
+  'https://xms.damooncars.com',
+  'https://auth.damooncars.com',
   'http://localhost:3000',            // local dev only
 ];
 var io = require('socket.io')(server , {
@@ -60,7 +61,7 @@ app.use((req, res, next) => {
 // ── Static files — served, but never executable ──────────────────────────────
 // public/ holds every module's uploads (public/uploads, plus public/files and
 // public/zip) and is served from THIS origin, so an uploaded document that a
-// browser will execute would be stored XSS on api.lazulitemarble.com.
+// browser will execute would be stored XSS on api.damooncars.com.
 // utils/uploadGuards.js blocks those at upload time; this is the second half of
 // that defence, covering files uploaded BEFORE the filter existed and anything
 // the filter misses. Applied to the single existing mount rather than adding a
@@ -138,28 +139,14 @@ app.get('/download/:diskName', (req, res) => {
 // app.use('/users' , require("./routes/controlPanel/users"));
 // app.use('/blog' , require("./routes/controlPanel/blogPost"));
 app.use('/crm' , require("./routes/crm/customer"));
-app.use('/filter' , require("./routes/filters"));
 
-// Legacy MIS invoice routes (/mis/newPreInvoice, /mis/getInvoices) — still used by
-// the Project Manager module (newProject.js) until it is rebuilt in Phase 6 / Session 50.
-// Retire this line once Project Manager migrates to the new invoice system.
-app.use('/mis' , require('./routes/mis/invoice') )
-// New MIS / Invoices routes (Phase 6 rebuild — built out in Sessions 41–43).
-app.use('/mis' , require('./routes/mis/invoices') )
 app.use('/notfication' , require('./routes/socket/xmsNotifications')(io))
 app.use('/users'         , require('./routes/users/users') )
 app.use('/roles'         , require('./routes/rbac/roles') )
 app.use('/groups'        , require('./routes/rbac/groups') )
 app.use('/permissions'   , require('./routes/rbac/permissions') )
-app.use('/branches'      , require('./routes/rbac/branches') )
 app.use('/notifications' , require('./routes/notifications/notifications') )
 app.use('/tasks'         , require('./routes/tasks/tasks') )
-
-app.use('/files' , require('./routes/fileManager/main') )
-app.use('/inventory' , require('./routes/inventory/main') )
-app.use('/inventory/categories' , require('./routes/inventory/categories') )
-
-app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
@@ -217,10 +204,10 @@ server.requestTimeout = 0;
 server.headersTimeout = 120_000;
 server.keepAliveTimeout = 75_000;
 
-// Port 7130 (changed from 3003 for the 2026-07-12 launch) — the reverse proxy
-// maps https://api.lazulitemarble.com onto this local port.
-server.listen(4789, async () => {
-    console.log('server running on port 4789.');
+// Port 8130 (DamoonCars re-scope, 2026-09-06 — was 4789) — the reverse proxy
+// maps https://api.damooncars.com onto this local port.
+server.listen(8130, async () => {
+    console.log('server running on port 8130.');
     // On restart all socket connections are gone → mark everyone offline
     let userM = null;
     try {
