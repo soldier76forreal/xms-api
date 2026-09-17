@@ -58,6 +58,7 @@ const userSchema = new mongoose.Schema({
     readyToUpload: { type: Boolean, default: true },
     tutorials:     { type: Boolean, default: true },
     jobReports:    { type: Boolean, default: true },
+    priceRequests: { type: Boolean, default: true },
   },
 
   // ── Access (deprecated — replaced by userAccess RBAC collection) ──────────

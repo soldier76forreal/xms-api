@@ -32,6 +32,34 @@ const rawContentChatSchema = new mongoose.Schema({
 
   date:      { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
+
+  // Edit — text messages only (see routes/digitalMarketing/main.js's PUT
+  // .../chat/:messageId — voice/file messages carry no editable text).
+  edited:     { type: Boolean, default: false },
+  editedDate: { type: Date, default: null },
+
+  // Soft delete — mirrors the rest of the app's deleteDate convention, but
+  // named `deleted`/`deletedDate` here (not `deleteDate`) so a plain find()
+  // doesn't need an extra deleted:null clause threaded through every chat
+  // query; the two GET routes filter it at read time instead. body/file
+  // fields are left in place (not blanked) so an already-delivered client
+  // that missed the delete socket event still has the placeholder's source
+  // data if ever needed — the frontend renders the placeholder purely off
+  // the `deleted` flag.
+  deleted:     { type: Boolean, default: false },
+  deletedDate: { type: Date, default: null },
+
+  // Read receipts — who has seen this message besides its own sender, and
+  // when. Deliberately generic (not a single "seenByCreator" boolean):
+  // whichever admin opens the thread stamps their own entry, and the
+  // creator does the same for admin replies — the frontend derives the
+  // Telegram-style single/double-tick from whether anyone OTHER than the
+  // record's owner (for the owner's own messages) or the owner specifically
+  // (for anyone else's messages) appears here. See rawContentChat.js.
+  readBy: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    date:   { type: Date, default: Date.now },
+  }],
 });
 
 rawContentChatSchema.index({ rawContentId: 1, date: 1 });

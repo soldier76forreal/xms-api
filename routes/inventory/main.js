@@ -10,6 +10,7 @@ const ffmpegPath = require('ffmpeg-static');
 const archiver = require('archiver');
 const XLSX = require('xlsx');
 const jwt_decode = require('jwt-decode');
+const { sanitizeHtml } = require('../../utils/sanitizeHtml');
 const dbConnection = require('../../connections/xmsPr');
 const inventoryProductSchema   = require('../../models/inventoryProductModel');
 const inventoryVariantSchema   = require('../../models/inventoryVariantModel');
@@ -23,6 +24,7 @@ const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireB
 const { parseStoneCode } = require('../../utils/stoneCodeParser');
 const { stoneTypes, grades, units, quarries } = require('./lookups');
 const { isHeic, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync } = require('../../utils/mediaConvert');
+const { parseDateRange, timeSeries, topBreakdown, kpiDelta, previousRange } = require('../../utils/analytics');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -379,6 +381,73 @@ router.get('/stats', verify, requirePermission('inventory:view'), requireBranch(
   });
 });
 
+// ─── analytics ────────────────────────────────────────────────────────────────
+// Date-range-selectable rollups (see api/utils/analytics.js) — distinct from
+// /stats above, which is a fixed "this week" snapshot for the list header.
+// Powers the "Full Analytics" overlay button. Same branch-scoping as every
+// other Inventory route (requireBranch() + req.branchId); inventoryChangeLog
+// has no branchId of its own, so it's matched via the branch's own variant ids,
+// same technique /stats already uses.
+router.get('/analytics', verify, requirePermission('inventory:analytics:view'), requireBranch(), async (req, res) => {
+  try {
+    // req.branchId is a plain string (off the query string) — Model.aggregate()
+    // does NOT run Mongoose's query-casting layer the way .find()/.countDocuments()
+    // do, so an ObjectId-typed field matched against a raw string silently
+    // matches nothing (no error — the aggregation just returns []). Cast once
+    // here and use this everywhere a $match below touches branchId.
+    const branchId = new mongoose.Types.ObjectId(req.branchId);
+    const { from, to, preset } = parseDateRange(req);
+    const { from: prevFrom, to: prevTo } = previousRange(from, to);
+
+    const branchVariantIds = (await InvVariant.find({ branchId, deleteDate: null }).select('_id').lean()).map((v) => v._id);
+    const logMatch = { subjectId: { $in: branchVariantIds } };
+
+    const addedSoldExpr = {
+      added: { $cond: [{ $and: [{ $eq: ['$changeType', 'quantity'] }, { $gt: ['$delta', 0] }] }, '$delta', 0] },
+      sold:  { $cond: [{ $and: [{ $eq: ['$changeType', 'quantity'] }, { $lt: ['$delta', 0] }] }, { $abs: '$delta' }, 0] },
+    };
+
+    const [
+      quantitySeries,
+      changeTypeBreakdown,
+      stoneTypeBreakdown,
+      quarryBreakdown,
+      unitBreakdown,
+      currentLogCount,
+      previousLogCount,
+    ] = await Promise.all([
+      timeSeries(InvChangeLog, { match: logMatch, dateField: 'date', from, to, sumFields: addedSoldExpr }),
+      topBreakdown(InvChangeLog, { match: { ...logMatch, date: { $gte: from, $lte: to } }, groupField: 'changeType', limit: 10 }),
+      topBreakdown(InvVariant, { match: { branchId, deleteDate: null, status: 'active' }, groupField: 'spec.stoneTypeName', limit: 8 }),
+      topBreakdown(InvVariant, { match: { branchId, deleteDate: null, status: 'active' }, groupField: 'spec.quarryCode', limit: 8 }),
+      topBreakdown(InvVariant, { match: { branchId, deleteDate: null, status: 'active' }, groupField: 'unit', limit: 6, sumFields: { quantity: '$quantity' } }),
+      InvChangeLog.countDocuments({ ...logMatch, date: { $gte: from, $lte: to } }),
+      InvChangeLog.countDocuments({ ...logMatch, date: { $gte: prevFrom, $lte: prevTo } }),
+    ]);
+
+    const totalAdded = quantitySeries.points.reduce((sum, p) => sum + (p.added || 0), 0);
+    const totalSold   = quantitySeries.points.reduce((sum, p) => sum + (p.sold || 0), 0);
+
+    return res.status(200).json({
+      range: { from, to, preset, granularity: quantitySeries.granularity },
+      kpis: [
+        { key: 'quantityAdded', label: 'Quantity added', value: parseFloat(totalAdded.toFixed(2)) },
+        { key: 'quantitySold',  label: 'Quantity sold',  value: parseFloat(totalSold.toFixed(2)) },
+        { key: 'changeCount',   label: 'Inventory changes', value: currentLogCount, delta: kpiDelta(currentLogCount, previousLogCount) },
+      ],
+      timeSeries: quantitySeries.points,
+      breakdowns: {
+        changeType: changeTypeBreakdown,
+        stoneType:  stoneTypeBreakdown,
+        quarry:     quarryBreakdown,
+        unit:       unitBreakdown,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ─── parse-code ───────────────────────────────────────────────────────────────
 
 router.post('/parse-code', verify, requirePermission('inventory:view'), async (req, res) => {
@@ -594,7 +663,7 @@ router.put('/products/:id', verify, requirePermission('inventory:edit'), async (
     return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
-  const allowed = ['quarryName', 'name', 'nameAr', 'description', 'category', 'defaultUnit', 'status', 'coverMediaId'];
+  const allowed = ['quarryName', 'name', 'nameAr', 'nameFa', 'description', 'category', 'defaultUnit', 'status', 'coverMediaId'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -619,6 +688,82 @@ router.put('/products/:id', verify, requirePermission('inventory:edit'), async (
 
   if (!product) return res.status(404).json({ message: 'Product not found' });
   res.json({ data: product });
+});
+
+// PUT /products/:id/website — the public-website side of a product (published
+// toggle, slug, non-English descriptions, gallery order, tags, SEO meta).
+// Deliberately a SEPARATE route from PUT /products/:id above, gated by
+// inventory:website:manage rather than inventory:edit — same reasoning as
+// price/quantity having their own routes+keys: website-publishing authority
+// shouldn't be implied by ordinary descriptive-field edit access.
+router.put('/products/:id/website', verify, requirePermission('inventory:website:manage'), async (req, res) => {
+  try {
+    const existing = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
+    if (!existing) return res.status(404).json({ message: 'Product not found' });
+    if (!(await assertBranchAccess(req.user.id, existing.branchId))) {
+      return res.status(403).json({ message: 'You do not have access to this branch' });
+    }
+
+    const updates = { updateDate: new Date(), updatedBy: req.user?.id };
+    const unset = {};
+    if (req.body.descriptionAr !== undefined) updates.descriptionAr = req.body.descriptionAr;
+    if (req.body.descriptionFa !== undefined) updates.descriptionFa = req.body.descriptionFa;
+
+    const w = req.body.website || {};
+    if (w.published !== undefined) updates['website.published'] = Boolean(w.published);
+    if (w.slug !== undefined) {
+      const slug = String(w.slug || '').trim();
+      if (slug) {
+        const clash = await InvProduct.findOne({ 'website.slug': slug, _id: { $ne: req.params.id }, deleteDate: null }).select('_id').lean();
+        if (clash) return res.status(409).json({ message: 'This slug is already used by another product' });
+        updates['website.slug'] = slug;
+      } else {
+        // A sparse unique index only skips documents where the field is
+        // TRULY ABSENT — setting it to null still indexes that null and the
+        // second product to ever clear its slug collides on the unique
+        // constraint. $unset removes the key entirely so the sparse index
+        // correctly ignores it, the same fix the existing product/variant
+        // `code` sparse-unique indexes already rely on.
+        unset['website.slug'] = '';
+      }
+    }
+    if (Array.isArray(w.gallery)) {
+      updates['website.gallery'] = w.gallery.map((g, i) => ({
+        fileId: g.fileId, diskName: g.diskName || '', order: Number.isFinite(g.order) ? g.order : i,
+      }));
+    }
+    if (Array.isArray(w.tags)) updates['website.tags'] = w.tags;
+    if (w.seo && typeof w.seo === 'object') {
+      const seoKeys = ['metaTitle', 'metaDescription', 'metaTitleAr', 'metaDescriptionAr', 'metaTitleFa', 'metaDescriptionFa'];
+      seoKeys.forEach((k) => { if (w.seo[k] !== undefined) updates[`website.seo.${k}`] = w.seo[k]; });
+    }
+    if (w.content && typeof w.content === 'object') {
+      const contentKeys = [
+        'introduction', 'introductionAr', 'introductionFa',
+        'features', 'featuresAr', 'featuresFa',
+        'applications', 'applicationsAr', 'applicationsFa',
+        'whyUs', 'whyUsAr', 'whyUsFa',
+        'careTips', 'careTipsAr', 'careTipsFa',
+        'conclusion', 'conclusionAr', 'conclusionFa',
+      ];
+      contentKeys.forEach((k) => {
+        if (w.content[k] !== undefined) updates[`website.content.${k}`] = sanitizeHtml(String(w.content[k] || ''));
+      });
+    }
+
+    const mongoUpdate = { $set: updates };
+    if (Object.keys(unset).length) mongoUpdate.$unset = unset;
+
+    const product = await InvProduct.findOneAndUpdate(
+      { _id: req.params.id, deleteDate: null },
+      mongoUpdate,
+      { new: true }
+    );
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    return res.status(200).json({ data: product });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // ─── soft-delete product ──────────────────────────────────────────────────────

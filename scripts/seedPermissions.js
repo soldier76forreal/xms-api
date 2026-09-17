@@ -42,6 +42,19 @@ const PERMISSIONS = [
   { key: 'inventory:import',           module: 'inventory', description: 'Import from Excel' },
   { key: 'inventory:export',           module: 'inventory', description: 'Export inventory to Excel' },
   { key: 'inventory:share:whatsapp',   module: 'inventory', description: 'Build and share a WhatsApp product message' },
+  // Own key, deliberately separate from inventory:view — analytics is a
+  // heavier/more sensitive rollup (stock movement, price-change activity)
+  // than a plain product list, so granting the list doesn't imply granting
+  // the analytics overlay too. On the LIVE catalog this only ever reaches a
+  // role/group that's explicitly given it via the Roles/Groups Manager UI —
+  // this seed script never retroactively edits an existing role's
+  // permissions (see the "Kept existing role untouched" branch below).
+  { key: 'inventory:analytics:view',   module: 'inventory', description: 'View inventory analytics' },
+  // Website-publishing authority, separate from inventory:edit (descriptive
+  // fields) the same way inventory:price:edit is split out — covers the
+  // category/tag "Website Tools" screen, the product form's Website tab, and
+  // the price-request Respond action.
+  { key: 'inventory:website:manage',   module: 'inventory', description: 'Manage website categories/tags and publish products to the site' },
   // Users
   { key: 'users:view',                 module: 'users', description: 'View users list and details' },
   { key: 'users:create',               module: 'users', description: 'Create user' },
@@ -96,6 +109,9 @@ const PERMISSIONS = [
   { key: 'digitalMarketing:linkPage:create',         module: 'digitalMarketing', description: 'Create an external link page' },
   { key: 'digitalMarketing:linkPage:edit',           module: 'digitalMarketing', description: 'Edit an external link page' },
   { key: 'digitalMarketing:linkPage:delete',         module: 'digitalMarketing', description: 'Delete an external link page' },
+  { key: 'digitalMarketing:blog:create',             module: 'digitalMarketing', description: 'Create a blog post' },
+  { key: 'digitalMarketing:blog:edit',               module: 'digitalMarketing', description: 'Edit / publish a blog post' },
+  { key: 'digitalMarketing:blog:delete',             module: 'digitalMarketing', description: 'Delete a blog post' },
   // Tutorial Center — shared reference material, no row-level dataScope
   { key: 'tutorials:view',   module: 'tutorials', description: 'View tutorials' },
   { key: 'tutorials:upload', module: 'tutorials', description: 'Upload a new tutorial' },

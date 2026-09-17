@@ -8,6 +8,7 @@ const { blockExecutableFiles, imagesOnly, imageUploadLimits, uploadLimits, MAX_B
 const sharp      = require('sharp');
 const ffmpeg     = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
+const { extractVideoThumbnail, transcodeVideoAsync, isVideoUpload } = require('../../utils/mediaConvert');
 
 const userModel              = require('../../models/userModel');
 const notficationModel       = require('../../models/notficationsModel');
@@ -68,14 +69,11 @@ const notesUpload = multer({ storage: notesStorage, limits: uploadLimits, fileFi
 
 // Extracts a single preview frame from a video (10% in) — mirrors the
 // Inventory variant-media-batch / CRM communication-tab convention exactly.
-function extractNoteVideoThumbnail(videoPath, thumbFilename) {
-  return new Promise((resolve) => {
-    ffmpeg(videoPath)
-      .on('end', () => resolve(thumbFilename))
-      .on('error', () => resolve(null))
-      .screenshots({ count: 1, timestamps: ['10%'], filename: thumbFilename, folder: 'public/uploads', size: '300x?' });
-  });
-}
+// Was a local copy asking ffmpeg for a '10%' timestamp, which needs ffprobe to
+// resolve it — this app has no ffprobe (BUG-07), so note/job-report video
+// thumbnails never actually generated. utils/mediaConvert.js's shared version
+// uses fixed timestamps and works without it.
+const extractNoteVideoThumbnail = extractVideoThumbnail;
 
 const router = express.Router();
 
@@ -349,7 +347,7 @@ router.post('/me/notes', verify, notesUpload.array('files', MAX_BATCH_FILES), as
       for (const file of uploadedFiles) {
         const mime = file.mimetype || '';
         const kind = mime.startsWith('audio/') ? 'audio'
-          : mime.startsWith('video/') ? 'video'
+          : isVideoUpload(file) ? 'video'
           : mime.startsWith('image/') ? 'image'
           : 'document';
 
@@ -374,6 +372,10 @@ router.post('/me/notes', verify, notesUpload.array('files', MAX_BATCH_FILES), as
           scope: 'users',
           attachedTo: { type: 'userNote', id: note._id },
         });
+
+        // Non-blocking web-playable copy (H.264/AAC MP4) for anything the
+        // browser can't decode as uploaded; served via GET /media/video/<diskName>.
+        if (kind === 'video') transcodeVideoAsync(File, fileDoc, file.path);
 
         files.push({ fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail });
       }
@@ -556,7 +558,7 @@ router.get('/:id/jobReports', verify, async (req, res) => {
 async function makeJobReportFileEntry(file, userId, reportId) {
   const mime = file.mimetype || '';
   const kind = mime.startsWith('audio/') ? 'audio'
-    : mime.startsWith('video/') ? 'video'
+    : isVideoUpload(file) ? 'video'
     : mime.startsWith('image/') ? 'image'
     : 'document';
 
@@ -581,6 +583,8 @@ async function makeJobReportFileEntry(file, userId, reportId) {
     scope: 'users',
     attachedTo: { type: 'userJobReport', id: reportId },
   });
+
+  if (kind === 'video') transcodeVideoAsync(File, fileDoc, file.path);
 
   return { fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail };
 }

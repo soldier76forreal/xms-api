@@ -31,6 +31,7 @@ const folderModel = require("../../models/folderModel");
 const fileModal = require("../../models/fileModel");
 const filesFoldersTagsModel = require("../../models/filesFoldersTagsModel");
 const sharp = require('sharp');
+const { extractVideoThumbnail, transcodeVideoAsync, isVideoUpload } = require('../../utils/mediaConvert');
 const folder = dbConnection.model('folder' , folderModel);
 const file = dbConnection.model('file' , fileModal);
 const filesFoldersTags = dbConnection.model('fileFoldersTag' , filesFoldersTagsModel);
@@ -704,6 +705,10 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
             console.error("Thumbnail generation failed:", err);
             // We don't stop the upload if thumb fails, just leave thumbnailPath as null
         }
+    } else if (req.file && isVideoUpload(req.file)) {
+        // Videos got no poster frame at all here, so every video card in the
+        // File Manager fell back to the generic play-icon placeholder.
+        thumbnailPath = await extractVideoThumbnail(req.file.path, `thumb-${req.file.filename}.png`);
     }
 
     const fileScope = req.body.scope || 'file_manager';
@@ -726,6 +731,12 @@ router.post("/uploadFile", verify, requirePermission('files:upload'), upload.sin
 
     try {
         const result = await newFile.save();
+        // Non-blocking: writes a browser-playable H.264/AAC MP4 next to the
+        // original when the upload isn't already web-playable (container AND
+        // codec). Players pick it up via GET /media/video/<diskName>.
+        if (req.file && isVideoUpload(req.file)) {
+            transcodeVideoAsync(file, result, req.file.path);
+        }
         if (req.body.supFolder !== 'root') {
             const updateSupFolder = await folder.updateOne(
                 { _id: req.body.supFolder },

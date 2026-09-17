@@ -20,7 +20,9 @@ var server = require('http').createServer(app);
 const ALLOWED_ORIGINS = [
   'https://xms.lazulitemarble.com',
   'https://auth.lazulitemarble.com',
-  'http://localhost:3000',            // local dev only
+  'https://lazulitemarble.com',       // the public Next.js website (Phase D)
+  'http://localhost:3000',            // local dev only — xms admin panel
+  'http://localhost:3001',            // local dev only — the public website (website/)
 ];
 var io = require('socket.io')(server , {
     cors: {
@@ -111,6 +113,21 @@ app.use('/digitalMarketing/public', rateLimit({ name: 'public', windowMs: 60_000
 // route — same reasoning, same budget: the 48-bit code IS the credential, so
 // the only real attack is guessing codes, and this is what makes that hopeless.
 app.use('/files/public', rateLimit({ name: 'public', windowMs: 60_000, max: 60 }));
+// The public website's product/category/tag/branch browsing API — a real
+// visitor paging through a catalog legitimately fires more requests than a
+// one-shot code lookup, so this gets a looser budget than the two above
+// (still tight enough to blunt a scraping bot).
+// DISABLED for this deploy — the public Next.js site (website/) isn't
+// finished yet, so its unauthenticated API has no reason to be reachable in
+// production. Re-enable these two lines together with the route mount below
+// (routes/public/website.js — see featureFlags.js on the frontend for the
+// matching UI-side switch) once the site is ready to launch.
+// app.use('/public/website', rateLimit({ name: 'public', windowMs: 60_000, max: 120 }));
+// OTP send/verify get a much tighter budget on top of the general one above —
+// this is what's actually standing between the outside world and both the
+// email-sending quota and brute-forcing a 6-digit code (the per-email
+// cooldown/lockout in the route itself is the other, finer-grained layer).
+// app.use('/public/website/otp', rateLimit({ name: 'public', windowMs: 60_000, max: 10 }));
 
 // ── Native file download ──────────────────────────────────────────────────────
 // Streams a public/uploads file with `Content-Disposition: attachment` so the
@@ -160,14 +177,21 @@ app.use('/notifications' , require('./routes/notifications/notifications') )
 app.use('/tasks'         , require('./routes/tasks/tasks') )
 
 app.use('/files' , require('./routes/fileManager/main') )
+// DISABLED for this deploy — public Next.js site (website/) isn't finished
+// yet; see the rate-limit comment above and tools/featureFlags.js on xms.
+// app.use('/public/website' , require('./routes/public/website') )
+app.use('/price-requests' , require('./routes/priceRequests/main') )
 app.use('/inventory' , require('./routes/inventory/main') )
 app.use('/inventory/categories' , require('./routes/inventory/categories') )
+app.use('/inventory/tags' , require('./routes/inventory/tags') )
 
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
+app.use('/digitalMarketing/blog' , require('./routes/digitalMarketing/blog') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
 app.use('/shortlinks' , require('./routes/shortLinks/main') )
+app.use('/media' , require('./routes/media/main') )
 app.use('/ghost' , require('./routes/ghost/main') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
@@ -221,10 +245,15 @@ server.requestTimeout = 0;
 server.headersTimeout = 120_000;
 server.keepAliveTimeout = 75_000;
 
-// Port 7130 (changed from 3003 for the 2026-07-12 launch) — the reverse proxy
-// maps https://api.lazulitemarble.com onto this local port.
-server.listen(4789, async () => {
-    console.log('server running on port 4789.');
+// Port 7130 — the reverse proxy maps https://api.lazulitemarble.com onto this
+// local port; this is the PRODUCTION default and must stay 7130 unless the
+// reverse proxy config changes too. Local dev has been running on 4789
+// instead (a deliberate, Pouriya-confirmed local-only deviation — see project
+// memory) via PORT=4789 in the local .env, which overrides this default
+// without ever touching what actually ships.
+const PORT = process.env.PORT || 7130;
+server.listen(PORT, async () => {
+    console.log(`server running on port ${PORT}.`);
     // On restart all socket connections are gone → mark everyone offline
     let userM = null;
     try {

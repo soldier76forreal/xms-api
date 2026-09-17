@@ -5,6 +5,7 @@ const { blockExecutableFiles, uploadLimits, MAX_BATCH_FILES } = require('../../u
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
+const { extractVideoThumbnail, transcodeVideoAsync, isVideoUpload } = require('../../utils/mediaConvert');
 
 const dbConnection           = require('../../connections/xmsPr');
 const customerSchema         = require('../../models/customerModel');
@@ -74,16 +75,11 @@ const commUpload = multer({ limits: uploadLimits, fileFilter: blockExecutableFil
   },
 }) });
 
-// Extracts a single preview frame from a video (10% in) for the timeline
-// thumbnail — mirrors the Inventory variant-media-batch convention exactly.
-function extractVideoThumbnail(videoPath, thumbFilename) {
-  return new Promise((resolve) => {
-    ffmpeg(videoPath)
-      .on('end', () => resolve(thumbFilename))
-      .on('error', () => resolve(null))
-      .screenshots({ count: 1, timestamps: ['10%'], filename: thumbFilename, folder: 'public/uploads', size: '300x?' });
-  });
-}
+// extractVideoThumbnail + transcodeVideoAsync come from utils/mediaConvert.js.
+// The local copy that used to live here asked ffmpeg for a '10%' timestamp,
+// which needs ffprobe to resolve it — this app has no ffprobe (BUG-07), so
+// communication-timeline video thumbnails never actually generated. The shared
+// version uses fixed timestamps and works without it.
 
 const router = express.Router();
 
@@ -709,7 +705,10 @@ router.post('/customers/:id/communication', verify, requirePermission('crm:commu
       const media = [];
       for (const file of files) {
         const mime = file.mimetype || '';
-        const kind = mime.startsWith('audio/') ? 'audio' : mime.startsWith('video/') ? 'video' : 'image';
+        // isVideoUpload also checks the extension: a container the browser
+        // reports as application/octet-stream would otherwise fall through to
+        // 'image' here and get neither a poster frame nor a playable copy.
+        const kind = mime.startsWith('audio/') ? 'audio' : isVideoUpload(file) ? 'video' : 'image';
 
         let thumbnail = null;
         if (kind === 'image') {
@@ -732,6 +731,10 @@ router.post('/customers/:id/communication', verify, requirePermission('crm:commu
           scope: 'crm',
           attachedTo: { type: 'customerActivity', id: activity._id },
         });
+
+        // Non-blocking web-playable copy (H.264/AAC MP4) for anything the
+        // browser can't decode as uploaded. Reached via GET /media/video/<diskName>.
+        if (kind === 'video') transcodeVideoAsync(File, fileDoc, file.path);
 
         media.push({ fileId: fileDoc._id, kind, diskName: file.filename, name: file.originalname, thumbnail });
       }
@@ -785,19 +788,29 @@ router.get('/customers/:id/requests', verify, requirePermission('crm:view'), asy
     }
     const misInvoiceSchema = require('../../models/misInvoiceModel');
     const MisInvoice = dbConnection.models.misInvoice || dbConnection.model('misInvoice', misInvoiceSchema);
+    const priceRequestSchema = require('../../models/priceRequestModel');
+    const PriceRequest = dbConnection.models.priceRequest || dbConnection.model('priceRequest', priceRequestSchema);
 
     const { docType = 'all', order = 'desc' } = req.query;
     const query = { customerId: req.params.id, deleteDate: null };
     if (docType === 'invoice' || docType === 'pre_invoice') query.docType = docType;
     const sortDir = order === 'asc' ? 1 : -1;
 
-    const [rows, total] = await Promise.all([
+    const [rows, total, priceRequests] = await Promise.all([
       MisInvoice.find(query)
         .select('docType docNumber status issueDate grandTotal currency customerSnapshot.name lineItems.code')
         .sort({ issueDate: sortDir, _id: sortDir })
         .limit(100)
         .lean(),
       MisInvoice.countDocuments(query),
+      // Public-website price requests — a different record shape from
+      // invoices, so kept as its own array rather than forced into the same
+      // rows (see the plan's "merged into the same tab" — the frontend
+      // renders both lists in one panel, not one combined feed).
+      PriceRequest.find({ customerId: req.params.id })
+        .sort({ insertDate: sortDir === 1 ? 1 : -1 })
+        .limit(100)
+        .lean(),
     ]);
 
     // Expose just the line codes (what was on this doc) — not the full lineItems payload.
@@ -807,7 +820,7 @@ router.get('/customers/:id/requests', verify, requirePermission('crm:view'), asy
       return { ...rest, codes };
     });
 
-    return res.status(200).json({ data, total });
+    return res.status(200).json({ data, total, priceRequests });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

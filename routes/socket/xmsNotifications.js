@@ -81,6 +81,7 @@ const PREF_BY_TYPE = {
   readyToUpload: 'readyToUpload',
   tutorial: 'tutorials',
   jobReport: 'jobReports',
+  priceRequest: 'priceRequests',
 };
 
 // Deep-link path for a push notification click — kept in sync with the frontend
@@ -321,6 +322,27 @@ const emitReadyToUploadMessage = (readyToUploadId, message) => {
   _io.to(`readyToUpload:${String(readyToUploadId)}`).emit('dm:chat:new', message);
 };
 
+// Same two rooms (rawContent:<id> / readyToUpload:<id>), three more event
+// names for a message's lifecycle after it's sent — edited, soft-deleted, or
+// marked seen. `entityType` picks the room the same way the two functions
+// above do; kept as one parameterized set rather than four more near-
+// duplicate functions since all three only ever differ by event name + payload.
+function dmChatRoom(entityType, entityId) {
+  return entityType === 'readyToUpload' ? `readyToUpload:${String(entityId)}` : `rawContent:${String(entityId)}`;
+}
+const emitDmChatEdit = (entityType, entityId, message) => {
+  if (!_io || !entityId) return;
+  _io.to(dmChatRoom(entityType, entityId)).emit('dm:chat:edit', message);
+};
+const emitDmChatDelete = (entityType, entityId, messageId) => {
+  if (!_io || !entityId) return;
+  _io.to(dmChatRoom(entityType, entityId)).emit('dm:chat:delete', { _id: messageId });
+};
+const emitDmChatSeen = (entityType, entityId, payload) => {
+  if (!_io || !entityId) return;
+  _io.to(dmChatRoom(entityType, entityId)).emit('dm:chat:seen', payload);
+};
+
 // ── Socket.io setup (receives io from server.js) ──────────────────────────────
 const returnRouter = function (io) {
   _io = io;
@@ -532,3 +554,6 @@ module.exports = returnRouter;
 module.exports.sendNotificationToUser = sendNotificationToUser;
 module.exports.emitRawContentMessage = emitRawContentMessage;
 module.exports.emitReadyToUploadMessage = emitReadyToUploadMessage;
+module.exports.emitDmChatEdit = emitDmChatEdit;
+module.exports.emitDmChatDelete = emitDmChatDelete;
+module.exports.emitDmChatSeen = emitDmChatSeen;

@@ -10,7 +10,10 @@ const dmActivitySchema = new mongoose.Schema({
   // so a user's own raw-content/ready-to-upload work shows up as real activity
   // in their Users > Activity Log (userLogs.js) — view/download rows alone are
   // near-empty there since self-views are deliberately never logged (see below).
-  action: { type: String, enum: ['viewed', 'downloaded', 'created', 'status_changed'], required: true },
+  // 'linked' — an existing readyToUpload record was attached to a raw content
+  // batch via the link-existing flow (PUT .../link-ready-to-upload), as
+  // opposed to 'created' (a brand-new one made via the graduate flow).
+  action: { type: String, enum: ['viewed', 'downloaded', 'created', 'status_changed', 'linked'], required: true },
   // Set only for a 'downloaded' row on a specific file within the record.
   fileId:   { type: mongoose.Schema.Types.ObjectId, default: null },
   fileName: { type: String, default: '' },

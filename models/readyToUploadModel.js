@@ -28,6 +28,10 @@ const readyToUploadSchema = new mongoose.Schema({
 
   owner: { type: mongoose.Schema.Types.ObjectId },
 
+  // Optional branch tag (added 2026-09-08) — same non-restrictive convention
+  // as rawContentModel.js's branchId: filterable, never gates visibility.
+  branchId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
+
   createdBy:   { type: mongoose.Schema.Types.ObjectId },
   createdByName: { type: String },
   updatedBy:   { type: mongoose.Schema.Types.ObjectId },

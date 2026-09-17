@@ -36,6 +36,26 @@ const TEMPLATES = {
     }),
   },
 
+  // A public-website price request came in — sent to the requested product's
+  // branch's configured notify-list (Branch.priceRequestNotifyUsers), see
+  // POST /public/website/price-requests. customerName is the visitor's typed
+  // name (not yet a real staff-known contact), itemCount is how many
+  // varieties they asked about in this one request.
+  priceRequestNotify: {
+    en: ({ customerName, itemCount }) => ({
+      title: 'New price request',
+      body: `${customerName} asked about ${itemCount} ${plural('en', itemCount, 'item', 'items')}`,
+    }),
+    fa: ({ customerName, itemCount }) => ({
+      title: 'درخواست قیمت جدید',
+      body: `${customerName} در مورد ${itemCount} قلم درخواست قیمت داد`,
+    }),
+    ar: ({ customerName, itemCount }) => ({
+      title: 'طلب سعر جديد',
+      body: `${customerName} استفسر عن ${itemCount} صنف`,
+    }),
+  },
+
   crmAssignmentGroup: {
     en: ({ taskTitle, count, groupName }) => ({
       title: `New group CRM assignment: ${taskTitle}`,
@@ -201,6 +221,26 @@ const TEMPLATES = {
     }),
     ar: ({ msgType, textPreview }) => ({
       title: 'رسالة جديدة على محتواك',
+      body: msgType === 'text' ? textPreview : (msgType === 'voice' ? 'أرسل رسالة صوتية' : 'أرسل ملفًا'),
+    }),
+  },
+
+  // The COUNTERPART to dmChatMessage: fires when the record's own creator is
+  // the one sending — recipients are the group admin(s) (see
+  // getGroupAdminsForUser/notifyDmChatMessage in routes/digitalMarketing/main.js),
+  // not the creator themselves, so the wording leads with WHO sent it rather
+  // than "on your content" (an admin doesn't own the record).
+  dmChatReplyFromCreator: {
+    en: ({ actorName, msgType, textPreview }) => ({
+      title: `${actorName} sent a message`,
+      body: msgType === 'text' ? textPreview : (msgType === 'voice' ? 'Sent a voice message' : 'Sent a file'),
+    }),
+    fa: ({ actorName, msgType, textPreview }) => ({
+      title: `${actorName} پیامی ارسال کرد`,
+      body: msgType === 'text' ? textPreview : (msgType === 'voice' ? 'یک پیام صوتی ارسال کرد' : 'یک فایل ارسال کرد'),
+    }),
+    ar: ({ actorName, msgType, textPreview }) => ({
+      title: `أرسل ${actorName} رسالة`,
       body: msgType === 'text' ? textPreview : (msgType === 'voice' ? 'أرسل رسالة صوتية' : 'أرسل ملفًا'),
     }),
   },

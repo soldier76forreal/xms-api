@@ -29,6 +29,9 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
       name: req.body.name,
       description: req.body.description || '',
       country: req.body.country || null,
+      address: req.body.address || '',
+      phone: req.body.phone || '',
+      instagramHandle: req.body.instagramHandle || '',
       createdBy: req.user.id,
     });
     return res.status(201).json(branch);
@@ -41,9 +44,22 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
 // PUT /branches/:id — edit (superAdmin only)
 router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
   try {
+    const updates = {
+      name: req.body.name, description: req.body.description, status: req.body.status,
+      country: req.body.country || null,
+      address: req.body.address || '', phone: req.body.phone || '', instagramHandle: req.body.instagramHandle || '',
+      updateDate: new Date(),
+    };
+    // Which staff get notified about a public-website price request for this
+    // branch (see POST /public/website/price-requests) — optional, only
+    // touched when the caller actually sends it, so this route stays usable
+    // for a plain name/status edit without accidentally wiping the list.
+    if (Array.isArray(req.body.priceRequestNotifyUsers)) {
+      updates.priceRequestNotifyUsers = req.body.priceRequestNotifyUsers;
+    }
     const branch = await Branch.findOneAndUpdate(
       { _id: req.params.id, deleteDate: null },
-      { $set: { name: req.body.name, description: req.body.description, status: req.body.status, country: req.body.country || null, updateDate: new Date() } },
+      { $set: updates },
       { new: true }
     );
     if (!branch) return res.status(404).json({ message: 'Branch not found' });

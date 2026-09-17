@@ -15,6 +15,17 @@ const branchSchema = new mongoose.Schema({
   // branch via xms/src/components/crm/util/countryData.js. Optional: existing
   // branches predate this field and simply show no flag until an admin sets it.
   country:     { type: String, default: null },
+  // Which staff get notified when a public-website price request comes in
+  // for a product tagged to this branch (see POST /public/website/price-requests).
+  // Editable via the same Branch edit form as everything else above —
+  // superAdmin-only, no separate permission key.
+  priceRequestNotifyUsers: [{ type: mongoose.Schema.Types.ObjectId }],
+  // Public-website footer/branches-directory display — real physical location
+  // info, not used anywhere else in xms. All optional (existing branches
+  // predate these fields).
+  address:         { type: String, default: '' },
+  phone:           { type: String, default: '' },
+  instagramHandle: { type: String, default: '' },
   insertDate:  { type: Date, default: Date.now },
   updateDate:  { type: Date, default: null },
   deleteDate:  { type: Date, default: null },

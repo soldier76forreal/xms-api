@@ -7,7 +7,12 @@ const mongoose = require('mongoose');
 // (scope:'digitalMarketing', attachedTo:{type:'rawContent', id}) — this doc
 // only snapshots the fileId + per-file metadata, same convention as
 // customerActivity.media[].
-// NOT branch-scoped (confirmed 2026-07-09) — one shared pool across the org.
+// NOT branch-scoped (confirmed 2026-07-09) — one shared org-wide pool, every
+// digitalMarketing:view holder sees every record regardless of branchId.
+// branchId (added 2026-09-08) is an OPTIONAL TAG, not isolation: which
+// branch a batch is FOR, so it can be filtered — it never gates visibility
+// the way Inventory/MIS's branchId does, and requireBranch() is deliberately
+// NOT used here.
 
 const rawContentFileSchema = new mongoose.Schema({
   fileId:      { type: mongoose.Schema.Types.ObjectId, required: true },
@@ -41,6 +46,10 @@ const rawContentSchema = new mongoose.Schema({
 
   // Row-level scoping anchor (mine/group/all dataScope) — same pattern as CRM's owner.
   owner: { type: mongoose.Schema.Types.ObjectId },
+
+  // Optional — which branch this batch is FOR (see the file-header note above).
+  // null = unset, shown/filterable as "No branch" on the frontend.
+  branchId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
 
   createdBy:   { type: mongoose.Schema.Types.ObjectId },
   createdByName: { type: String },

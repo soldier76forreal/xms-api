@@ -39,6 +39,20 @@ async function convertHeicIfNeeded(file) {
   }
 }
 
+// Every container the app realistically receives. Used as a FALLBACK signal to
+// the mimetype: phones, cameras and some browsers hand up
+// `application/octet-stream` for the less common containers — which is exactly
+// the set that needs converting, so classifying on mimetype alone would skip
+// the files this whole pipeline exists for.
+const VIDEO_EXT_RE = /\.(mp4|webm|ogv|mov|mkv|avi|m4v|wmv|flv|3gp|3g2|mpg|mpeg|ts|m2ts|mts|f4v|asf|divx|vob)$/i;
+
+// `file` is a multer file object (or anything carrying originalname/mimetype).
+function isVideoUpload(file = {}) {
+  const mime = String(file.mimetype || '').toLowerCase();
+  if (mime.startsWith('video/')) return true;
+  return VIDEO_EXT_RE.test(String(file.originalname || file.name || ''));
+}
+
 // Takes one screenshot attempt at a given timestamp; resolves true only if a
 // file actually landed on disk — fluent-ffmpeg's 'end' event fires whenever
 // the ffmpeg process exits cleanly, even if the requested timestamp was past
@@ -95,12 +109,32 @@ function probeVideoCodecs(videoPath) {
   });
 }
 
-// h264 is what we'd transcode TO anyway, and aac is the audio codec every
-// browser plays alongside it — if the upload is already both (or has no
-// audio track at all), transcoding it would just burn CPU and disk to
-// produce a near-duplicate of a file that already works everywhere.
-function isAlreadyWebCompatible({ videoCodec, audioCodec }) {
-  return videoCodec === 'h264' && (!audioCodec || audioCodec === 'aac');
+// Whether a file can be played by a browser <video> as-is. BOTH the container
+// and the codecs have to be right — checking only the codec (as this used to)
+// silently broke playback for the most common "won't play" case in this app:
+// an .mkv/.avi/.wmv/.flv holding a perfectly ordinary h264+aac stream. The
+// codec check passed, so no web copy was ever produced, and the browser then
+// refused the container. The reverse was also wrong: a normal VP9/Opus .webm
+// plays everywhere but was being re-encoded for nothing.
+//
+// .mov is deliberately NOT treated as safe: Chrome/Safari will play an h264
+// .mov but Firefox won't, and the brief here is "works in any player".
+const WEB_SAFE_VIDEO_CODECS = { mp4: ['h264', 'avc1'], m4v: ['h264', 'avc1'], webm: ['vp8', 'vp9', 'av1'] };
+const WEB_SAFE_AUDIO_CODECS = { mp4: ['aac', 'mp3'], m4v: ['aac', 'mp3'], webm: ['opus', 'vorbis'] };
+
+function containerOf(fileNameOrPath = '') {
+  const m = String(fileNameOrPath).toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? m[1] : '';
+}
+
+function isAlreadyWebCompatible({ videoCodec, audioCodec }, fileNameOrPath = '') {
+  const ext = containerOf(fileNameOrPath);
+  const okVideo = WEB_SAFE_VIDEO_CODECS[ext];
+  if (!okVideo) return false;                       // container itself isn't web-playable
+  if (!videoCodec) return false;                    // couldn't probe — transcode to be safe
+  if (!okVideo.includes(videoCodec)) return false;
+  const okAudio = WEB_SAFE_AUDIO_CODECS[ext];
+  return !audioCodec || okAudio.includes(audioCodec);
 }
 
 // Transcodes an uploaded video to a universally-playable H.264/AAC MP4 "web
@@ -114,10 +148,18 @@ function transcodeVideoAsync(FileModel, fileDoc, videoPath) {
   (async () => {
     try {
       const codecs = await probeVideoCodecs(videoPath);
-      if (isAlreadyWebCompatible(codecs)) {
+      // Judge the ORIGINAL upload name, not the stored disk name: multer
+      // writes extensionless random filenames, so the container can only be
+      // read off the original.
+      const nameForContainer = fileDoc.metaData?.originalname || fileDoc.name || videoPath;
+      if (isAlreadyWebCompatible(codecs, nameForContainer)) {
         await FileModel.findByIdAndUpdate(fileDoc._id, { $set: { transcodeStatus: 'none' } });
         return;
       }
+
+      // Mark in-flight so players can show "preparing…" instead of failing
+      // silently while a large file converts.
+      await FileModel.findByIdAndUpdate(fileDoc._id, { $set: { transcodeStatus: 'pending' } });
 
       const outputFilename = `webvideo-${fileDoc.metaData.filename}.mp4`;
       const outputPath = path.join(UPLOADS_DIR, outputFilename);
@@ -138,4 +180,4 @@ function transcodeVideoAsync(FileModel, fileDoc, videoPath) {
   })();
 }
 
-module.exports = { isHeic, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync, probeVideoCodecs, isAlreadyWebCompatible };
+module.exports = { isHeic, isVideoUpload, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync, probeVideoCodecs, isAlreadyWebCompatible };

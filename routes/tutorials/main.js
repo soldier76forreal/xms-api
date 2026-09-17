@@ -4,6 +4,7 @@ const { blockExecutableFiles, uploadLimits, MAX_BATCH_FILES } = require('../../u
 const sharp    = require('sharp');
 const ffmpeg   = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
+const { extractVideoThumbnail, transcodeVideoAsync, isVideoUpload } = require('../../utils/mediaConvert');
 
 const dbConnection      = require('../../connections/xmsPr');
 const tutorialSchema    = require('../../models/tutorialModel');
@@ -40,29 +41,30 @@ const router = express.Router();
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function classifyFile(mimetype = '') {
+// `file` is the multer file object. Takes the whole object rather than just the
+// mimetype so the video check can fall back to the extension — plenty of
+// containers arrive as application/octet-stream (see isVideoUpload), and
+// classifying those as 'other' skipped both the poster frame and the
+// web-playable conversion.
+function classifyFile(file = {}) {
+  const mimetype = String(file.mimetype || '');
   if (mimetype.startsWith('image/')) return 'image';
-  if (mimetype.startsWith('video/')) return 'video';
+  if (isVideoUpload(file)) return 'video';
   if (mimetype.startsWith('audio/')) return 'audio';
   if (mimetype === 'application/pdf') return 'pdf';
   return 'other';
 }
 
-// Extracts a single preview frame from a video (10% in) — same convention as
-// digitalMarketing/main.js's extractVideoThumbnail.
-function extractVideoThumbnail(videoPath, thumbFilename) {
-  return new Promise((resolve) => {
-    ffmpeg(videoPath)
-      .on('end', () => resolve(thumbFilename))
-      .on('error', () => resolve(null))
-      .screenshots({ count: 1, timestamps: ['10%'], filename: thumbFilename, folder: 'public/uploads', size: '300x?' });
-  });
-}
+// extractVideoThumbnail + transcodeVideoAsync come from utils/mediaConvert.js.
+// The local copy that used to live here asked ffmpeg for a '10%' timestamp,
+// which needs ffprobe to resolve it — this app has no ffprobe (BUG-07), so
+// tutorial video thumbnails never actually generated. The shared version uses
+// fixed timestamps and works without it.
 
 // Creates the File Manager doc AND returns a ready-to-embed subdocument shape
 // — same convention as digitalMarketing/main.js's makeFileDoc.
 async function makeFileDoc(file, userId, tutorialId) {
-  const kind = classifyFile(file.mimetype);
+  const kind = classifyFile(file);
   let thumbnail = null;
   if (kind === 'image') {
     try {
@@ -84,6 +86,9 @@ async function makeFileDoc(file, userId, tutorialId) {
     scope: 'tutorials',
     attachedTo: { type: 'tutorial', id: tutorialId },
   });
+
+  // Non-blocking web-playable copy — see makeFileDoc in digitalMarketing/main.js.
+  if (kind === 'video') transcodeVideoAsync(File, fileDoc, file.path);
 
   return {
     fileId: fileDoc._id,
