@@ -17,13 +17,28 @@ patchExpressRouter(express);
 const app = express();
 var server = require('http').createServer(app);
 // Production origins (launched 2026-07-12) + localhost for development.
-const ALLOWED_ORIGINS = [
+const PROD_ORIGINS = [
   'https://xms.lazulitemarble.com',
   'https://auth.lazulitemarble.com',
   'https://lazulitemarble.com',       // the public Next.js website (Phase D)
-  'http://localhost:3000',            // local dev only — xms admin panel
-  'http://localhost:3001',            // local dev only — the public website (website/)
 ];
+
+// Local development, on ANY port. The dev server's port is not fixed — CRA
+// picks another when one is taken, and a machine whose ephemeral port range
+// collides with the defaults has to move them — so pinning 3000/3001 here just
+// produced silent CORS failures. Mirrors isLocalHost() in the frontend's
+// axiosGlobalUrl.js: loopback plus the private LAN ranges used for phone
+// testing. Same trust level as the localhost:3000 entry this replaces, minus
+// the hardcoded port.
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
+// cors() accepts a function: allow no-origin requests (curl, server-to-server,
+// same-origin static assets) exactly as the array form did.
+const ALLOWED_ORIGINS = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (PROD_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin)) return callback(null, true);
+  return callback(new Error('Not allowed by CORS'));
+};
 var io = require('socket.io')(server , {
     cors: {
       origin: ALLOWED_ORIGINS,
@@ -167,6 +182,7 @@ app.use('/filter' , require("./routes/filters"));
 app.use('/mis' , require('./routes/mis/invoice') )
 // New MIS / Invoices routes (Phase 6 rebuild — built out in Sessions 41–43).
 app.use('/mis' , require('./routes/mis/invoices') )
+app.use('/mis' , require('./routes/mis/packingLists') )
 app.use('/notfication' , require('./routes/socket/xmsNotifications')(io))
 app.use('/users'         , require('./routes/users/users') )
 app.use('/roles'         , require('./routes/rbac/roles') )
@@ -184,6 +200,7 @@ app.use('/price-requests' , require('./routes/priceRequests/main') )
 app.use('/inventory' , require('./routes/inventory/main') )
 app.use('/inventory/categories' , require('./routes/inventory/categories') )
 app.use('/inventory/tags' , require('./routes/inventory/tags') )
+app.use('/supply' , require('./routes/supply/main') )
 
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 

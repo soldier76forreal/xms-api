@@ -20,11 +20,13 @@ const groupSchema              = require('../../models/groupModel');
 const userSchema                = require('../../models/userModel');
 const categorySchema            = require('../../models/categoryModel');
 const verify = require('../users/verifyToken');
-const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess, isSuperAdmin, getUserBranches, Branch, UserAccess } = require('../../utils/rbac');
+const { getEffectiveScopes, getEffectivePermissions, requirePermission, requireBranch, requireBranchRead, assertBranchAccess, assertBranchReadAccess, isSuperAdmin, getUserBranches, Branch, UserAccess } = require('../../utils/rbac');
 const { parseStoneCode } = require('../../utils/stoneCodeParser');
 const { stoneTypes, grades, units, quarries } = require('./lookups');
 const { isHeic, convertHeicIfNeeded, extractVideoThumbnail, transcodeVideoAsync } = require('../../utils/mediaConvert');
 const { parseDateRange, timeSeries, topBreakdown, kpiDelta, previousRange } = require('../../utils/analytics');
+const { recomputeRollup } = require('../../utils/inventoryRollup');
+const { canSeeForecast, stripVariantForecast, stripProductForecast } = require('../../utils/forecastAccess');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -53,34 +55,9 @@ const router = express.Router();
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-async function recomputeRollup(productId) {
-  const variants = await InvVariant.find({
-    productId,
-    deleteDate: null,
-    status: 'active',
-  });
-
-  const totalsByUnit = {};
-  let minPrice = null;
-  let maxPrice = null;
-
-  for (const v of variants) {
-    totalsByUnit[v.unit] = parseFloat(
-      ((totalsByUnit[v.unit] || 0) + (v.quantity || 0)).toFixed(4)
-    );
-    if (v.price != null) {
-      if (minPrice === null || v.price < minPrice) minPrice = v.price;
-      if (maxPrice === null || v.price > maxPrice) maxPrice = v.price;
-    }
-  }
-
-  await InvProduct.findByIdAndUpdate(productId, {
-    totalsByUnit,
-    variantCount: variants.length,
-    priceRange: { min: minPrice, max: maxPrice, currency: 'AED' },
-    updateDate: new Date(),
-  });
-}
+// recomputeRollup(productId) now lives in utils/inventoryRollup.js (Session 72)
+// so routes/supply/main.js's "receive into warehouse" action can reuse it —
+// imported above, behavior unchanged.
 
 async function getUploaderName(userId) {
   const u = await User.findById(userId).select('firstName lastName').lean();
@@ -334,7 +311,7 @@ router.post('/import', verify, requirePermission('inventory:import'), upload.sin
 });
 
 // ─── weekly/overall stats ─────────────────────────────────────────────────────
-router.get('/stats', verify, requirePermission('inventory:view'), requireBranch(), async (req, res) => {
+router.get('/stats', verify, requirePermission('inventory:view'), requireBranchRead(), async (req, res) => {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const branchId = req.branchId;
 
@@ -461,7 +438,7 @@ router.post('/parse-code', verify, requirePermission('inventory:view'), async (r
 // ─── products/creators — distinct users who created a product ─────────────────
 // Powers the "created by" filter (gated by inventory:view, not users:view).
 
-router.get('/products/creators', verify, requirePermission('inventory:view'), requireBranch(), async (req, res) => {
+router.get('/products/creators', verify, requirePermission('inventory:view'), requireBranchRead(), async (req, res) => {
   try {
     const ids = await InvProduct.distinct('createdBy', { branchId: req.branchId, deleteDate: null, createdBy: { $ne: null } });
     const users = await User.find({ _id: { $in: ids } }).select('firstName lastName').lean();
@@ -474,16 +451,19 @@ router.get('/products/creators', verify, requirePermission('inventory:view'), re
 
 // ─── products list ────────────────────────────────────────────────────────────
 
-router.get('/products', verify, requirePermission('inventory:view'), requireBranch(), async (req, res) => {
+router.get('/products', verify, requirePermission('inventory:view'), requireBranchRead(), async (req, res) => {
   const {
     stoneType, quarryCode, status = 'active',
     search, sort = 'insertDate', order = 'desc',
     limit = 50, skip = 0, createdBy,
   } = req.query;
 
-  // Scope enforcement
+  // Scope enforcement. Row-level scope ('mine'/'group') keys off createdBy and
+  // answers "which of MY branch's products may I see" — applying it to a branch
+  // that merely SHARED its catalogue would hide everything, since none of those
+  // products were created here. The branch grant is the access decision there.
   const effScopes = await getEffectiveScopes(req.user.id);
-  const scope     = effScopes.inventory || 'all';
+  const scope     = req.branchReadOnly ? 'all' : (effScopes.inventory || 'all');
   const uid       = String(req.user.id);
 
   const filter = { branchId: req.branchId, deleteDate: null };
@@ -530,7 +510,9 @@ router.get('/products', verify, requirePermission('inventory:view'), requireBran
     InvProduct.countDocuments(filter),
   ]);
 
-  res.json({ data: products, total, scope });
+  // Forecast figures only for those allowed to see them (utils/forecastAccess.js).
+  const showForecast = await canSeeForecast(req.user.id);
+  res.json({ data: showForecast ? products : products.map(stripProductForecast), total, scope });
 });
 
 // ─── product detail ───────────────────────────────────────────────────────────
@@ -543,13 +525,17 @@ router.get('/products/:id', verify, requirePermission('inventory:view'), async (
 
   if (!product) return res.status(404).json({ message: 'Product not found' });
 
-  if (!(await assertBranchAccess(req.user.id, product.branchId))) {
+  // Read access — own branch, or a branch that shared its catalogue with us.
+  // Every mutating product route below still requires assertBranchAccess.
+  if (!(await assertBranchReadAccess(req.user.id, product.branchId))) {
     return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
-  // Scope enforcement on detail
+  // Scope enforcement on detail — skipped for a shared branch, for the same
+  // reason as the list route above.
+  const sharedBranch = !(await assertBranchAccess(req.user.id, product.branchId));
   const effScopes = await getEffectiveScopes(req.user.id);
-  const scope     = effScopes.inventory || 'all';
+  const scope     = sharedBranch ? 'all' : (effScopes.inventory || 'all');
   const uid       = String(req.user.id);
 
   if (scope === 'mine') {
@@ -572,7 +558,9 @@ router.get('/products/:id', verify, requirePermission('inventory:view'), async (
     .sort({ 'spec.gradeRank': 1, 'spec.lengthCm': -1 })
     .lean();
 
-  res.json({ data: { ...product, variants } });
+  const showForecast = await canSeeForecast(req.user.id);
+  const full = { ...product, variants };
+  res.json({ data: showForecast ? full : stripProductForecast(full) });
 });
 
 // Variant detail is normally read straight out of Redux (the product fetch
@@ -586,7 +574,8 @@ router.get('/variants/:id', verify, requirePermission('inventory:view'), async (
 
   if (!variant) return res.status(404).json({ message: 'Variant not found' });
 
-  if (!(await assertBranchAccess(req.user.id, variant.branchId))) {
+  // Read access — see the product detail route above.
+  if (!(await assertBranchReadAccess(req.user.id, variant.branchId))) {
     return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
@@ -610,7 +599,10 @@ router.get('/variants/:id', verify, requirePermission('inventory:view'), async (
     }
   }
 
-  res.json({ data: { variant, product } });
+  const showForecast = await canSeeForecast(req.user.id);
+  res.json({ data: showForecast
+    ? { variant, product }
+    : { variant: stripVariantForecast(variant), product: stripProductForecast(product) } });
 });
 
 // ─── create product (variety) ─────────────────────────────────────────────────
@@ -796,7 +788,9 @@ router.delete('/products/:id', verify, requirePermission('inventory:delete'), as
 router.get('/products/:id/variants', verify, requirePermission('inventory:view'), async (req, res) => {
   const product = await InvProduct.findOne({ _id: req.params.id, deleteDate: null }).lean();
   if (!product) return res.status(404).json({ message: 'Product not found' });
-  if (!(await assertBranchAccess(req.user.id, product.branchId))) {
+  // Read access — a shared branch must be able to SEE the varieties, otherwise
+  // there is nothing concrete for them to raise a request against.
+  if (!(await assertBranchReadAccess(req.user.id, product.branchId))) {
     return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
@@ -807,7 +801,8 @@ router.get('/products/:id/variants', verify, requirePermission('inventory:view')
     .sort({ 'spec.gradeRank': 1, 'spec.lengthCm': -1 })
     .lean();
 
-  res.json({ data: variants });
+  const showForecast = await canSeeForecast(req.user.id);
+  res.json({ data: showForecast ? variants : variants.map(stripVariantForecast) });
 });
 
 // ─── create variant ───────────────────────────────────────────────────────────

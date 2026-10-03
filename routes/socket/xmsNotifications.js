@@ -136,7 +136,10 @@ async function sendWebPush(user, { type, title, body, entityType, entityId }) {
     }
     if (stale.length) {
       const kept = subDoc.subscription.filter((s) => !stale.includes(s));
-      await pwaSubscription.updateOne({ userId }, { $set: { subscription: kept } });
+      // Keyed exactly like the lookup above. (This used to reference an
+      // undefined `userId`, which threw on every prune — dead subscriptions
+      // were never removed and every later push retried them.)
+      await pwaSubscription.updateOne({ userId: String(user._id) }, { $set: { subscription: kept } });
     }
   } catch (err) {
     console.error('sendWebPush failed:', err && err.message);

@@ -1,4 +1,5 @@
 const express    = require('express');
+const bcrypt     = require('bcryptjs');
 const jwt_decode = require('jwt-decode');
 const mongoose   = require('mongoose');
 const path       = require('path');
@@ -112,6 +113,90 @@ router.put('/me/profile', verify, async (req, res) => {
     if (!updated) return res.status(404).json({ message: 'User not found' });
     return res.status(200).json(updated);
   } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ── password management ──────────────────────────────────────────────────────
+// Added when SMS/OTP login was retired: password is now the ONLY way in, so
+// there has to be a way to set one. Before this there was none anywhere in the
+// app — /auth/register never set a password and /auth/updateUser ignored it —
+// which meant every newly created account would have been unable to log in.
+//
+// The password lives on authApi's userModel; xmsApi shares the same database
+// (see the connection notes in CLAUDE.md), so it writes the same field authApi
+// reads at login. Hashing matches /auth/loginPassword: bcrypt, 10 salt rounds.
+const MIN_PASSWORD_LENGTH = 8;
+
+function passwordProblem(pw) {
+  if (typeof pw !== 'string' || !pw) return 'A password is required';
+  if (pw.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
+  if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) return 'Password must contain both letters and numbers';
+  return null;
+}
+
+// PUT /users/me/password — change your OWN password.
+// The current password is required only when one is already set: an account
+// migrated off OTP has none, and would otherwise have no way to create one.
+router.put('/me/password', verify, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const problem = passwordProblem(newPassword);
+    if (problem) return res.status(400).json({ message: problem });
+
+    const user = await userM.findOne({ _id: req.user.id, deleteDate: null }).select('password oldPasswords');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.password) {
+      if (!currentPassword) return res.status(400).json({ message: 'Your current password is required' });
+      const ok = await bcrypt.compare(currentPassword, user.password);
+      if (!ok) return res.status(401).json({ message: 'Current password is incorrect' });
+      // Refuse silent re-use of the password already on the account.
+      if (await bcrypt.compare(newPassword, user.password)) {
+        return res.status(400).json({ message: 'That is already your current password' });
+      }
+    }
+
+    const hash = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+    await userM.updateOne({ _id: user._id }, {
+      $set: { password: hash, updateDate: new Date() },
+      // Clear any standing lockout — the person just proved who they are.
+      $unset: { 'auth.lockedUntil': '', 'auth.failedPasswordAttempts': '' },
+      ...(user.password ? { $push: { oldPasswords: user.password } } : {}),
+    });
+
+    return res.status(200).json({ message: 'Password updated' });
+  } catch (err) {
+    console.error('PUT /users/me/password failed:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /users/:id/password — an admin sets or resets someone else's password.
+// Gated by users:edit, the same key that already allows changing every other
+// field on a user record. No current-password check: this is the recovery path
+// for someone who can't sign in, which is exactly when they don't have it.
+router.post('/:id/password', verify, requirePermission('users:edit'), async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const problem = passwordProblem(newPassword);
+    if (problem) return res.status(400).json({ message: problem });
+
+    const user = await userM.findOne({ _id: req.params.id, deleteDate: null }).select('password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const hash = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
+    await userM.updateOne({ _id: user._id }, {
+      $set: { password: hash, updateDate: new Date() },
+      // An admin reset also lifts a lockout — otherwise the person still can't
+      // get in until the 2h timer expires.
+      $unset: { 'auth.lockedUntil': '', 'auth.failedPasswordAttempts': '', 'auth.failedOtpAttempts': '' },
+      ...(user.password ? { $push: { oldPasswords: user.password } } : {}),
+    });
+
+    return res.status(200).json({ message: 'Password set' });
+  } catch (err) {
+    console.error('POST /users/:id/password failed:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 });

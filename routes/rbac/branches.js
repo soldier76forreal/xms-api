@@ -1,6 +1,22 @@
-const express = require('express');
-const verify  = require('../users/verifyToken');
-const { requireSuperAdmin, isSuperAdmin, getUserBranches, Branch } = require('../../utils/rbac');
+const express  = require('express');
+const mongoose = require('mongoose');
+const verify   = require('../users/verifyToken');
+const { requireSuperAdmin, isSuperAdmin, getUserBranches, assertBranchAccess, Branch, UserAccess } = require('../../utils/rbac');
+
+const dbConnection = require('../../connections/xmsPr');
+const inventoryProductSchema = require('../../models/inventoryProductModel');
+const inventoryVariantSchema = require('../../models/inventoryVariantModel');
+const misInvoiceSchema       = require('../../models/misInvoiceModel');
+const misPackingListSchema   = require('../../models/misPackingListModel');
+const supplyRecordSchema     = require('../../models/supplyRecordModel');
+const userSchema             = require('../../models/userModel');
+
+const InvProduct     = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
+const InvVariant     = dbConnection.models.inventoryVariant || dbConnection.model('inventoryVariant', inventoryVariantSchema);
+const MisInvoice     = dbConnection.models.misInvoice       || dbConnection.model('misInvoice',       misInvoiceSchema);
+const MisPackingList = dbConnection.models.misPackingList   || dbConnection.model('misPackingList',   misPackingListSchema);
+const SupplyRecord   = dbConnection.models.supplyRecord     || dbConnection.model('supplyRecord',     supplyRecordSchema);
+const User           = dbConnection.models.user             || dbConnection.model('user',             userSchema);
 
 const router = express.Router();
 
@@ -17,6 +33,102 @@ router.get('/', verify, async (req, res) => {
     const ids = await getUserBranches(req.user.id);
     const branches = await Branch.find({ _id: { $in: ids }, deleteDate: null }).sort('name').lean();
     return res.status(200).json(branches);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /branches/shared-with-me — branches that have shared their Inventory +
+// Supply with one of the caller's own branches (Branch.crossBranchAccess).
+// Deliberately NOT gated by mis:crossBranch:quote: that key is about raising
+// quotations, while this list also drives read-only catalogue browsing in the
+// Inventory and Supply sections. Declared before /:id/stats so "shared-with-me"
+// is never parsed as a branch id.
+// ?branchId= (optional) narrows it to branches that shared with THAT branch —
+// the one the user is currently working as. Sharing is an arrangement between
+// branches, so this is what keeps "browse it" and "request from it" agreeing
+// (a request is always raised from the active branch). It's also what makes the
+// list meaningful for a superAdmin, who may hold no assigned branches at all.
+router.get('/shared-with-me', verify, async (req, res) => {
+  try {
+    let own;
+    if (req.query.branchId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.branchId)) return res.status(400).json({ message: 'Invalid branch id' });
+      if (!(await assertBranchAccess(req.user.id, req.query.branchId))) return res.status(200).json({ data: [] });
+      own = [String(req.query.branchId)];
+    } else {
+      own = (await getUserBranches(req.user.id)).map(String);
+    }
+    if (!own.length) return res.status(200).json({ data: [] });
+    const branches = await Branch.find({
+      status: 'active', deleteDate: null,
+      crossBranchAccess: { $in: own.map((id) => new mongoose.Types.ObjectId(id)) },
+    }).select('_id name country').sort('name').lean();
+    return res.status(200).json({ data: branches.filter((b) => !own.includes(String(b._id))) });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /branches/:id/stats — what this branch actually contains, for the branch
+// detail panel. Readable by a superAdmin or by someone assigned to the branch;
+// counts only, no documents, so it stays cheap.
+router.get('/:id/stats', verify, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: 'Invalid branch id' });
+
+    const superAdmin = await isSuperAdmin(req.user.id);
+    if (!superAdmin) {
+      const mine = (await getUserBranches(req.user.id)).map(String);
+      if (!mine.includes(String(id))) {
+        return res.status(403).json({ message: 'You do not have access to this branch' });
+      }
+    }
+
+    const branch = await Branch.findOne({ _id: id, deleteDate: null }).lean();
+    if (!branch) return res.status(404).json({ message: 'Branch not found' });
+
+    const branchId = new mongoose.Types.ObjectId(id);
+    const [
+      products, variants, invoices, quotations, packingLists, supplyRecords, accessDocs,
+    ] = await Promise.all([
+      InvProduct.countDocuments({ branchId, deleteDate: null }),
+      InvVariant.countDocuments({ branchId, deleteDate: null }),
+      MisInvoice.countDocuments({ branchId, docType: 'invoice', deleteDate: null }),
+      MisInvoice.countDocuments({ branchId, docType: 'pre_invoice', deleteDate: null }),
+      MisPackingList.countDocuments({ branchId, deleteDate: null }),
+      SupplyRecord.countDocuments({ branchId, deleteDate: null }),
+      UserAccess.find({ branches: branchId }).select('userId').lean(),
+    ]);
+
+    // Resolve the assigned staff to names so the panel can list them.
+    const memberIds = accessDocs.map((a) => a.userId).filter(Boolean);
+    const users = memberIds.length
+      ? await User.find({ _id: { $in: memberIds } })
+          .select('firstName lastName profileImage isOnline')
+          .limit(50).lean()
+      : [];
+
+    // The branches this one has shared its Inventory + Supply with, resolved to
+    // names so the panel doesn't need a second round trip.
+    const shareIds = (branch.crossBranchAccess || []).filter(Boolean);
+    const sharedWith = shareIds.length
+      ? await Branch.find({ _id: { $in: shareIds }, deleteDate: null }).select('_id name').lean()
+      : [];
+
+    return res.status(200).json({
+      data: {
+        counts: { products, variants, invoices, quotations, packingLists, supplyRecords,
+                  members: accessDocs.length },
+        members: users.map((u) => ({
+          _id: u._id,
+          name: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+          isOnline: !!u.isOnline,
+        })),
+        sharedWith,
+      },
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
@@ -54,8 +166,25 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
     // branch (see POST /public/website/price-requests) — optional, only
     // touched when the caller actually sends it, so this route stays usable
     // for a plain name/status edit without accidentally wiping the list.
+    if (Array.isArray(req.body.crossBranchAccess)) {
+      // Only valid ids, de-duplicated, and never this branch itself.
+      updates.crossBranchAccess = [...new Set(req.body.crossBranchAccess
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map(String)
+        .filter((id) => id !== String(req.params.id)))];
+    }
     if (Array.isArray(req.body.priceRequestNotifyUsers)) {
       updates.priceRequestNotifyUsers = req.body.priceRequestNotifyUsers;
+    }
+    // Session 72 — per-branch MIS PDF template selection. Same conditional-touch
+    // pattern as priceRequestNotifyUsers above: only written when the caller
+    // actually sends it, so a plain name/status edit never wipes it.
+    if (req.body.misTemplates && typeof req.body.misTemplates === 'object') {
+      const allowedKeys = ['customerInvoice', 'customerQuotation', 'interBranchInvoice',
+        'interBranchQuotation', 'packingList', 'label', 'dealLetter'];
+      const mt = {};
+      for (const k of allowedKeys) if (req.body.misTemplates[k] !== undefined) mt[k] = req.body.misTemplates[k];
+      updates.misTemplates = mt;
     }
     const branch = await Branch.findOneAndUpdate(
       { _id: req.params.id, deleteDate: null },

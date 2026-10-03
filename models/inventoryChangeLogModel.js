@@ -23,7 +23,9 @@ const inventoryChangeLogSchema = new mongoose.Schema({
   reason: { type: String },
   source: {
     type: String,
-    enum: ['manual', 'order', 'import', 'correction'],
+    // 'supply' (Session 72) — a variant's stock quantity was written by the
+    // Supply module's "receive into warehouse" action (routes/supply/main.js).
+    enum: ['manual', 'order', 'import', 'correction', 'supply'],
     default: 'manual',
   },
   changedBy:     { type: mongoose.Schema.Types.ObjectId },

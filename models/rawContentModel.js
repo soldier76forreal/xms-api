@@ -26,6 +26,24 @@ const rawContentFileSchema = new mongoose.Schema({
   addedAt:     { type: Date, default: Date.now },
 }, { _id: false });
 
+// A tagged Inventory variant — snapshot of code/product name at the moment it
+// was attached (same reasoning as rawContentFileSchema snapshotting file
+// metadata rather than joining live each read: this doc is a working-content
+// record, not a permanent relationship like CRM's interestedProducts, and a
+// creator tagging "the product this content is about" wants what they saw at
+// the time, not a value that silently changes if Inventory edits the product
+// later). Looked up via GET /digitalMarketing/inventory-lookup, which already
+// enforces branch scoping — nothing here re-checks branch access on read.
+const rawContentProductSchema = new mongoose.Schema({
+  productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  variantId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  code:      { type: String },   // the variant's own code, e.g. TR45Q10004018VFP
+  productName: { type: String },
+  branchId:  { type: mongoose.Schema.Types.ObjectId, default: null },
+  branchName: { type: String },
+  addedAt:   { type: Date, default: Date.now },
+}, { _id: false });
+
 const rawContentSchema = new mongoose.Schema({
   title:    { type: String, default: '' },   // batch title (shown on the card + detail)
   language: { type: String, default: '' },
@@ -40,6 +58,18 @@ const rawContentSchema = new mongoose.Schema({
   },
 
   files: [rawContentFileSchema],
+
+  // A text-format content item — the alternative to uploading files (a
+  // creator can describe/write the content instead of attaching media), with
+  // an optional voice recording alongside the typed text for when speaking is
+  // easier than typing. Batch-level (one per record), not per-file — this is
+  // its own kind of content, not a caption on an upload.
+  textContent:        { type: String, default: '' },
+  textVoiceFileId:    { type: mongoose.Schema.Types.ObjectId, default: null },
+  textVoiceDiskName:  { type: String, default: null },
+
+  // Inventory varieties this content is about/for — see rawContentProductSchema.
+  products: [rawContentProductSchema],
 
   // Set once the status flips to 'ready_to_upload' — the linked readyToUpload doc.
   readyToUploadId: { type: mongoose.Schema.Types.ObjectId, default: null },

@@ -92,6 +92,19 @@ function customerBlock(doc, L) {
   </table>`;
 }
 
+// Session 72 — used INSTEAD of customerBlock for an inter-branch document
+// (tradeMode==='interBranch'): there's no CRM customer, just the requesting
+// branch. "To" is already shown by headerBlock's seller identity (profile is
+// resolved to the TARGET/fulfilling branch's own companyProfile), so this
+// only needs to name the "From" side.
+function interBranchPartiesBlock(doc, L) {
+  const name = doc.requestingBranchSnapshot && doc.requestingBranchSnapshot.name;
+  return `
+  <table class="meta customer">
+    <tr><td colspan="3">${esc(L.fromBranch)} <b>${esc(name || '—')}</b></td></tr>
+  </table>`;
+}
+
 function linesTable(doc, L) {
   const isPre = doc.docType === 'pre_invoice';
   const rows = (doc.lineItems || []).map((li, i) => `
@@ -179,7 +192,7 @@ function packingListPage(doc, profile, L) {
   <div class="page">
     ${headerBlock(profile, doc, L)}
     <div class="doc-title-inline">${esc(L.packingList)} <span class="en">${esc(L.packingListSub)}</span> — ${esc(L.forDoc)} ${esc(doc.docNumber)}</div>
-    ${customerBlock(doc, L)}
+    ${doc.tradeMode === 'interBranch' ? interBranchPartiesBlock(doc, L) : customerBlock(doc, L)}
     <table class="lines">
       <thead>
         <tr>
@@ -212,10 +225,18 @@ function packingListPage(doc, profile, L) {
 
 // ── main render ───────────────────────────────────────────────────────────────
 
-function renderInvoiceHtml(doc, profile = {}, lang) {
+// Session 72 — the ONLY template that exists today (a per-branch template
+// SELECTOR is wired end-to-end — see routes/mis/invoices.js's
+// resolveTemplateVariant() and branchModel.js's misTemplates — but nothing
+// else has been designed yet, so every key falls back here). Renamed from
+// renderInvoiceHtml so a real second template can be added later without
+// touching this function's internals; the exported renderInvoiceHtml below is
+// now a dispatcher, not this function directly.
+function renderClassicInvoiceHtml(doc, profile = {}, lang) {
   const langKey = resolveLang(lang);
   const L = LANG[langKey];
   const isInvoice = doc.docType === 'invoice';
+  const isInterBranch = doc.tradeMode === 'interBranch';
   // Amount-in-words stays Arabic regardless of template language — it's the
   // tax-invoice's legally-worded Arabic phrase, not a translatable UI label.
   const words = doc.amountInWords || amountToArabicWords(doc.grandTotal);
@@ -224,7 +245,7 @@ function renderInvoiceHtml(doc, profile = {}, lang) {
   <div class="page">
     ${headerBlock(profile, doc, L)}
     ${metaBlock(doc, L)}
-    ${customerBlock(doc, L)}
+    ${isInterBranch ? interBranchPartiesBlock(doc, L) : customerBlock(doc, L)}
     ${linesTable(doc, L)}
     <div class="bottom-row">
       <div class="bottom-left">
@@ -240,7 +261,13 @@ function renderInvoiceHtml(doc, profile = {}, lang) {
     ${profile.thankYouNoteAr ? `<div class="thanks">${esc(profile.thankYouNoteAr)}</div>` : ''}
   </div>`;
 
-  const page2 = isInvoice ? packingListPage(doc, profile, L) : '';
+  // Session 72 (Phase 3) — packing lists are now their own standalone MIS
+  // resource; new invoices never populate doc.packingList.rows again, so this
+  // page naturally stops appearing for them. A PRE-Session-72 invoice that
+  // still carries real rows keeps rendering its page 2 exactly as before —
+  // historical PDFs must stay byte-identical to what was actually issued.
+  const page2 = (isInvoice && doc.packingList && doc.packingList.rows && doc.packingList.rows.length)
+    ? packingListPage(doc, profile, L) : '';
 
   return `<!doctype html>
 <html dir="${L.dir}" lang="${langKey}">
@@ -304,6 +331,18 @@ ${page1}
 ${page2}
 </body>
 </html>`;
+}
+
+// Session 72 — template registry + dispatcher. `templateVariant` comes from
+// the doc's branch (branchModel.js's misTemplates, resolved server-side in
+// routes/mis/invoices.js) — an unset/unrecognized value falls back to
+// 'classic', so every pre-Session-72 call site (3 args, no templateVariant)
+// keeps rendering byte-for-byte the same as before.
+const TEMPLATES = { classic: renderClassicInvoiceHtml };
+
+function renderInvoiceHtml(doc, profile, lang, templateVariant) {
+  const render = TEMPLATES[templateVariant] || TEMPLATES.classic;
+  return render(doc, profile, lang);
 }
 
 module.exports = { renderInvoiceHtml };

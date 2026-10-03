@@ -192,9 +192,48 @@ function requireBranch() {
   };
 }
 
+// READ-ONLY cross-branch access. True when the user holds the branch outright,
+// OR when that branch has shared itself with one of the user's branches via
+// Branch.crossBranchAccess (set in Branch settings — see the MIS cross-branch
+// request flow). Deliberately separate from assertBranchAccess: browsing
+// another branch's catalogue is not permission to change it, so every MUTATING
+// route keeps using assertBranchAccess and only read paths use this.
+async function assertBranchReadAccess(userId, branchId) {
+  if (await assertBranchAccess(userId, branchId)) return true;
+  if (!branchId) return false;
+  const own = (await getUserBranches(userId)).map(String);
+  if (!own.length) return false;
+  const target = await Branch.findOne({
+    _id: branchId, deleteDate: null, status: 'active',
+  }).select('crossBranchAccess').lean();
+  if (!target) return false;
+  return (target.crossBranchAccess || []).some((id) => own.includes(String(id)));
+}
+
+// requireBranch()'s read-only sibling. Also sets req.branchReadOnly, so a route
+// can tell "this is someone else's branch, shared with me" from "my own".
+function requireBranchRead() {
+  return async (req, res, next) => {
+    try {
+      const branchId = req.query.branchId || req.body.branchId;
+      if (!branchId) return res.status(400).json({ message: 'No branch selected', code: 'BRANCH_REQUIRED' });
+      const own = await assertBranchAccess(req.user.id, branchId);
+      if (!own && !(await assertBranchReadAccess(req.user.id, branchId))) {
+        return res.status(403).json({ message: 'You do not have access to this branch' });
+      }
+      req.branchId = branchId;
+      req.branchReadOnly = !own;
+      return next();
+    } catch (err) {
+      return next(err);
+    }
+  };
+}
+
 module.exports = {
   getEffectivePermissions, getEffectiveScopes, requirePermission, clearPermissionCache,
   getUsersWithPermission,
   isSuperAdmin, requireSuperAdmin, getUserBranches, assertBranchAccess, requireBranch,
+  assertBranchReadAccess, requireBranchRead,
   Permission, Role, Group, UserAccess, Branch,
 };

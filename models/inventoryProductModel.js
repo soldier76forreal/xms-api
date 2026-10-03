@@ -22,6 +22,10 @@ const inventoryProductSchema = new mongoose.Schema({
   coverThumbnail: { type: String, default: null },  // denormalized thumbnail filename for list-page display
   status:        { type: String, enum: ['active', 'archived'], default: 'active' },
   totalsByUnit:  { type: mongoose.Schema.Types.Mixed, default: {} },
+  // Supply (Session 72) — product-level rollup of variants' supply.forecastQty/
+  // finalQty, unit-keyed exactly like totalsByUnit (never summed across units).
+  // Recomputed by utils/supplyRollup.js.
+  supplyTotalsByUnit: { type: mongoose.Schema.Types.Mixed, default: { forecast: {}, final: {} } },
   variantCount:  { type: Number, default: 0 },
   priceRange: {
     min:      { type: Number, default: null },

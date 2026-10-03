@@ -217,6 +217,43 @@ function parseJsonArray(raw, fallback = []) {
   }
 }
 
+// Re-validates and snapshots a client-submitted products[] array (parsed JSON:
+// [{productId, variantId}, ...], from the picker backed by GET
+// /inventory-lookup) against LIVE Inventory — never trusts a client-sent
+// code/productName/branchName, and independently re-checks branch access
+// rather than assuming the lookup a client called earlier is the only way an
+// id could have gotten here. Anything invalid, deleted, or in a branch the
+// caller can't access is silently dropped rather than failing the request.
+async function resolveTaggedProducts(userId, rawList) {
+  const list = Array.isArray(rawList) ? rawList : [];
+  const variantIds = list.map((e) => e && e.variantId).filter((id) => mongoose.isValidObjectId(id));
+  if (!variantIds.length) return [];
+
+  const superAdmin = await isSuperAdmin(userId);
+  const accessibleIds = superAdmin ? null : (await getUserBranches(userId)).map(String);
+
+  const variants = await InvVariant.find({ _id: { $in: variantIds }, deleteDate: null, status: 'active' })
+    .select('_id productId branchId code unit quantity').lean();
+  const allowed = accessibleIds ? variants.filter((v) => accessibleIds.includes(String(v.branchId))) : variants;
+  if (!allowed.length) return [];
+
+  const productIds = [...new Set(allowed.map((v) => String(v.productId)))];
+  const branchIds  = [...new Set(allowed.map((v) => String(v.branchId)))];
+  const [products, branchesFound] = await Promise.all([
+    InvProduct.find({ _id: { $in: productIds } }).select('_id name').lean(),
+    Branch.find({ _id: { $in: branchIds } }).select('name').lean(),
+  ]);
+  const productById = new Map(products.map((p) => [String(p._id), p]));
+  const branchById  = new Map(branchesFound.map((b) => [String(b._id), b]));
+
+  return allowed.map((v) => ({
+    productId: v.productId, variantId: v._id, code: v.code,
+    productName: productById.get(String(v.productId))?.name || '',
+    branchId: v.branchId, branchName: branchById.get(String(v.branchId))?.name || '',
+    addedAt: new Date(),
+  }));
+}
+
 // Row-level scope filter (mine/group/all) — same shape as CRM's buildScopeFilter.
 async function buildScopeFilter(userId, dmScope) {
   if (!dmScope || dmScope === 'all') return null;
@@ -321,7 +358,7 @@ router.get('/raw-contents', verify, requirePermission('digitalMarketing:view'), 
     const scopes  = await getEffectiveScopes(userId);
     const dmScope = scopes.digitalMarketing;
 
-    const { status = '', branchId = '', platform = '', dateFrom = '', dateTo = '',
+    const { status = '', branchId = '', platform = '', dateFrom = '', dateTo = '', search = '',
       sort = 'insertDate', order = 'desc', page = 1, limit = 40 } = req.query;
 
     const query = { deleteDate: null };
@@ -331,6 +368,8 @@ router.get('/raw-contents', verify, requirePermission('digitalMarketing:view'), 
     // (extensible beyond the frontend's suggestion list), so an exact match
     // would silently miss anything a creator typed slightly differently.
     if (platform) query.platform = new RegExp(platform.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    // Record-name search — matches the batch title.
+    if (search.trim()) query.title = new RegExp(escapeRegex(search.trim()), 'i');
     if (dateFrom || dateTo) {
       query.insertDate = {};
       if (dateFrom) query.insertDate.$gte = new Date(dateFrom);
@@ -409,19 +448,30 @@ router.post('/raw-contents/:id/files/:fileId/log-download', verify, requirePermi
 //   voiceDescriptions[]   — voice recordings, IN ORDER, one per `true` flag above
 //   language, useCase, platform — batch-level fields (useCase/platform default 'Anything')
 router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawContent:create'),
-  dmUpload.fields([{ name: 'files', maxCount: MAX_BATCH_FILES }, { name: 'voiceDescriptions', maxCount: MAX_BATCH_FILES }]),
+  dmUpload.fields([
+    { name: 'files', maxCount: MAX_BATCH_FILES },
+    { name: 'voiceDescriptions', maxCount: MAX_BATCH_FILES },
+    { name: 'textVoice', maxCount: 1 },
+  ]),
   async (req, res) => {
   try {
     const userId = req.user.id;
     const contentFiles = (req.files && req.files.files) || [];
-    if (!contentFiles.length) {
-      return res.status(400).json({ message: 'At least one file is required' });
+    const textContent = (req.body.textContent || '').trim();
+    const textVoiceFile = (req.files && req.files.textVoice && req.files.textVoice[0]) || null;
+
+    // A batch is either files (the original mode) OR typed/spoken text
+    // content — never neither. A voice recording alone with no typed text
+    // still counts, same as a file batch with no per-file descriptions does.
+    if (!contentFiles.length && !textContent && !textVoiceFile) {
+      return res.status(400).json({ message: 'Add at least one file, or enter text or a voice message about the content' });
     }
 
     const descriptions = parseJsonArray(req.body.descriptions, []);
     const names         = parseJsonArray(req.body.names, []);
     const voiceFlags    = parseJsonArray(req.body.voiceDescriptionFlags, []);
     const voiceFiles     = (req.files && req.files.voiceDescriptions) || [];
+    const products = await resolveTaggedProducts(userId, parseJsonArray(req.body.products, []));
 
     const actorName = await getActorName(userId);
 
@@ -433,6 +483,8 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
       branchId: req.body.branchId || null,
       status: 'working_on_it',
       files: [],
+      textContent,
+      products,
       owner: userId,
       createdBy: userId,
       createdByName: actorName,
@@ -461,6 +513,11 @@ router.post('/raw-contents', verify, requirePermission('digitalMarketing:rawCont
     }
 
     doc.files = fileEntries;
+    if (textVoiceFile) {
+      const tv = await makeFileDoc(textVoiceFile, userId, 'rawContent', doc._id);
+      doc.textVoiceFileId   = tv.fileId;
+      doc.textVoiceDiskName = tv.diskName;
+    }
     await doc.save();
 
     logDmActivity('rawContent', doc._id, 'created', userId, actorName);
@@ -485,6 +542,7 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
     { name: 'voiceDescriptions', maxCount: MAX_BATCH_FILES },
     { name: 'replaceFile', maxCount: 1 },          // per-file edit: swap the actual file
     { name: 'editVoiceDescription', maxCount: 1 }, // per-file edit: set/replace the voice note
+    { name: 'textVoice', maxCount: 1 },             // set/replace the batch-level text content's voice note
   ]),
   async (req, res) => {
   try {
@@ -493,6 +551,22 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
     const prevStatus = doc.status;
 
     if (req.body.title !== undefined) doc.title = req.body.title;
+
+    if (req.body.textContent !== undefined) doc.textContent = req.body.textContent;
+    if (req.body.removeTextVoice === 'true') {
+      doc.textVoiceFileId   = null;
+      doc.textVoiceDiskName = null;
+    }
+    const textVoiceFile = req.files && req.files.textVoice && req.files.textVoice[0];
+    if (textVoiceFile) {
+      const tv = await makeFileDoc(textVoiceFile, userId, 'rawContent', doc._id);
+      doc.textVoiceFileId   = tv.fileId;
+      doc.textVoiceDiskName = tv.diskName;
+    }
+
+    if (req.body.products !== undefined) {
+      doc.products = await resolveTaggedProducts(userId, parseJsonArray(req.body.products, []));
+    }
 
     if (req.body.status !== undefined) {
       const nextStatus = req.body.status;
@@ -581,6 +655,13 @@ router.put('/raw-contents/:id', verify, requirePermission('digitalMarketing:rawC
       }
     }
 
+    // Same either/or requirement as creation — a mutation that would leave
+    // the batch with neither files nor text content is rejected rather than
+    // silently producing an empty record.
+    if (!doc.files.length && !(doc.textContent || '').trim() && !doc.textVoiceFileId) {
+      return res.status(400).json({ message: 'Add at least one file, or enter text or a voice message about the content' });
+    }
+
     doc.updateDate = new Date();
     doc.updatedBy  = userId;
     await doc.save();
@@ -625,6 +706,14 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
     }
 
     const actorName = await getActorName(userId);
+    // Inherits the source raw content's tagged varieties by default, same
+    // reasoning as the branchId inheritance below — a graduated record is
+    // the same content further along, not a fresh decision about what it's
+    // for. req.body.products (including '[]' to explicitly clear it)
+    // overrides when the form sends one.
+    const products = req.body.products !== undefined
+      ? await resolveTaggedProducts(userId, parseJsonArray(req.body.products, []))
+      : doc.products;
 
     const ready = await ReadyToUpload.create({
       rawContentId: doc._id,
@@ -633,6 +722,7 @@ router.post('/raw-contents/:id/ready-to-upload', verify, requirePermission('digi
       language: req.body.language || '',
       platform: req.body.platform || '',
       caption:  req.body.caption  || '',
+      products,
       // Inherits the source raw content's branch tag by default — a graduated
       // record is "the same content, further along," not a new decision about
       // which branch it's for. req.body.branchId (including '' to explicitly
@@ -910,6 +1000,7 @@ router.post('/ready-to-upload', verify, requirePermission('digitalMarketing:read
     }
 
     const actorName = await getActorName(userId);
+    const products = await resolveTaggedProducts(userId, parseJsonArray(req.body.products, []));
 
     const ready = await ReadyToUpload.create({
       title: req.body.title || '',
@@ -917,6 +1008,7 @@ router.post('/ready-to-upload', verify, requirePermission('digitalMarketing:read
       language: req.body.language || '',
       platform: req.body.platform || '',
       caption:  req.body.caption  || '',
+      products,
       branchId: req.body.branchId || null,
       owner: userId,
       createdBy: userId,
@@ -1193,6 +1285,9 @@ router.put('/ready-to-upload/:id', verify, requirePermission('digitalMarketing:r
     if (req.body.platform !== undefined) doc.platform = req.body.platform;
     if (req.body.caption  !== undefined) doc.caption  = req.body.caption;
     if (req.body.branchId !== undefined) doc.branchId = req.body.branchId || null;
+    if (req.body.products !== undefined) {
+      doc.products = await resolveTaggedProducts(userId, parseJsonArray(req.body.products, []));
+    }
 
     const removeFileIds = parseJsonArray(req.body.removeFileIds, []).map(String);
     if (removeFileIds.length) {
@@ -1416,6 +1511,56 @@ router.get('/public/link-pages/:code', async (req, res) => {
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+// GET /inventory-lookup — search Inventory VARIANTS by their own code (e.g.
+// TR45Q10004018VFP), for tagging a raw content / ready-to-upload record with
+// the varieties it's about. Deliberately separate from /products-lookup
+// below: that one is gated by inventory:share:whatsapp (a WhatsApp Share
+// concern) and searches by product name/code with a nested variants array;
+// this is DM's own need, gated by digitalMarketing:view (the same bar every
+// raw-content/ready-to-upload creator already clears), searches variant code
+// first, and returns a flat list — one row per variant, which is what the
+// picker actually selects. Same cross-branch scoping as /products-lookup:
+// a non-superAdmin only ever sees variants in branches they hold.
+router.get('/inventory-lookup', verify, requirePermission('digitalMarketing:view'), async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    if (search.length < 2) return res.status(200).json({ data: [] });
+
+    const superAdmin = await isSuperAdmin(req.user.id);
+    const accessibleIds = superAdmin ? null : await getUserBranches(req.user.id);
+    const re = new RegExp(escapeRegex(search), 'i');
+
+    const variantQuery = { deleteDate: null, status: 'active', code: re };
+    if (accessibleIds) variantQuery.branchId = { $in: accessibleIds };
+
+    const variants = await InvVariant.find(variantQuery)
+      .select('_id productId branchId code unit quantity')
+      .sort('code').limit(25).lean();
+
+    const productIds = [...new Set(variants.map((v) => String(v.productId)))];
+    const branchIds  = [...new Set(variants.map((v) => String(v.branchId)))];
+    const [products, branches] = await Promise.all([
+      InvProduct.find({ _id: { $in: productIds } }).select('_id name nameAr stoneType').lean(),
+      Branch.find({ _id: { $in: branchIds } }).select('name').lean(),
+    ]);
+    const productById = new Map(products.map((p) => [String(p._id), p]));
+    const branchById  = new Map(branches.map((b) => [String(b._id), b]));
+
+    const data = variants.map((v) => {
+      const p = productById.get(String(v.productId)) || {};
+      return {
+        productId: v.productId, variantId: v._id, code: v.code,
+        productName: p.name || '', stoneType: p.stoneType || '',
+        unit: v.unit, quantity: v.quantity,
+        branchId: v.branchId, branchName: branchById.get(String(v.branchId))?.name || '',
+      };
+    });
+    return res.status(200).json({ data });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // GET /products-lookup — search across every branch the caller can access
 // (NOT pinned to one active branch like mis/crm's own products-lookup routes

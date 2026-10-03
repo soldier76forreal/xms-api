@@ -42,6 +42,13 @@ const PERMISSIONS = [
   { key: 'inventory:import',           module: 'inventory', description: 'Import from Excel' },
   { key: 'inventory:export',           module: 'inventory', description: 'Export inventory to Excel' },
   { key: 'inventory:share:whatsapp',   module: 'inventory', description: 'Build and share a WhatsApp product message' },
+  // Forecast stone on Inventory WITHOUT access to the supply records behind it
+  // (utils/forecastAccess.js). Viewing shows the forecast / final-unreceived
+  // figures next to a variant's real quantity; requesting lets the user ask a
+  // sharing branch for a forecast lot from Inventory (a request made only of
+  // supply lines), without the general mis:crossBranch:quote key.
+  { key: 'inventory:forecast:view',    module: 'inventory', description: 'See forecast stone amounts (being prepared in Supply) on Inventory products' },
+  { key: 'inventory:forecast:request', module: 'inventory', description: 'Request forecast stone from another branch, from Inventory' },
   // Own key, deliberately separate from inventory:view — analytics is a
   // heavier/more sensitive rollup (stock movement, price-change activity)
   // than a plain product list, so granting the list doesn't imply granting
@@ -86,6 +93,17 @@ const PERMISSIONS = [
   { key: 'mis:preinvoice:convert',     module: 'mis', description: 'Convert pre-invoice to invoice' },
   { key: 'mis:payment:edit',           module: 'mis', description: 'Record / edit invoice payment' },
   { key: 'mis:settings:edit',          module: 'mis', description: 'Edit company settings (invoice header)' },
+  // Session 72 — browse ANOTHER branch's Inventory/Supply to build a
+  // cross-branch quotation against it. Deliberately its own key rather than
+  // implied by mis:preinvoice:create — creation of an ordinary customer
+  // quotation should not silently also grant cross-branch browsing.
+  { key: 'mis:crossBranch:quote',      module: 'mis', description: 'Browse another branch\'s Inventory/Supply to build a cross-branch quotation' },
+  // Session 72 (Phase 3) — standalone Packing List sub-section. Viewing reuses
+  // mis:view (same convention as invoice/pre-invoice sharing one view key).
+  { key: 'mis:packingList:create',     module: 'mis', description: 'Create a packing list' },
+  { key: 'mis:packingList:edit',       module: 'mis', description: 'Edit a packing list' },
+  { key: 'mis:packingList:delete',     module: 'mis', description: 'Delete a packing list' },
+  { key: 'mis:packingList:pdf',        module: 'mis', description: 'Download a packing list or pallet label PDF' },
   // Files
   { key: 'files:view',                 module: 'files', description: 'View files' },
   { key: 'files:upload',               module: 'files', description: 'Upload files' },
@@ -122,6 +140,19 @@ const PERMISSIONS = [
   // notes/activity) — see routes/users/users.js's jobReports route family.
   { key: 'jobReports:viewAll', module: 'jobReports', description: 'View and filter every user’s job reports' },
   { key: 'jobReports:reply',   module: 'jobReports', description: 'Reply to a user’s job report' },
+  // Supply (Session 72) — branch-scoped, mirrors Inventory's dataScope/branch
+  // conventions. Real sellable stock is never touched except through the
+  // dedicated `receive` action, which additionally requires inventory:quantity:edit.
+  { key: 'supply:view',                       module: 'supply', description: 'View supply records and deal letters' },
+  { key: 'supply:record:create',              module: 'supply', description: 'Create a supply record' },
+  { key: 'supply:record:edit',                module: 'supply', description: 'Edit a supply record' },
+  { key: 'supply:record:delete',              module: 'supply', description: 'Delete a supply record' },
+  { key: 'supply:dealLetter:create',          module: 'supply', description: 'Create a deal letter' },
+  { key: 'supply:dealLetter:edit',            module: 'supply', description: 'Edit a deal letter (spec, seller, forecast/final quantities, status)' },
+  { key: 'supply:dealLetter:delete',          module: 'supply', description: 'Delete a deal letter' },
+  { key: 'supply:dealLetter:price:edit',      module: 'supply', description: 'Set/update per-variety price on a deal letter' },
+  { key: 'supply:dealLetter:receive',         module: 'supply', description: 'Receive deal letter stock into real warehouse inventory' },
+  { key: 'supply:dealLetter:followUp:create', module: 'supply', description: 'Log a follow-up entry (text/voice/media) on a deal letter' },
 ];
 
 // ── Starter roles ─────────────────────────────────────────────────────────────
@@ -154,6 +185,12 @@ const ROLES = [
     name: 'InventoryManager',
     description: 'Inventory manager — all inventory permissions',
     permissions: ALL_KEYS.filter(k => k.startsWith('inventory:')),
+    isSystem: false,
+  },
+  {
+    name: 'SupplyManager',
+    description: 'Supply manager — all supply permissions',
+    permissions: ALL_KEYS.filter(k => k.startsWith('supply:')),
     isSystem: false,
   },
 ];

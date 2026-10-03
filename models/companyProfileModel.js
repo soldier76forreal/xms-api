@@ -8,7 +8,16 @@ const mongoose = require('mongoose');
 //   bank ADIB · IBAN AE14…282 · SWIFT ABDIAEAD · seller TRN 104877542100003.
 
 const companyProfileSchema = new mongoose.Schema({
-  key:    { type: String, default: 'default', unique: true },  // single-doc guard
+  key:    { type: String, default: 'default' },  // single-doc guard for the GLOBAL fallback doc (branchId: null)
+  // Session 72 — per-branch override. null = the original global fallback doc
+  // (the one pre-existing live doc keeps key:'default', branchId: null, and
+  // keeps working exactly as before). A real branchId doc overrides the global
+  // one for that branch only; loadProfile(branchId) below falls back to global
+  // when no branch-specific doc exists yet.
+  // NOT `index: true` here — the explicit partial+unique index below is the
+  // only index on this field; declaring both produces two indexes that fight
+  // over the same auto-generated name ("branchId_1") and IndexKeySpecsConflict.
+  branchId: { type: mongoose.Schema.Types.ObjectId, default: null },
   nameAr: { type: String },
   nameEn: { type: String },
   phones: [{ type: String }],
@@ -33,5 +42,18 @@ const companyProfileSchema = new mongoose.Schema({
   updateDate: { type: Date },
   updatedBy:  { type: mongoose.Schema.Types.ObjectId },
 });
+
+// At most one override doc per real branch. Partial — MongoDB partial-index
+// filters only support a small operator set ($eq/$exists/$gt/$gte/$lt/$lte/
+// $type/$and), NOT $ne, so "branchId is a real ObjectId" is expressed as
+// $type:'objectId' rather than the more obvious {$ne: null}. This correctly
+// excludes the pre-existing global fallback doc, which predates this field
+// and so is either missing it or holds an explicit null (BSON type 'null'),
+// never 'objectId'. App logic (loadProfile) guarantees exactly one global doc
+// exists, via its existing upsert-on-read.
+companyProfileSchema.index(
+  { branchId: 1 },
+  { unique: true, partialFilterExpression: { branchId: { $type: 'objectId' } } }
+);
 
 module.exports = companyProfileSchema;

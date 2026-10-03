@@ -11,10 +11,16 @@ const userSchema             = require('../../models/userModel');
 const inventoryProductSchema = require('../../models/inventoryProductModel');
 const inventoryVariantSchema = require('../../models/inventoryVariantModel');
 const inventoryChangeLogSchema = require('../../models/inventoryChangeLogModel');
+const supplyRecordSchema     = require('../../models/supplyRecordModel');
+const supplyDealLetterSchema = require('../../models/supplyDealLetterModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch, assertBranchAccess, getUserBranches, isSuperAdmin } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch, assertBranchAccess, getUserBranches, isSuperAdmin, getUsersWithPermission, Branch } = require('../../utils/rbac');
 const { renderInvoiceHtml } = require('../../utils/invoiceTemplate');
+const { renderPdfBuffer } = require('../../utils/pdfRenderer');
+const { sendPdf } = require('../../utils/sendPdf');
+const { recomputeVariantSupplyRollup, recomputeProductSupplyRollup } = require('../../utils/supplyRollup');
+const { canSeeForecast, stripVariantForecast } = require('../../utils/forecastAccess');
 const { amountToArabicWords } = require('../../utils/arabicWords');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
@@ -31,12 +37,21 @@ const { sendNotificationToUser } = require('../socket/xmsNotifications');
 const MisInvoice      = dbConnection.models.misInvoice      || dbConnection.model('misInvoice',      misInvoiceSchema);
 const InvoiceCounter  = dbConnection.models.invoiceCounter  || dbConnection.model('invoiceCounter',  invoiceCounterSchema);
 const CompanyProfile  = dbConnection.models.companyProfile  || dbConnection.model('companyProfile',  companyProfileSchema);
+// Session 72: replaced the old full-unique index on `key` with a partial
+// unique index on `branchId` (see companyProfileModel.js) — every doc,
+// including new per-branch overrides, still carries key:'default', so the
+// STALE old index must actually be dropped in the live DB, not just removed
+// from the schema. Same precedent as InvVariant.syncIndexes() in
+// routes/inventory/main.js. Runs once at startup, errors swallowed.
+CompanyProfile.syncIndexes().catch(() => {});
 const InvoiceActivity = dbConnection.models.invoiceActivity || dbConnection.model('invoiceActivity', invoiceActivitySchema);
 const Customer        = dbConnection.models.customer         || dbConnection.model('customer',         customerSchema);
 const User            = dbConnection.models.user             || dbConnection.model('user',             userSchema);
 const InvProduct      = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
 const InvVariant      = dbConnection.models.inventoryVariant || dbConnection.model('inventoryVariant', inventoryVariantSchema);
 const InvChangeLog    = dbConnection.models.inventoryChangeLog || dbConnection.model('inventoryChangeLog', inventoryChangeLogSchema);
+const SupplyRecord     = dbConnection.models.supplyRecord     || dbConnection.model('supplyRecord',     supplyRecordSchema);
+const SupplyDealLetter = dbConnection.models.supplyDealLetter || dbConnection.model('supplyDealLetter', supplyDealLetterSchema);
 
 const router = express.Router();
 
@@ -50,7 +65,9 @@ const round2 = (n) => Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 10
 
 // Valid status sets per docType (spec lifecycles — light, append later if needed)
 const STATUS_SETS = {
-  pre_invoice: ['draft', 'sent', 'accepted', 'converted', 'expired'],
+  // 'requested' is reachable only on an inter-branch quotation — a stock
+  // request raised by another branch, awaiting this branch's review.
+  pre_invoice: ['requested', 'draft', 'sent', 'accepted', 'converted', 'expired'],
   invoice:     ['draft', 'issued', 'paid', 'partially_paid', 'cancelled'],
 };
 
@@ -64,6 +81,46 @@ async function nextDocNumber(branchId, docType) {
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
   return counter.seq;
+}
+
+// Validates a client-sent supplyRecordId against the doc's own branch before
+// it is stored. Never trust the id as sent — same discipline as every other
+// cross-resource ref here. Returns the id to store, or null.
+async function resolveSupplyRecordId(rawId, branchId) {
+  if (!rawId) return null;
+  if (!mongoose.Types.ObjectId.isValid(rawId)) return null;
+  const rec = await SupplyRecord.findOne({ _id: rawId, deleteDate: null }).select('branchId').lean();
+  if (!rec) return null;
+  if (String(rec.branchId) !== String(branchId)) return null;   // cross-branch link is not allowed
+  return rec._id;
+}
+
+// Notifies the OTHER side of a cross-branch document. Both branches can see an
+// inter-branch doc, so whoever didn't act is the one who needs telling: an
+// operator on the fulfilling branch acting notifies the requesting branch, and
+// vice versa. A no-op for ordinary customer documents.
+async function notifyCrossBranchCounterparty(doc, { textKey, textParams, actorId, permission = 'mis:view' }) {
+  try {
+    if (!doc || doc.tradeMode !== 'interBranch' || !doc.requestingBranchId) return;
+
+    // Which side did the actor act from? Default to treating them as the
+    // fulfilling branch, so the requester still hears about it either way.
+    const actorHoldsTarget = await assertBranchAccess(actorId, doc.branchId);
+    const notifyBranchId = actorHoldsTarget ? doc.requestingBranchId : doc.branchId;
+
+    const recipients = await getUsersWithPermission(permission);
+    for (const uid of recipients) {
+      if (String(uid) === String(actorId)) continue;          // never notify the actor
+      if (!(await assertBranchAccess(uid, notifyBranchId))) continue;
+      await sendNotificationToUser(uid, {
+        fromId: actorId, type: 'invoice', textKey, textParams,
+        entityType: 'invoice', entityId: String(doc._id),
+      });
+    }
+  } catch (err) {
+    // Never let a notification failure break the mutation that triggered it.
+    console.error('notifyCrossBranchCounterparty failed:', err);
+  }
 }
 
 // Audit rule: every mutation writes an invoiceActivity row in the SAME operation.
@@ -126,7 +183,10 @@ function computeTotals(lineItems, shipping) {
 async function findStockOverages(lineItems) {
   const overages = [];
   for (const li of (lineItems || [])) {
-    if (!li.variantId) continue;
+    // Supply-sourced lines (Session 72) aren't backed by real InvVariant.quantity
+    // yet — reconciling them against Supply's own "receive" action is out of
+    // scope for this phase, so they're skipped here the same as a product-level line.
+    if (!li.variantId || li.sourceType === 'supply') continue;
     const variant = await InvVariant.findOne({ _id: li.variantId, deleteDate: null }).select('code quantity').lean();
     if (!variant) continue;
     const requested = Number(li.quantity) || 0;
@@ -158,6 +218,9 @@ async function buildMisScopeFilter(userId, misScope) {
 // which needs a yes/no answer rather than a Mongo query fragment).
 async function canAccessMisDoc(userId, misScope, doc) {
   if (!misScope || misScope === 'all') return true;
+  // An incoming request belongs to the branch it was sent to — its MIS staff
+  // can open it whatever their row scope (same rule as the list route).
+  if (doc.tradeMode === 'interBranch' && await assertBranchAccess(userId, doc.branchId)) return true;
   const uid = String(userId);
   const assignedTo = (doc.assignedTo || []).map(String);
   if (assignedTo.includes(uid)) return true;   // assignee always sees it, any scope
@@ -202,6 +265,20 @@ function requireDocTypePermission(action) {
   };
 }
 
+// Session 72 — branch access check for a loaded MIS doc. Identical to
+// assertBranchAccess for a 'customer' doc (unchanged behavior). For an
+// 'interBranch' doc, EITHER side may see/edit it while pending: the target/
+// fulfilling branch (doc.branchId) OR the requesting/buyer branch
+// (doc.requestingBranchId) — only the target side can actually approve it
+// (see the extra check inside POST /invoices/:id/convert).
+async function assertMisDocBranchAccess(userId, doc) {
+  if (await assertBranchAccess(userId, doc.branchId)) return true;
+  if (doc.tradeMode === 'interBranch' && doc.requestingBranchId) {
+    return assertBranchAccess(userId, doc.requestingBranchId);
+  }
+  return false;
+}
+
 // Loads the (live) doc onto req.misInvoice so the docType-aware guard can run
 // BEFORE the handler. 404s early for missing/soft-deleted docs.
 // Single chokepoint for every :id route (detail/update/delete/html/pdf/convert/
@@ -211,7 +288,7 @@ async function loadInvoice(req, res, next) {
     const doc = await MisInvoice.findOne({ _id: req.params.id, deleteDate: null });
     if (!doc) return res.status(404).json({ message: 'Document not found' });
 
-    if (!(await assertBranchAccess(req.user.id, doc.branchId))) {
+    if (!(await assertMisDocBranchAccess(req.user.id, doc))) {
       return res.status(403).json({ message: 'You do not have access to this branch' });
     }
 
@@ -228,100 +305,38 @@ async function loadInvoice(req, res, next) {
   }
 }
 
-// Singleton settings doc (upserted so it always exists)
-async function loadProfile() {
+// Session 72 — per-branch override, falling back to the global singleton
+// (upserted so IT always exists, exactly as before). A branchId with no
+// override doc yet does NOT get one auto-created here — only PUT
+// /company-profile with a branchId creates/updates a real per-branch doc;
+// a bare read must keep falling back to the richer global doc, not freeze on
+// an empty just-created one.
+async function loadProfile(branchId) {
+  if (branchId) {
+    const branchProfile = await CompanyProfile.findOne({ branchId }).lean();
+    if (branchProfile) return branchProfile;
+  }
   return CompanyProfile.findOneAndUpdate(
-    { key: 'default' },
-    { $setOnInsert: { key: 'default' } },
+    { key: 'default', branchId: null },
+    { $setOnInsert: { key: 'default', branchId: null } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   ).lean();
 }
 
-// ── puppeteer (installed with PUPPETEER_SKIP_DOWNLOAD — bundled Chromium
-// download was blocked, so we launch the SYSTEM Chrome/Edge instead).
-// Lazy singleton: one headless browser, launched on first PDF, reused after.
-const fs = require('fs');
-let _browserPromise = null;
-
-function resolveChromePath() {
-  // IMPORTANT: never fall back to snap-packaged Chromium. Snap confinement breaks
-  // Chrome's DevTools pipe so the browser launches but hangs at
-  // "Target.setDiscoverTargets timed out" during the CDP handshake. On Ubuntu
-  // BOTH /snap/bin/chromium AND /usr/bin/chromium[-browser] are usually snap
-  // wrappers, so we only accept a real .deb Google Chrome here; otherwise we
-  // return null and let Puppeteer use its OWN managed Chromium (install it on the
-  // server with:  npx puppeteer browsers install chrome).
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,             // explicit override wins
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',        // local dev (win)
-    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-    '/usr/bin/google-chrome-stable',   // real .deb Chrome (apt install google-chrome-stable)
-    '/usr/bin/google-chrome',
-  ].filter(Boolean);
-  for (const p of candidates) {
-    try { if (fs.existsSync(p)) return p; } catch (_) {}
-  }
-  return null; // → Puppeteer's own managed Chromium (never snap)
+// Session 72 — which PDF template a doc renders with. Plain lookup against the
+// branch's misTemplates strings (see branchModel.js) — an unset/unknown value
+// falls back to 'classic', the only template that actually exists today.
+function resolveTemplateVariant(branch, docType, tradeMode) {
+  const key = tradeMode === 'interBranch'
+    ? (docType === 'invoice' ? 'interBranchInvoice' : 'interBranchQuotation')
+    : (docType === 'invoice' ? 'customerInvoice' : 'customerQuotation');
+  return (branch && branch.misTemplates && branch.misTemplates[key]) || 'classic';
 }
 
-function getBrowser() {
-  if (!_browserPromise) {
-    // puppeteer v25 is ESM-only — dynamic import() is the CommonJS-safe way in
-    const executablePath = resolveChromePath();
-    _browserPromise = import('puppeteer')
-      .then((mod) => (mod.default || mod).launch({
-        headless: true,
-        ...(executablePath ? { executablePath } : {}),
-        // Default WebSocket transport (NOT pipe). pipe:true got Chrome to launch
-        // but then hung the CDP handshake ("Target.setDiscoverTargets timed out")
-        // on this server — the DevTools pipe fds don't complete here. The
-        // original reason for pipe (a snap-Chromium WS-endpoint timeout) is gone
-        // now that a real, non-snap Chrome is installed, so standard WS works.
-        timeout: 90000,
-        protocolTimeout: 180000,
-        // --disable-dev-shm-usage: default /dev/shm is too small on most VPS/
-        // containers; --disable-gpu is standard for headless servers. This is the
-        // standard, widely-proven server arg set — no exotic flags.
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-      }))
-      .then((browser) => {
-        // If the shared browser dies (crash / lost pipe), drop the cached promise
-        // so the NEXT render relaunches a fresh one instead of reusing a dead
-        // handle — a dead singleton was 500ing ("Failed to generate PDF") on
-        // every subsequent request even though the first one had downloaded fine.
-        browser.on('disconnected', () => { _browserPromise = null; });
-        return browser;
-      })
-      .catch((err) => { _browserPromise = null; throw err; });
-  }
-  return _browserPromise;
-}
-
-async function renderPdfBuffer(html) {
-  // Retry once with a fresh browser: if the shared instance died between renders
-  // the first newPage/pdf call throws "Target/Protocol closed" — relaunch and
-  // try again so a transient browser death doesn't surface as a failed download.
-  let lastErr;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let page;
-    try {
-      const browser = await getBrowser();
-      page = await browser.newPage();
-      // 'load' not 'networkidle0' — the template is fully inline (no external
-      // resources; CSP-safe), and networkidle0 is known to hang with setContent
-      await page.setContent(html, { waitUntil: 'load' });
-      const pdf = await page.pdf({ format: 'A4', printBackground: true });
-      await page.close().catch(() => {});
-      return pdf;
-    } catch (err) {
-      lastErr = err;
-      if (page) await page.close().catch(() => {});
-      _browserPromise = null;   // force a clean relaunch on the retry
-    }
-  }
-  throw lastErr;
-}
+// Puppeteer plumbing (getBrowser/renderPdfBuffer/resolveChromePath) now lives
+// in utils/pdfRenderer.js (Session 72) — imported above — so the new packing-
+// list/label PDF routes can share the exact same singleton browser instead of
+// launching a second one. Pure extraction, behavior unchanged.
 
 // ── payment-time stock decrement (OPTED IN 2026-07-03, retriggered to 'paid' 2026-07-05) ─
 // Fires ONCE when an invoice transitions to 'paid' (stockDecremented guard) —
@@ -348,11 +363,77 @@ async function recomputeRollup(productId) {
   });
 }
 
-async function issueStockDecrement(doc, userId, actorName) {
+// ── Stock commitment ──────────────────────────────────────────────────────────
+// What a document takes out of what's available, and when:
+//   • an invoice when it's PAID (unchanged rule — see the PUT and payment routes)
+//   • a quotation or request when it's ACCEPTED (see the PUT route)
+// Inventory lines come off the variant's real stock (with a change-log row);
+// supply lines are promised against their lot (deal letter line allocatedQty),
+// which takes them out of "left in the lot" and out of Inventory's forecast.
+// stockDecremented guards against doing it twice; converting an accepted
+// quotation hands it to the invoice instead of committing again.
+
+// What a document takes out of stock — which variety (and lot), how much.
+// Prices don't matter here; only items and quantities.
+const stockSignature = (lines) => JSON.stringify((lines || [])
+  .filter((li) => li.variantId)
+  .map((li) => [String(li.variantId), li.sourceType === 'supply' ? String(li.supplyDealLetterId || '') : '', Number(li.quantity) || 0])
+  .map((x) => x.join('|'))
+  .sort());
+
+const touchesInventory = (lines) => (lines || []).some((li) => li.variantId && li.sourceType !== 'supply');
+const docLabelOf = (doc) => (doc.docType === 'invoice' ? 'Invoice' : (doc.tradeMode === 'interBranch' ? 'Request' : 'Quotation'));
+
+// A supply line's lot can't promise more than it has left.
+async function findSupplyOverages(lineItems) {
+  const overages = [];
+  for (const li of (lineItems || [])) {
+    if (li.sourceType !== 'supply' || !li.supplyDealLetterId || !li.variantId) continue;
+    const dl = await SupplyDealLetter.findOne({ _id: li.supplyDealLetterId, deleteDate: null }).lean();
+    const line = dl && (dl.varietyLines || []).find((v) => String(v.variantId) === String(li.variantId));
+    if (!line) { overages.push({ code: li.code, available: 0 }); continue; }
+    const base = dl.status === 'final_product'
+      ? (line.finalQty || 0) - (line.receivedQty || 0)
+      : (line.forecastQty || 0);
+    const left = base - (line.allocatedQty || 0);
+    if ((Number(li.quantity) || 0) > left) overages.push({ code: li.code || line.variantCode, available: Math.max(0, left) });
+  }
+  return overages;
+}
+
+// Promise (sign +1) or release (sign -1) a supply line against its lot.
+async function allocateSupplyLine(li, sign) {
+  if (!li.supplyDealLetterId || !li.variantId) return false;
+  const qty = (Number(li.quantity) || 0) * sign;
+  const where = { _id: li.supplyDealLetterId, 'varietyLines.variantId': li.variantId };
+  const res = await SupplyDealLetter.updateOne(where, { $inc: { 'varietyLines.$.allocatedQty': qty } });
+  // never below zero, whatever the history
+  if (sign < 0) await SupplyDealLetter.updateOne(where, { $max: { 'varietyLines.$.allocatedQty': 0 } });
+  return res.modifiedCount > 0 || res.matchedCount > 0;
+}
+
+async function refreshSupplyRollups(variantIds) {
+  const productIds = new Set();
+  for (const vid of variantIds) {
+    await recomputeVariantSupplyRollup(vid);
+    const v = await InvVariant.findById(vid).select('productId').lean();
+    if (v) productIds.add(String(v.productId));
+  }
+  for (const pid of productIds) await recomputeProductSupplyRollup(pid);
+}
+
+async function issueStockDecrement(doc, userId, actorName, reason) {
+  const label = reason || `Invoice #${doc.docNumber}`;
   const skipped = [];
   const touchedProducts = new Set();
+  const touchedSupply = new Set();
 
   for (const li of (doc.lineItems || [])) {
+    if (li.sourceType === 'supply') {
+      if (await allocateSupplyLine(li, +1)) touchedSupply.add(String(li.variantId));
+      else skipped.push(`${li.code || li.name} (lot not found)`);
+      continue;
+    }
     if (!li.variantId) { skipped.push(li.code || li.name); continue; }
     const variant = await InvVariant.findOne({ _id: li.variantId, deleteDate: null });
     if (!variant) { skipped.push(li.code || li.name); continue; }
@@ -372,7 +453,7 @@ async function issueStockDecrement(doc, userId, actorName) {
       newValue:    newQty,
       delta,
       unit:        variant.unit,
-      reason:      `Invoice #${doc.docNumber}`,
+      reason:      label,
       source:      'order',
       changedBy:   userId,
       changedByName: actorName,
@@ -382,23 +463,28 @@ async function issueStockDecrement(doc, userId, actorName) {
   }
 
   for (const pid of touchedProducts) await recomputeRollup(pid);
+  if (touchedSupply.size) await refreshSupplyRollups([...touchedSupply]);
 
   await MisInvoice.updateOne({ _id: doc._id }, { $set: { stockDecremented: true } });
   await logActivity(doc._id, doc.docType, 'stock_decremented', {
-    body: skipped.length ? `No variant (skipped): ${skipped.join(', ')}` : undefined,
-    newValue: doc.lineItems.filter(l => l.variantId).length,
+    body: [label, skipped.length ? `Skipped: ${skipped.join(', ')}` : ''].filter(Boolean).join(' — '),
+    newValue: (doc.lineItems || []).filter((l) => l.variantId).length,
   }, userId, actorName);
 }
 
-// Reverse of issueStockDecrement — used on delete when the caller opts to put
-// the sold quantity back. Only meaningful if the doc actually decremented stock
-// (stockDecremented guard). Adds each variant line's quantity back + writes a
-// balancing inventoryChangeLog row (positive delta) + recomputes the rollup.
-async function restoreStock(doc, userId, actorName) {
+// Reverse of issueStockDecrement — puts inventory quantities back and releases
+// supply lines from their lot. Only acts if the doc actually committed stock.
+async function restoreStock(doc, userId, actorName, reason) {
   if (!doc.stockDecremented) return;
+  const label = reason || `Invoice #${doc.docNumber} deleted — stock restored`;
   const touchedProducts = new Set();
+  const touchedSupply = new Set();
 
   for (const li of (doc.lineItems || [])) {
+    if (li.sourceType === 'supply') {
+      if (await allocateSupplyLine(li, -1)) touchedSupply.add(String(li.variantId));
+      continue;
+    }
     if (!li.variantId) continue;
     const variant = await InvVariant.findOne({ _id: li.variantId, deleteDate: null });
     if (!variant) continue;
@@ -418,7 +504,7 @@ async function restoreStock(doc, userId, actorName) {
       newValue:    newQty,
       delta,
       unit:        variant.unit,
-      reason:      `Invoice #${doc.docNumber} deleted — stock restored`,
+      reason:      label,
       source:      'correction',
       changedBy:   userId,
       changedByName: actorName,
@@ -428,11 +514,24 @@ async function restoreStock(doc, userId, actorName) {
   }
 
   for (const pid of touchedProducts) await recomputeRollup(pid);
+  if (touchedSupply.size) await refreshSupplyRollups([...touchedSupply]);
   await MisInvoice.updateOne({ _id: doc._id }, { $set: { stockDecremented: false } });
   await logActivity(doc._id, doc.docType, 'stock_restored', {
-    newValue: doc.lineItems.filter(l => l.variantId).length,
+    body: label,
+    newValue: (doc.lineItems || []).filter((l) => l.variantId).length,
   }, userId, actorName);
 }
+
+// Passes when the caller holds ANY of the keys.
+const requireAnyPermission = (keys) => async (req, res, next) => {
+  try {
+    const perms = await getEffectivePermissions(req.user.id);
+    if (keys.some((k) => perms.has(k))) return next();
+    return res.status(403).json({ message: 'Access denied', requiredPermission: keys.join(' | ') });
+  } catch (err) {
+    return next(err);
+  }
+};
 
 // ── GET /mis/products-lookup — inventory line picker (BEFORE /invoices/:id) ───
 // Returns matching varieties WITH their active variants (code/unit/price) so the
@@ -469,16 +568,155 @@ router.get('/products-lookup', verify, requirePermission('mis:view'), requireBra
   }
 });
 
+// ── Cross-branch browsing (Session 72) — gated ONLY by mis:crossBranch:quote,
+// deliberately bypasses assertBranchAccess: the whole point is letting a
+// requesting branch's authorized user see ANOTHER branch's catalog to build a
+// quote against it. Read-only, quantities only (price is read here too since
+// it's needed to seed the quote's line prices — this is staff-only tooling,
+// not the public website's price-stripped surface).
+// Which branches has the caller been GRANTED access to? A branch appears only
+// when it has explicitly listed one of the caller's own branches in its
+// crossBranchAccess (set in Branch settings). Default-deny: an empty list on a
+// branch means nobody can browse it, so this returns [] until someone grants.
+// superAdmins are NOT exempt — the grant models a commercial arrangement
+// between branches, not an access level.
+// requestingBranchId (optional, the caller's active branch): narrow to branches
+// that shared with THAT branch specifically. A request is always raised from
+// one branch, and the create route checks the grant against exactly that one —
+// so the pickers must ask the same question, or they'd offer a branch the
+// create would then refuse. Without it: shared with any branch the caller holds.
+async function grantedCrossBranchIds(userId, requestingBranchId = null) {
+  let ownBranchIds;
+  if (requestingBranchId) {
+    if (!mongoose.Types.ObjectId.isValid(requestingBranchId)
+      || !(await assertBranchAccess(userId, requestingBranchId))) {
+      return { ownBranchIds: [], branches: [] };
+    }
+    ownBranchIds = [String(requestingBranchId)];
+  } else {
+    ownBranchIds = (await getUserBranches(userId)).map((id) => String(id));
+  }
+  if (!ownBranchIds.length) return { ownBranchIds, branches: [] };
+  const branches = await Branch.find({
+    status: 'active', deleteDate: null,
+    crossBranchAccess: { $in: ownBranchIds.map((id) => new mongoose.Types.ObjectId(id)) },
+  }).select('_id name country').lean();
+  return { ownBranchIds, branches: branches.filter((b) => !ownBranchIds.includes(String(b._id))) };
+}
+
+// Throws nothing — returns true/false, so callers can 403 with their own message.
+async function assertCrossBranchGrant(userId, targetBranchId, requestingBranchId = null) {
+  const { branches } = await grantedCrossBranchIds(userId, requestingBranchId);
+  return branches.some((b) => String(b._id) === String(targetBranchId));
+}
+
+// Also open to inventory:forecast:request — asking for a forecast lot from
+// Inventory without Supply access or the general cross-branch key.
+router.get('/cross-branch/branches', verify, requireAnyPermission(['mis:crossBranch:quote', 'inventory:forecast:request']), async (req, res) => {
+  try {
+    const { branches } = await grantedCrossBranchIds(req.user.id, req.query.requestingBranchId || null);
+    return res.status(200).json({ data: branches });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/cross-branch/inventory', verify, requirePermission('mis:crossBranch:quote'), async (req, res) => {
+  try {
+    const { branchId, search = '' } = req.query;
+    if (!branchId || !mongoose.Types.ObjectId.isValid(branchId)) {
+      return res.status(400).json({ message: 'branchId is required' });
+    }
+    if (!(await assertCrossBranchGrant(req.user.id, branchId, req.query.requestingBranchId || null))) {
+      return res.status(403).json({ message: 'That branch has not shared its inventory with you' });
+    }
+    const query = { branchId, deleteDate: null, status: 'active' };
+    if (search.trim()) {
+      const re = new RegExp(escapeRegex(search.trim()), 'i');
+      query.$or = [{ name: re }, { code: re }];
+    }
+    const products = await InvProduct.find(query)
+      .select('_id code name stoneType quarryCode defaultUnit')
+      .sort('name')
+      .limit(30)
+      .lean();
+
+    const productIds = products.map((p) => p._id);
+    const variants = await InvVariant.find({ productId: { $in: productIds }, deleteDate: null, status: 'active' })
+      .select('_id productId code unit quantity price currency supply spec.lengthCm spec.widthCm spec.thicknessMm spec.unsized')
+      .lean();
+
+    // Forecast figures only for those allowed to see them.
+    const showForecast = await canSeeForecast(req.user.id);
+    const byProduct = {};
+    for (const v of variants) {
+      (byProduct[String(v.productId)] = byProduct[String(v.productId)] || []).push(showForecast ? v : stripVariantForecast(v));
+    }
+    const data = products.map((p) => ({ ...p, variants: byProduct[String(p._id)] || [] }));
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// One row per variety line across every non-deleted deal letter in the target
+// branch — enough for the quote form to seed a sourceType:'supply' line
+// (supplyDealLetterId + a forecast/final quantity + a price).
+router.get('/cross-branch/supply', verify, requireAnyPermission(['mis:crossBranch:quote', 'inventory:forecast:request']), async (req, res) => {
+  try {
+    const { branchId, search = '' } = req.query;
+    if (!branchId || !mongoose.Types.ObjectId.isValid(branchId)) {
+      return res.status(400).json({ message: 'branchId is required' });
+    }
+    if (!(await assertCrossBranchGrant(req.user.id, branchId, req.query.requestingBranchId || null))) {
+      return res.status(403).json({ message: 'That branch has not shared its supply with you' });
+    }
+    const dealLetters = await SupplyDealLetter.find({ branchId, deleteDate: null }).limit(100).lean();
+    // each lot's supply record code (SR-0001…), so the picker can name it
+    const records = await SupplyRecord.find({ _id: { $in: dealLetters.map((d) => d.supplyId) } }).select('code').lean();
+    const codeOf = new Map(records.map((r) => [String(r._id), r.code]));
+    let rows = [];
+    for (const dl of dealLetters) {
+      for (const line of dl.varietyLines || []) {
+        rows.push({
+          dealLetterId: dl._id, productId: dl.productId, status: dl.status,
+          supplyRecordId: dl.supplyId, recordCode: codeOf.get(String(dl.supplyId)) || null,
+          // Which lot this is — the same variety can be in several deal
+          // letters at once, and the picker has to tell them apart.
+          contractNumber: (dl.contract && dl.contract.number) || null,
+          seller: (dl.coupeSeller && dl.coupeSeller.name) || null,
+          variantId: line.variantId, variantCode: line.variantCode, unit: line.unit,
+          forecastQty: line.forecastQty, finalQty: line.finalQty, receivedQty: line.receivedQty,
+          // already promised to accepted quotations / requests
+          allocatedQty: line.allocatedQty || 0,
+          left: Math.max(0, (dl.status === 'final_product'
+            ? (line.finalQty || 0) - (line.receivedQty || 0)
+            : (line.forecastQty || 0)) - (line.allocatedQty || 0)),
+          price: line.price, currency: line.currency,
+        });
+      }
+    }
+    if (search.trim()) {
+      const re = new RegExp(escapeRegex(search.trim()), 'i');
+      rows = rows.filter((r) => re.test(r.variantCode || ''));
+    }
+    return res.status(200).json({ data: rows.slice(0, 100) });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ── GET/PUT /mis/company-profile — template header settings ───────────────────
 router.get('/company-profile', verify, requirePermission('mis:view'), async (req, res) => {
   try {
-    // Singleton — upsert the default doc on first read so the settings editor
-    // always has something to edit (values then maintained via PUT).
-    const profile = await CompanyProfile.findOneAndUpdate(
-      { key: 'default' },
-      { $setOnInsert: { key: 'default' } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).lean();
+    const { branchId } = req.query;
+    if (branchId) {
+      if (!mongoose.Types.ObjectId.isValid(branchId)) return res.status(400).json({ message: 'Invalid branchId' });
+      if (!(await assertBranchAccess(req.user.id, branchId))) {
+        return res.status(403).json({ message: 'You do not have access to this branch' });
+      }
+    }
+    const profile = await loadProfile(branchId || null);
     return res.status(200).json(profile);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -487,6 +725,14 @@ router.get('/company-profile', verify, requirePermission('mis:view'), async (req
 
 router.put('/company-profile', verify, requirePermission('mis:settings:edit'), async (req, res) => {
   try {
+    const { branchId } = req.body;
+    if (branchId) {
+      if (!mongoose.Types.ObjectId.isValid(branchId)) return res.status(400).json({ message: 'Invalid branchId' });
+      if (!(await assertBranchAccess(req.user.id, branchId))) {
+        return res.status(403).json({ message: 'You do not have access to this branch' });
+      }
+    }
+
     const allowed = ['nameAr', 'nameEn', 'phones', 'email', 'website', 'trn',
                      'branchAddressAr', 'logoFileId', 'bank', 'vatRate',
                      'thankYouNoteAr', 'quotationValidityDefaultDays'];
@@ -495,9 +741,12 @@ router.put('/company-profile', verify, requirePermission('mis:settings:edit'), a
     update.updateDate = new Date();
     update.updatedBy  = req.user.id;
 
+    const filter = branchId ? { branchId } : { key: 'default', branchId: null };
+    const setOnInsert = branchId ? { key: 'default', branchId } : { key: 'default', branchId: null };
+
     const profile = await CompanyProfile.findOneAndUpdate(
-      { key: 'default' },
-      { $set: update },
+      filter,
+      { $set: update, $setOnInsert: setOnInsert },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     ).lean();
     return res.status(200).json(profile);
@@ -548,13 +797,18 @@ router.get('/invoices', verify, requirePermission('mis:view'), requireBranch(), 
       customerId = '', productId = '', createdBy = '',
       dateFrom = '', dateTo = '',
       sort = 'issueDate', order = 'desc',
-      page = 1, limit = 30,
+      page = 1, limit = 30, tradeMode = '',
     } = req.query;
 
     const filters = [];
 
-    // the three tabs — Invoice / Pre-invoice / All
+    // the tabs — Quote / Invoice / Requests / All. docType splits invoice from
+    // quotation; tradeMode splits a customer quotation from a REQUEST (an
+    // inter-branch quotation: one branch asking another for stock). Docs older
+    // than tradeMode have no such field, so "customer" means "not inter-branch".
     if (docType === 'invoice' || docType === 'pre_invoice') filters.push({ docType });
+    if (tradeMode === 'interBranch') filters.push({ tradeMode: 'interBranch' });
+    else if (tradeMode === 'customer') filters.push({ tradeMode: { $ne: 'interBranch' } });
 
     // search: docNumber + customer name + line code/name
     if (search.trim()) {
@@ -609,9 +863,19 @@ router.get('/invoices', verify, requirePermission('mis:view'), requireBranch(), 
         scopeFilter = { $or: [{ createdBy: requested }, { assignedTo: new mongoose.Types.ObjectId(userId) }] };
       }
     }
-    if (scopeFilter) filters.push(scopeFilter);
+    // Requests are addressed to a BRANCH, not to a person: everyone working
+    // the branch being asked must see what came in, whatever their row scope —
+    // otherwise a 'mine'-scoped operator is notified about a request they then
+    // can't find (or open — canAccessMisDoc carries the same exception).
+    if (scopeFilter) filters.push({ $or: [scopeFilter, { tradeMode: 'interBranch', branchId: req.branchId }] });
 
-    const query = { branchId: req.branchId, deleteDate: null };
+    // Session 72 — a cross-branch doc's branchId is the FULFILLING branch, but
+    // the REQUESTING branch's own list must also surface it (that's the whole
+    // point of showing them a pending quote they sent out) — see requestingBranchId.
+    const query = {
+      $or: [{ branchId: req.branchId }, { requestingBranchId: req.branchId }],
+      deleteDate: null,
+    };
     if (filters.length) query.$and = filters;
 
     const validSort = { issueDate: 'issueDate', docNumber: 'docNumber', grandTotal: 'grandTotal' };
@@ -675,27 +939,87 @@ router.get('/invoices/assigned/:userId', verify, requirePermission('mis:view'), 
 // ── GET /mis/invoices/:id — detail ────────────────────────────────────────────
 router.get('/invoices/:id', verify, requirePermission('mis:view'), loadInvoice, async (req, res) => {
   try {
-    const activity = await InvoiceActivity.find({ invoiceId: req.misInvoice._id })
-      .sort({ date: -1 })
-      .limit(50)
-      .lean();
-    return res.status(200).json({ ...req.misInvoice.toObject(), activity });
+    const [activity, supplyRecord] = await Promise.all([
+      InvoiceActivity.find({ invoiceId: req.misInvoice._id }).sort({ date: -1 }).limit(50).lean(),
+      // the supply record this document was raised against — by its code, so
+      // both branches can tell which record it is
+      req.misInvoice.supplyRecordId
+        ? SupplyRecord.findById(req.misInvoice.supplyRecordId).select('code title productCode').lean()
+        : null,
+    ]);
+    return res.status(200).json({ ...req.misInvoice.toObject(), activity, supplyRecord });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
 });
 
 // ── POST /mis/invoices — create (counter + snapshot + totals + activity) ──────
-router.post('/invoices', verify, requireDocTypePermission('create'), requireBranch(), async (req, res) => {
+// Session 72: NOT gated by requireBranch() any more — a tradeMode:'interBranch'
+// create legitimately targets a branch the caller does NOT hold, so branch
+// authorization is resolved manually below depending on tradeMode instead.
+router.post('/invoices', verify, requireDocTypePermission('create'), async (req, res) => {
   try {
     const userId   = req.user.id;
     const docType  = req.body.docType;
-    const branchId = req.branchId;
+    const tradeMode = req.body.tradeMode === 'interBranch' ? 'interBranch' : 'customer';
+
+    let branchId;                    // fulfilling branch — owns docNumber/template/profile either way
+    let requestingBranchId = null;
+    let requestingBranchSnapshot = null;
+
+    if (tradeMode === 'interBranch') {
+      if (docType !== 'pre_invoice') {
+        return res.status(400).json({ message: 'An inter-branch document must start as a quotation' });
+      }
+      const perms = await getEffectivePermissions(userId);
+      // The cross-branch key covers any request; a request made only of
+      // forecast (Supply) stone also passes with inventory:forecast:request.
+      const forecastOnly = Array.isArray(req.body.lineItems) && req.body.lineItems.length > 0
+        && req.body.lineItems.every((li) => li.sourceType === 'supply');
+      if (!perms.has('mis:crossBranch:quote') && !(forecastOnly && perms.has('inventory:forecast:request'))) {
+        return res.status(403).json({ message: 'Access denied', requiredPermission: 'mis:crossBranch:quote' });
+      }
+      branchId = req.body.branchId;
+      requestingBranchId = req.body.requestingBranchId;
+      if (!branchId || !mongoose.Types.ObjectId.isValid(branchId)) {
+        return res.status(400).json({ message: 'A target branch is required' });
+      }
+      if (!requestingBranchId || !mongoose.Types.ObjectId.isValid(requestingBranchId)) {
+        return res.status(400).json({ message: 'Your requesting branch is required' });
+      }
+      if (String(branchId) === String(requestingBranchId)) {
+        return res.status(400).json({ message: 'A branch cannot place a request with itself' });
+      }
+      // The caller must hold their OWN (requesting) branch — access to the
+      // TARGET branch is exactly what mis:crossBranch:quote grants instead.
+      if (!(await assertBranchAccess(userId, requestingBranchId))) {
+        return res.status(403).json({ message: 'You do not have access to this requesting branch' });
+      }
+      const targetBranch = await Branch.findOne({ _id: branchId, deleteDate: null, status: 'active' }).lean();
+      if (!targetBranch) return res.status(404).json({ message: 'Target branch not found' });
+      // ...and that branch must have shared itself with the REQUESTING branch
+      // specifically — not just with some other branch the caller happens to
+      // hold. Re-checked here and not just on the browse routes, so a
+      // hand-crafted POST can't raise a request against a branch that never
+      // opened up to the branch it's coming from.
+      if (!(await assertCrossBranchGrant(userId, branchId, requestingBranchId))) {
+        return res.status(403).json({ message: 'That branch has not shared its inventory with your branch' });
+      }
+      const requestingBranch = await Branch.findOne({ _id: requestingBranchId, deleteDate: null }).lean();
+      if (!requestingBranch) return res.status(404).json({ message: 'Requesting branch not found' });
+      requestingBranchSnapshot = { name: requestingBranch.name };
+    } else {
+      branchId = req.body.branchId;
+      if (!branchId) return res.status(400).json({ message: 'No branch selected', code: 'BRANCH_REQUIRED' });
+      if (!(await assertBranchAccess(userId, branchId))) {
+        return res.status(403).json({ message: 'You do not have access to this branch' });
+      }
+    }
 
     // basic validation — customer is required for invoices (goods need a
     // destination) but OPTIONAL for pre-invoices/quotes (can be drafted before
-    // a customer is confirmed)
-    const hasCustomerId = req.body.customerId && mongoose.Types.ObjectId.isValid(req.body.customerId);
+    // a customer is confirmed). Inter-branch docs have no CRM customer at all.
+    const hasCustomerId = tradeMode === 'customer' && req.body.customerId && mongoose.Types.ObjectId.isValid(req.body.customerId);
     if (docType === 'invoice' && !hasCustomerId) {
       return res.status(400).json({ message: 'Customer is required' });
     }
@@ -716,6 +1040,11 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
     if (!STATUS_SETS[docType].includes(status)) {
       return res.status(400).json({ message: 'Invalid status for this document type' });
     }
+    // 'requested' means "another branch is asking us for stock" — it is only
+    // meaningful on an inter-branch doc, never on a customer-facing one.
+    if (status === 'requested' && tradeMode !== 'interBranch') {
+      return res.status(400).json({ message: 'Only an inter-branch document can be a request' });
+    }
 
     // authoritative snapshot (CRM doc + editable overlay) — skipped entirely
     // when no customer is picked (allowed for pre-invoices)
@@ -729,10 +1058,11 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
     const shipping = docType === 'invoice' ? req.body.shipping : 0;
     const totals = computeTotals(req.body.lineItems, shipping);
 
-    // default quote validity from companyProfile when not provided
+    // default quote validity from companyProfile when not provided — per-branch
+    // override, falls back to global (Session 72)
     let validityDays = req.body.validityDays;
     if (docType === 'pre_invoice' && (validityDays === undefined || validityDays === null)) {
-      const profile = await CompanyProfile.findOne({ key: 'default' }).lean();
+      const profile = await loadProfile(branchId);
       validityDays = (profile && profile.quotationValidityDefaultDays) || 2;
     }
 
@@ -741,10 +1071,15 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
       docType,
       docNumber: await nextDocNumber(branchId, docType),   // atomic, per-branch, server-assigned
       status,
+      tradeMode,
+      requestingBranchId: tradeMode === 'interBranch' ? requestingBranchId : undefined,
+      requestingBranchSnapshot: tradeMode === 'interBranch' ? requestingBranchSnapshot : undefined,
       issueDate: req.body.issueDate ? new Date(req.body.issueDate) : new Date(),
       issueTime: req.body.issueTime,
       customerId: hasCustomerId ? req.body.customerId : undefined,
-      customerSnapshot,
+      // undefined rather than null when there's no customer (inter-branch):
+      // a null here is what later broke conversion by failing to cast.
+      customerSnapshot: customerSnapshot || undefined,
       lineItems: totals.lines,
       currency: 'AED',
       subtotal:      totals.subtotal,
@@ -756,9 +1091,14 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
       amountInWords: docType === 'invoice' ? amountToArabicWords(totals.grandTotal) : undefined,
       salesRepId:   docType === 'invoice' ? req.body.salesRepId   : undefined,
       salesRepName: docType === 'invoice' ? req.body.salesRepName : undefined,
-      packingList:  docType === 'invoice' ? req.body.packingList  : undefined,
+      // packingList is intentionally NOT written here any more (Session 72,
+      // Phase 3) — packing lists are now their own standalone MIS resource
+      // (routes/mis/packingLists.js). The schema field is kept, unset, for a
+      // brand-new doc; only historical pre-Session-72 invoices carry it.
       // pre-invoice-only
       validityDays: docType === 'pre_invoice' ? validityDays : undefined,
+      // Optional Supply link — re-validated against this doc's branch.
+      supplyRecordId: await resolveSupplyRecordId(req.body.supplyRecordId, branchId),
       notes: req.body.notes,
       insertDate: new Date(),
       createdBy: userId,
@@ -766,6 +1106,22 @@ router.post('/invoices', verify, requireDocTypePermission('create'), requireBran
 
     const actorName = await getActorName(userId);
     await logActivity(doc._id, docType, 'created', { newValue: doc.docNumber }, userId, actorName);
+
+    // Notify the TARGET branch's MIS staff — the requesting branch already
+    // knows it just created this (its own UI just did it); the fulfilling
+    // branch is the one that needs to hear about a new pending request.
+    if (tradeMode === 'interBranch') {
+      const editors = await getUsersWithPermission('mis:preinvoice:edit');
+      for (const uid of editors) {
+        if (!(await assertBranchAccess(uid, branchId))) continue;
+        await sendNotificationToUser(uid, {
+          fromId: userId, fromName: actorName, type: 'invoice',
+          textKey: 'misCrossBranchQuoteReceived',
+          textParams: { docNumber: doc.docNumber, fromBranch: requestingBranchSnapshot.name },
+          entityType: 'invoice', entityId: String(doc._id),
+        });
+      }
+    }
 
     return res.status(201).json(doc);
   } catch (err) {
@@ -791,14 +1147,79 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     const update = {};
     const actorName = await getActorName(userId);
 
+    // An inter-branch doc has no CRM customer — the buyer is the requesting
+    // branch. Ignore any customer fields a form sends along with it.
+    if (doc.tradeMode === 'interBranch') {
+      delete req.body.customerId;
+      delete req.body.customerSnapshot;
+    }
+
+    // ── Stock follows acceptance (see "Stock commitment" above) ──
+    const isQuote = doc.docType === 'pre_invoice';
+    const effectiveLines = req.body.lineItems !== undefined ? req.body.lineItems : doc.lineItems;
+    const linesChanging = req.body.lineItems !== undefined && stockSignature(req.body.lineItems) !== stockSignature(doc.lineItems);
+    const leavingAccepted = isQuote && doc.status === 'accepted' && req.body.status
+      && req.body.status !== 'accepted' && req.body.status !== 'converted';
+    if (isQuote && doc.stockDecremented && linesChanging && !leavingAccepted) {
+      return res.status(409).json({
+        message: `This ${docLabelOf(doc).toLowerCase()} is accepted — its quantities are already out of stock. Move it out of Accepted to change items or quantities.`,
+      });
+    }
+    let stockAction = null;   // 'commit' | 'release', applied after the update is saved
+
     // status transition (validated per docType, logged separately)
     if (req.body.status && req.body.status !== doc.status) {
-      if (!STATUS_SETS[doc.docType].includes(req.body.status)) {
+      // A request can also be declined ('cancelled') by the branch it was sent to.
+      const isRequest = doc.tradeMode === 'interBranch' && doc.docType === 'pre_invoice';
+      const allowedStatuses = isRequest ? [...STATUS_SETS.pre_invoice, 'cancelled'] : STATUS_SETS[doc.docType];
+      if (!allowedStatuses.includes(req.body.status)) {
         return res.status(400).json({ message: 'Invalid status for this document type' });
+      }
+      // 'converted' means an invoice exists — only converting it gets it there.
+      if (req.body.status === 'converted' && !doc.convertedToInvoiceId) {
+        return res.status(400).json({ message: 'Convert the quotation to set it as converted' });
+      }
+      if (req.body.status === 'requested' && doc.tradeMode !== 'interBranch') {
+        return res.status(400).json({ message: 'Only an inter-branch document can be a request' });
+      }
+      // A request's status is the ASKED branch's call (review → price →
+      // accept); the requesting side watches it move but can't move it.
+      if (doc.tradeMode === 'interBranch' && !(await assertBranchAccess(userId, doc.branchId))) {
+        return res.status(403).json({ message: 'Only the branch this request was sent to can change its status' });
+      }
+      // Accepting takes the quantities out; leaving Accepted puts them back.
+      if (isQuote && req.body.status === 'accepted' && !doc.stockDecremented) stockAction = 'commit';
+      if (leavingAccepted && doc.stockDecremented) stockAction = 'release';
+      if (stockAction) {
+        const lines = stockAction === 'commit' ? effectiveLines : doc.lineItems;
+        if (touchesInventory(lines)) {
+          const perms = await getEffectivePermissions(userId);
+          if (!perms.has('inventory:quantity:edit')) {
+            return res.status(403).json({
+              message: stockAction === 'commit'
+                ? 'Accepting takes these quantities out of stock — inventory quantity permission required'
+                : 'Leaving Accepted puts these quantities back in stock — inventory quantity permission required',
+              requiredPermission: 'inventory:quantity:edit',
+            });
+          }
+        }
+        if (stockAction === 'commit') {
+          const overages = [...await findStockOverages(lines), ...await findSupplyOverages(lines)];
+          if (overages.length) {
+            return res.status(400).json({ message: 'Accepting it would take more than is available', overages });
+          }
+        }
       }
       update.status = req.body.status;
       await logActivity(doc._id, doc.docType, 'status',
         { field: 'status', oldValue: doc.status, newValue: req.body.status }, userId, actorName);
+
+      // Keep the other branch informed about their request's progress.
+      await notifyCrossBranchCounterparty(doc, {
+        textKey: 'misCrossBranchStatusChanged',
+        textParams: { docNumber: doc.docNumber, status: req.body.status, actorName },
+        actorId: userId,
+      });
 
       // Stock decrement (opted in, moved to 'paid' 2026-07-05 — was 'issued'):
       // fires once, when a manual status change lands the invoice on 'paid'.
@@ -862,7 +1283,8 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     if (doc.docType === 'invoice') {
       if (req.body.salesRepId   !== undefined) update.salesRepId   = req.body.salesRepId;
       if (req.body.salesRepName !== undefined) update.salesRepName = req.body.salesRepName;
-      if (req.body.packingList  !== undefined) update.packingList  = req.body.packingList;
+      // packingList is intentionally no longer accepted here (Session 72, Phase 3)
+      // — see the create route's comment above.
     } else if (req.body.validityDays !== undefined) {
       update.validityDays = req.body.validityDays;
     }
@@ -870,11 +1292,29 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     update.updateDate = new Date();
     update.updatedBy  = userId;
 
-    const updated = await MisInvoice.findOneAndUpdate(
+    let updated = await MisInvoice.findOneAndUpdate(
       { _id: doc._id }, { $set: update }, { new: true }
     ).lean();
 
+    if (stockAction === 'commit') {
+      await issueStockDecrement(updated, userId, actorName, `${docLabelOf(doc)} #${doc.docNumber} accepted`);
+      updated = await MisInvoice.findById(doc._id).lean();
+    } else if (stockAction === 'release') {
+      await restoreStock(doc, userId, actorName, `${docLabelOf(doc)} #${doc.docNumber} no longer accepted — stock put back`);
+      updated = await MisInvoice.findById(doc._id).lean();
+    }
+
     await logActivity(doc._id, doc.docType, 'updated', {}, userId, actorName);
+
+    // Content changes (lines, prices, totals) matter to the other branch too —
+    // skipped when this PUT only moved the status, which already notified.
+    if (update.lineItems) {
+      await notifyCrossBranchCounterparty(doc, {
+        textKey: 'misCrossBranchUpdated',
+        textParams: { docNumber: doc.docNumber, actorName },
+        actorId: userId,
+      });
+    }
 
     return res.status(200).json(updated);
   } catch (err) {
@@ -892,9 +1332,13 @@ router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('de
     // Stock restore is only relevant when this invoice actually decremented
     // stock. The caller decides (frontend prompts on delete); restoring writes
     // to inventory so it requires the same guard as any quantity change.
+    // A quotation/request's reservation (from being accepted) always goes
+    // back — a deleted quotation can't keep stock out. An invoice's paid
+    // decrement goes back only if the user opts in (the dialog asks).
+    const autoRelease = doc.docType === 'pre_invoice' && doc.stockDecremented;
     const wantsRestore = doc.stockDecremented &&
-      (req.query.restoreStock === 'true' || req.body.restoreStock === true);
-    if (wantsRestore) {
+      (autoRelease || req.query.restoreStock === 'true' || req.body.restoreStock === true);
+    if (wantsRestore && touchesInventory(doc.lineItems)) {
       const perms = await getEffectivePermissions(userId);
       if (!perms.has('inventory:quantity:edit')) {
         return res.status(403).json({
@@ -902,7 +1346,9 @@ router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('de
           requiredPermission: 'inventory:quantity:edit',
         });
       }
-      await restoreStock(doc, userId, actorName);
+    }
+    if (wantsRestore) {
+      await restoreStock(doc, userId, actorName, `${docLabelOf(doc)} #${doc.docNumber} deleted — stock put back`);
     }
 
     await MisInvoice.updateOne(
@@ -920,8 +1366,13 @@ router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('de
 // ── GET /mis/invoices/:id/html — screen preview (same template as the PDF) ────
 router.get('/invoices/:id/html', verify, requirePermission('mis:view'), loadInvoice, async (req, res) => {
   try {
-    const profile = await loadProfile();
-    const html = renderInvoiceHtml(req.misInvoice.toObject(), profile, req.query.lang);
+    const doc = req.misInvoice;
+    const [profile, branch] = await Promise.all([
+      loadProfile(doc.branchId),
+      Branch.findById(doc.branchId).select('misTemplates').lean(),
+    ]);
+    const templateVariant = resolveTemplateVariant(branch, doc.docType, doc.tradeMode);
+    const html = renderInvoiceHtml(doc.toObject(), profile, req.query.lang, templateVariant);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(html);
   } catch (err) {
@@ -932,19 +1383,21 @@ router.get('/invoices/:id/html', verify, requirePermission('mis:view'), loadInvo
 // ── GET /mis/invoices/:id/pdf — final export (own key, NOT gated by :edit) ────
 router.get('/invoices/:id/pdf', verify, loadInvoice, requireDocTypePermission('pdf'), async (req, res) => {
   try {
-    const doc     = req.misInvoice;
-    const profile = await loadProfile();
-    const html    = renderInvoiceHtml(doc.toObject(), profile, req.query.lang);
-    const pdf     = await renderPdfBuffer(html);
+    const doc = req.misInvoice;
+    const [profile, branch] = await Promise.all([
+      loadProfile(doc.branchId),
+      Branch.findById(doc.branchId).select('misTemplates').lean(),
+    ]);
+    const templateVariant = resolveTemplateVariant(branch, doc.docType, doc.tradeMode);
+    const html = renderInvoiceHtml(doc.toObject(), profile, req.query.lang, templateVariant);
+    const pdf  = await renderPdfBuffer(html);
 
     const userId    = req.user.id;
     const actorName = await getActorName(userId);
     await logActivity(doc._id, doc.docType, 'pdf_generated', { newValue: doc.docNumber }, userId, actorName);
 
     const prefix = doc.docType === 'invoice' ? 'invoice' : 'quotation';
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${prefix}-${doc.docNumber}.pdf"`);
-    return res.status(200).end(pdf);
+    return sendPdf(req, res, pdf, `${prefix}-${doc.docNumber}.pdf`);
   } catch (err) {
     // browser launch failures land here (no Chrome/Edge found) — logged so the
     // real cause is visible on the server; the client only gets the generic message.
@@ -963,47 +1416,165 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
     if (pre.convertedToInvoiceId || pre.status === 'converted') {
       return res.status(409).json({ message: 'This pre-invoice has already been converted', invoiceId: pre.convertedToInvoiceId });
     }
+    if (pre.status === 'cancelled') {
+      return res.status(400).json({ message: 'A declined request cannot be converted' });
+    }
+    const userId = req.user.id;
+    // Session 72 — an inter-branch quote's REQUESTING branch can view/edit it
+    // while pending (loadInvoice already allows that), but only the TARGET/
+    // fulfilling branch (pre.branchId) may actually approve it into an invoice.
+    if (pre.tradeMode === 'interBranch' && !(await assertBranchAccess(userId, pre.branchId))) {
+      return res.status(403).json({ message: 'Only the fulfilling branch can convert this quote into an invoice' });
+    }
 
-    const userId    = req.user.id;
     const actorName = await getActorName(userId);
 
-    // copy lines + customer; recompute totals as an invoice (shipping starts 0)
-    const totals = computeTotals(pre.lineItems.map(l => l.toObject ? l.toObject() : l), 0);
+    // customerSnapshot is a NESTED PATH, not a subdocument — Mongoose hands back
+    // a proxy object for it that is truthy even when the stored value is null
+    // (which is what an inter-branch quote has, since it has no CRM customer).
+    // Reading it off the plain object is the only reliable emptiness check; the
+    // proxy passed a truthiness guard and then failed to cast, which is what
+    // broke converting every inter-branch quotation.
+    const preObj = pre.toObject ? pre.toObject() : pre;
+
+    // Two ways in:
+    //  • with a draft (the app): the invoice form opens pre-filled from the
+    //    quotation, the user completes it — customer, address, prices, shipping,
+    //    notes — and posts it here. Validated exactly like a new invoice:
+    //    server-side totals, stock check, customer re-snapshotted from CRM.
+    //  • without one (legacy callers): the quotation is copied as-is.
+    const draft = req.body && Array.isArray(req.body.lineItems) && req.body.lineItems.length ? req.body : null;
+    const isInterBranch = pre.tradeMode === 'interBranch';
+    let lineSource;
+    let shipping = 0;
+    let customerId = pre.customerId;
+    let customerSnapshot = preObj.customerSnapshot || null;
+    let notes = pre.notes;
+    let issueDate = new Date();
+    let issueTime;
+    let salesRepId;
+    let salesRepName;
+    let status = 'draft';
+
+    // An accepted quotation already took its quantities out (see the PUT
+    // route). If the invoice keeps the same items and quantities, that
+    // reservation simply moves to it — paying it later won't take them again.
+    // If the form changed them, the reservation is released and the invoice
+    // takes its own lines when it's paid.
+    const reserved = Boolean(pre.stockDecremented);
+    const keepsReservation = reserved && (!draft || stockSignature(draft.lineItems) === stockSignature(pre.lineItems));
+    if (reserved && !keepsReservation) {
+      if (touchesInventory(pre.lineItems)) {
+        const perms = await getEffectivePermissions(userId);
+        if (!perms.has('inventory:quantity:edit')) {
+          return res.status(403).json({
+            message: 'Changing the items of an accepted quotation puts its reserved stock back — inventory quantity permission required',
+            requiredPermission: 'inventory:quantity:edit',
+          });
+        }
+      }
+      await restoreStock(pre, userId, actorName, `${docLabelOf(pre)} #${pre.docNumber} converted with different items — reservation released`);
+    }
+
+    if (draft) {
+      if (!keepsReservation) {
+        const overages = await findStockOverages(draft.lineItems);
+        if (overages.length) {
+          return res.status(400).json({ message: 'Requested quantity exceeds available stock', overages });
+        }
+      }
+      lineSource = draft.lineItems;
+      shipping = Number(draft.shipping) || 0;
+      if (!isInterBranch) {
+        // An invoice needs a customer — the quotation may not have had one.
+        const cid = draft.customerId || pre.customerId;
+        if (!cid || !mongoose.Types.ObjectId.isValid(cid)) {
+          return res.status(400).json({ message: 'Customer is required' });
+        }
+        const snap = await buildCustomerSnapshot(cid, draft.customerSnapshot);
+        if (!snap) return res.status(404).json({ message: 'Customer not found' });
+        customerId = cid;
+        customerSnapshot = snap;
+      }
+      if (draft.notes !== undefined) notes = draft.notes;
+      if (draft.issueDate) issueDate = new Date(draft.issueDate);
+      issueTime = draft.issueTime;
+      salesRepId = draft.salesRepId;
+      salesRepName = draft.salesRepName;
+      // Payment-driven statuses go through the payment route (and 'paid'
+      // carries the stock decrement), so a fresh conversion is draft or issued.
+      if (draft.status === 'issued') status = 'issued';
+    } else {
+      lineSource = pre.lineItems.map(l => l.toObject ? l.toObject() : l);
+    }
+
+    // recompute totals as an invoice
+    const totals = computeTotals(lineSource, shipping);
 
     const invoice = await MisInvoice.create({
       branchId: pre.branchId,                              // converted invoice stays in the pre-invoice's branch
       docType: 'invoice',
       docNumber: await nextDocNumber(pre.branchId, 'invoice'),   // NEW per-branch invoice number
-      status: 'draft',
-      issueDate: new Date(),
-      customerId: pre.customerId,
-      customerSnapshot: pre.customerSnapshot,
+      status,
+      tradeMode: pre.tradeMode,
+      requestingBranchId: pre.requestingBranchId,
+      requestingBranchSnapshot: pre.requestingBranchSnapshot,
+      issueDate,
+      issueTime,
+      customerId: isInterBranch ? undefined : customerId,
+      ...(!isInterBranch && customerSnapshot ? { customerSnapshot } : {}),
       lineItems: totals.lines,
       currency: 'AED',
       subtotal:      totals.subtotal,
       discountTotal: totals.discountTotal,
       vatTotal:      totals.vatTotal,
-      shipping:      0,
+      shipping:      totals.shipping,
       grandTotal:    totals.grandTotal,
       amountInWords: amountToArabicWords(totals.grandTotal),
+      salesRepId,
+      salesRepName,
       convertedFromPreInvoiceId: pre._id,
-      notes: pre.notes,
+      // Carries the accepted quotation's reservation (see above).
+      stockDecremented: keepsReservation,
+      // The quotation's supply-record link travels with it — an invoice raised
+      // from a lot stays visible under that lot.
+      supplyRecordId: pre.supplyRecordId || undefined,
+      notes,
       insertDate: new Date(),
       createdBy: userId,
     });
 
     await MisInvoice.updateOne(
       { _id: pre._id },
-      { $set: { status: 'converted', convertedToInvoiceId: invoice._id, updateDate: new Date(), updatedBy: userId } }
+      { $set: {
+        status: 'converted', convertedToInvoiceId: invoice._id, updateDate: new Date(), updatedBy: userId,
+        // the reservation now belongs to the invoice
+        ...(keepsReservation ? { stockDecremented: false } : {}),
+      } }
     );
+    if (keepsReservation) {
+      await logActivity(invoice._id, 'invoice', 'stock_decremented', {
+        body: `Already out of stock — reserved when ${docLabelOf(pre).toLowerCase()} #${pre.docNumber} was accepted`,
+      }, userId, actorName);
+    }
 
     await logActivity(pre._id, 'pre_invoice', 'converted',
       { newValue: invoice.docNumber }, userId, actorName);
     await logActivity(invoice._id, 'invoice', 'created',
       { body: `Converted from pre-invoice #${pre.docNumber}`, newValue: invoice.docNumber }, userId, actorName);
 
+    // The requesting branch asked for this — tell them it became a real invoice.
+    await notifyCrossBranchCounterparty(pre, {
+      textKey: 'misCrossBranchConverted',
+      textParams: { docNumber: pre.docNumber, invoiceNumber: invoice.docNumber, actorName },
+      actorId: userId,
+    });
+
     return res.status(201).json(invoice);
   } catch (err) {
+    // Logged, not swallowed — this path previously reported a bare 500 with no
+    // trace of the underlying validation failure.
+    console.error('POST /mis/invoices/:id/convert failed:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1108,6 +1679,41 @@ router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission
     }
 
     return res.status(200).json(updated);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Attach this document to a Supply record, or detach it (send supplyRecordId
+// null/empty). The link is validated against the doc's OWN branch, so a doc can
+// never be attached to another branch's sourcing effort.
+router.put('/invoices/:id/supply-record', verify, loadInvoice, requireDocTypePermission('edit'), async (req, res) => {
+  try {
+    const doc    = req.misInvoice;
+    const userId = req.user.id;
+    const actorName = await getActorName(userId);
+
+    const raw = req.body.supplyRecordId;
+    const clearing = raw === null || raw === undefined || raw === '';
+    const resolved = clearing ? null : await resolveSupplyRecordId(raw, doc.branchId);
+    if (!clearing && !resolved) {
+      return res.status(400).json({ message: 'Supply record not found in this branch' });
+    }
+
+    const updated = await MisInvoice.findOneAndUpdate(
+      { _id: doc._id },
+      { $set: { supplyRecordId: resolved, updateDate: new Date(), updatedBy: userId } },
+      { new: true }
+    ).lean();
+
+    await logActivity(doc._id, doc.docType, 'updated', {
+      field: 'supplyRecordId',
+      oldValue: doc.supplyRecordId ? String(doc.supplyRecordId) : null,
+      newValue: resolved ? String(resolved) : null,
+      body: resolved ? 'Linked to a supply record' : 'Unlinked from its supply record',
+    }, userId, actorName);
+
+    return res.status(200).json({ data: updated });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

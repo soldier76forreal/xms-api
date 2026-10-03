@@ -27,20 +27,30 @@ const userSchema = new mongoose.Schema({
   lastName:    { type: String, require: true, min: 1,  max: 50   },
   phoneNumber: { type: String, require: true, unique: true       },
 
-  // ── Deprecated auth fields (kept for migration) ───────────────────────────
-  password:     { type: String, min: 8, max: 1024 },  // deprecated — OTP replaces this
-  oldPasswords: { type: Array },                        // deprecated
-  passwordReset:{ type: Array },                        // deprecated
+  // ── Credentials ───────────────────────────────────────────────────────────
+  // bcrypt hash. No longer deprecated: SMS/OTP login was retired, so this is
+  // the ONLY credential. Written by PUT /users/me/password (self-service) and
+  // POST /users/:id/password (admin reset); read by authApi /auth/loginPassword.
+  password:     { type: String, min: 8, max: 1024 },
+  oldPasswords: { type: Array },                        // previous hashes, newest last
+  passwordReset:{ type: Array },                        // legacy, unused
 
-  // ── OTP / login security (Phase 4) ────────────────────────────────────────
+  // ── Login security ────────────────────────────────────────────────────────
+  // The otp* fields are retained so existing documents keep validating and the
+  // OTP path can be switched back on (see OTP_LOGIN_ENABLED in authApi), but
+  // nothing writes them while SMS login is off.
   auth: {
-    otpHash:           { type: String, default: null },  // bcrypt(otp)
-    otpExpiresAt:      { type: Date,   default: null },  // now + 3 min
-    otpLastSentAt:     { type: Date,   default: null },  // last SMS send time
-    otpSendCount:      { type: Number, default: 0    },  // sends in current window
-    otpWindowStart:    { type: Date,   default: null },  // start of send-throttle window
-    failedOtpAttempts: { type: Number, default: 0    },  // wrong-code counter
-    lockedUntil:       { type: Date,   default: null },  // 5 fails → now + 2h
+    otpHash:           { type: String, default: null },  // bcrypt(otp) — dormant
+    otpExpiresAt:      { type: Date,   default: null },  // dormant
+    otpLastSentAt:     { type: Date,   default: null },  // dormant
+    otpSendCount:      { type: Number, default: 0    },  // dormant
+    otpWindowStart:    { type: Date,   default: null },  // dormant
+    failedOtpAttempts: { type: Number, default: 0    },  // dormant
+    // Declared here too (it already existed on authApi's copy) so xmsApi's
+    // password routes can actually clear it — an undeclared path would be
+    // silently dropped by Mongoose strict mode.
+    failedPasswordAttempts: { type: Number, default: 0 },
+    lockedUntil:       { type: Date,   default: null },  // 10 wrong passwords → now + 2h
   },
 
   // ── Presence (Phase 4 — updated by Socket.io) ─────────────────────────────

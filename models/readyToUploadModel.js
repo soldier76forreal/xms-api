@@ -15,6 +15,19 @@ const readyToUploadFileSchema = new mongoose.Schema({
   addedAt:   { type: Date, default: Date.now },
 }, { _id: false });
 
+// Same shape/reasoning as rawContentModel.js's rawContentProductSchema — a
+// snapshot, not a live-joined reference, looked up via the branch-scoped
+// GET /digitalMarketing/inventory-lookup.
+const readyToUploadProductSchema = new mongoose.Schema({
+  productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  variantId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  code:      { type: String },
+  productName: { type: String },
+  branchId:  { type: mongoose.Schema.Types.ObjectId, default: null },
+  branchName: { type: String },
+  addedAt:   { type: Date, default: Date.now },
+}, { _id: false });
+
 const readyToUploadSchema = new mongoose.Schema({
   rawContentId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
 
@@ -25,6 +38,9 @@ const readyToUploadSchema = new mongoose.Schema({
   language: { type: String, default: '' },
   platform: { type: String, default: '' },   // Post / Reels / Story / YouTube Short / TikTok post / … (free text, extensible)
   caption:  { type: String, default: '' },
+
+  // Inventory varieties this content is about/for — see readyToUploadProductSchema.
+  products: [readyToUploadProductSchema],
 
   owner: { type: mongoose.Schema.Types.ObjectId },
 

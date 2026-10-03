@@ -30,6 +30,15 @@ const inventoryVariantSchema = new mongoose.Schema({
   categories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'inventoryCategory' }],
   unit:     { type: String, enum: ['M2', 'ML', 'PCS', 'SQFT', 'LNFT'], default: 'M2' },
   quantity: { type: Number, default: 0 },
+  // Supply (Session 72) — in-progress stone-coupe quantity from the Supply
+  // module, shown ALONGSIDE `quantity` but never merged into it. Only an
+  // explicit "receive into warehouse" action (routes/supply/main.js) moves an
+  // amount out of supply.finalQty and into real, sellable `quantity` above.
+  // Recomputed by utils/supplyRollup.js — never written to directly elsewhere.
+  supply: {
+    forecastQty: { type: Number, default: 0 },
+    finalQty:    { type: Number, default: 0 },
+  },
   price:    { type: Number, default: null },
   currency: { type: String, default: 'AED' },
   status:   { type: String, enum: ['active', 'archived'], default: 'active' },

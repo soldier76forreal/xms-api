@@ -260,6 +260,78 @@ const TEMPLATES = {
     },
   },
 
+  // Session 72 — a cross-branch quotation was created against this (the
+  // recipient's) branch's Inventory/Supply, awaiting approval.
+  misCrossBranchQuoteReceived: {
+    en: ({ docNumber, fromBranch }) => ({
+      title: `New inter-branch quote #${docNumber}`,
+      body: `${fromBranch} requested a quote against your branch`,
+    }),
+    fa: ({ docNumber, fromBranch }) => ({
+      title: `درخواست قیمت بین‌شعبه‌ای جدید #${docNumber}`,
+      body: `شعبه ${fromBranch} درخواست قیمتی برای شعبه شما ثبت کرد`,
+    }),
+    ar: ({ docNumber, fromBranch }) => ({
+      title: `طلب عرض سعر بين الفروع جديد #${docNumber}`,
+      body: `طلب فرع ${fromBranch} عرض سعر من فرعك`,
+    }),
+  },
+
+  // Cross-branch request lifecycle — the counterparty branch hears about every
+  // move on a document both branches can see.
+  misCrossBranchStatusChanged: {
+    en: ({ docNumber, status, actorName }) => ({
+      title: `Request #${docNumber} is now ${String(status).replace(/_/g, ' ')}`,
+      body: `${actorName} updated the status of this inter-branch document`,
+    }),
+    fa: ({ docNumber, status, actorName }) => {
+      const map = { requested: 'درخواست‌شده', draft: 'پیش‌نویس', sent: 'ارسال‌شده',
+        accepted: 'تأییدشده', converted: 'تبدیل‌شده', expired: 'منقضی' };
+      return {
+        title: `وضعیت درخواست #${docNumber} اکنون ${map[status] || status} است`,
+        body: `${actorName} وضعیت این سند بین‌شعبه‌ای را تغییر داد`,
+      };
+    },
+    ar: ({ docNumber, status, actorName }) => {
+      const map = { requested: 'مطلوب', draft: 'مسودة', sent: 'مُرسل',
+        accepted: 'مقبول', converted: 'محوَّل', expired: 'منتهي' };
+      return {
+        title: `حالة الطلب رقم ${docNumber} أصبحت ${map[status] || status}`,
+        body: `${actorName} حدّث حالة هذا المستند بين الفروع`,
+      };
+    },
+  },
+
+  misCrossBranchUpdated: {
+    en: ({ docNumber, actorName }) => ({
+      title: `Request #${docNumber} was updated`,
+      body: `${actorName} changed the items or pricing on this inter-branch document`,
+    }),
+    fa: ({ docNumber, actorName }) => ({
+      title: `درخواست #${docNumber} بروزرسانی شد`,
+      body: `${actorName} اقلام یا قیمت‌های این سند بین‌شعبه‌ای را تغییر داد`,
+    }),
+    ar: ({ docNumber, actorName }) => ({
+      title: `تم تحديث الطلب رقم ${docNumber}`,
+      body: `${actorName} غيّر الأصناف أو الأسعار في هذا المستند بين الفروع`,
+    }),
+  },
+
+  misCrossBranchConverted: {
+    en: ({ docNumber, invoiceNumber, actorName }) => ({
+      title: `Request #${docNumber} became invoice #${invoiceNumber}`,
+      body: `${actorName} approved your request and issued an invoice`,
+    }),
+    fa: ({ docNumber, invoiceNumber, actorName }) => ({
+      title: `درخواست #${docNumber} به فاکتور #${invoiceNumber} تبدیل شد`,
+      body: `${actorName} درخواست شما را تأیید و فاکتور صادر کرد`,
+    }),
+    ar: ({ docNumber, invoiceNumber, actorName }) => ({
+      title: `تحوّل الطلب رقم ${docNumber} إلى فاتورة رقم ${invoiceNumber}`,
+      body: `${actorName} وافق على طلبك وأصدر فاتورة`,
+    }),
+  },
+
   taskAssignedUser: {
     en: ({ title, description }) => ({ title: `New task: ${title}`, body: description }),
     fa: ({ title, description }) => ({ title: `وظیفه جدید: ${title}`, body: description }),
