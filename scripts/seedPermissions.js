@@ -11,12 +11,9 @@ const mongoose = require('mongoose');
 const permissionSchema = require('../models/permissionModel');
 const roleSchema       = require('../models/roleModel');
 
-// Mongoose 6: the old v5 flags (useNewUrlParser/useUnifiedTopology/useFindAndModify)
-// are defaults now and passing them throws MongoParseError.
-const dbConnection = mongoose.createConnection(process.env.DB_CONNECT);
-
-const Permission = dbConnection.model('permission', permissionSchema);
-const Role       = dbConnection.model('role',       roleSchema);
+// The connection is opened only when this file is RUN (see seed()), so other
+// scripts — e.g. seedTestDeployment.js — can import the catalog below
+// without connecting to anything.
 
 // Wait for connection (Mongoose v5 compatible)
 function waitForConnection(conn) {
@@ -184,7 +181,9 @@ const ROLES = [
   {
     name: 'InventoryManager',
     description: 'Inventory manager — all inventory permissions',
-    permissions: ALL_KEYS.filter(k => k.startsWith('inventory:')),
+    // Forecast access (inventory:forecast:*) is granted deliberately per user,
+    // not bundled with managing one's own inventory.
+    permissions: ALL_KEYS.filter(k => k.startsWith('inventory:') && !k.startsWith('inventory:forecast:')),
     isSystem: false,
   },
   {
@@ -202,6 +201,11 @@ const RENAMED_KEYS = [
 ];
 
 async function seed() {
+  // Mongoose 6: the old v5 flags (useNewUrlParser/useUnifiedTopology/useFindAndModify)
+  // are defaults now and passing them throws MongoParseError.
+  const dbConnection = mongoose.createConnection(process.env.DB_CONNECT);
+  const Permission = dbConnection.model('permission', permissionSchema);
+  const Role       = dbConnection.model('role',       roleSchema);
   await waitForConnection(dbConnection);
   console.log('Connected to DB. Seeding permissions...');
 
@@ -239,4 +243,8 @@ async function seed() {
   process.exit(0);
 }
 
-seed().catch(err => { console.error(err); process.exit(1); });
+if (require.main === module) {
+  seed().catch(err => { console.error(err); process.exit(1); });
+}
+
+module.exports = { PERMISSIONS, ROLES, ALL_KEYS, RENAMED_KEYS };
