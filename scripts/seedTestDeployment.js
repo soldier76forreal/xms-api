@@ -26,9 +26,10 @@
  * Passwords are NOT in this file, only their bcrypt hashes. The passwords are
  * handed over with the deployment.
  *
- * It never deletes or overwrites anything, and it stops before writing if a
- * seed user's or seed customer's phone number, or stock in one of the seed
- * branches, is already in the database.
+ * It only fills an EMPTY database: it stops before writing anything if the
+ * database already has users, customers, or stock in one of the seed branches
+ * (a permission catalog, roles or branches on their own are fine and are
+ * reused). It never deletes or overwrites anything.
  *
  * Usage (from api/):
  *   node scripts/seedTestDeployment.js                          dry run on DB_CONNECT
@@ -57,12 +58,11 @@ if (!process.env.DB_CONNECT) {
 }
 
 const mongoose = require('mongoose');
-// A dry run leaves the database exactly as it found it, down to the empty
-// collections and indexes Mongoose creates when it first compiles a model.
-if (!APPLY) {
-  mongoose.set('autoCreate', false);
-  mongoose.set('autoIndex', false);
-}
+// Nothing touches the database before the pre-flight checks pass, not even the
+// empty collections and indexes Mongoose creates when it compiles a model.
+// --yes builds the indexes explicitly once the checks have passed.
+mongoose.set('autoCreate', false);
+mongoose.set('autoIndex', false);
 
 const { EJSON } = require('bson');
 // The app's own connection and model names, so every write lands in exactly
@@ -1201,12 +1201,16 @@ async function main() {
   console.log(`Database: ${maskUri(process.env.DB_CONNECT)} (${dbConnection.name})`);
   console.log(APPLY ? '*** APPLY — writing ***\n' : '--- DRY RUN — nothing is written (add --yes to apply) ---\n');
 
-  // ── pre-flight: refuse anything that would collide ──
+  // ── pre-flight: only an empty database ──
+  // Real users or customers mean this is somebody's working data (on a server,
+  // a missing --db falls back to the API's own .env database), so stop.
   const problems = [];
   const takenPhones = await User.find({ phoneNumber: { $in: USERS.map((u) => u.phone) } }).select('phoneNumber').lean();
   if (takenPhones.length) problems.push(`users already exist with ${takenPhones.map((u) => u.phoneNumber).join(', ')} — this database looks seeded already`);
-  const takenCustomers = await Customer.find({ phoneNumber: { $in: CUSTOMERS.map((c) => c.phone) }, deleteDate: null }).select('phoneNumber').lean();
-  if (takenCustomers.length) problems.push(`customers already exist with ${takenCustomers.map((c) => c.phoneNumber).join(', ')}`);
+  const userCount = await User.countDocuments({});
+  if (userCount > takenPhones.length) problems.push(`the database already has ${userCount} user(s) — is DB_CONNECT / --db pointing at a real database?`);
+  const customerCount = await Customer.countDocuments({});
+  if (customerCount) problems.push(`the database already has ${customerCount} customer(s)`);
   const existingBranches = await Branch.find({ name: { $in: BRANCHES.map((b) => b.name) }, deleteDate: null }).lean();
   for (const b of existingBranches) {
     const n = await InvProduct.countDocuments({ branchId: b._id, deleteDate: null });
@@ -1271,6 +1275,7 @@ async function main() {
     InvProduct, InvVariant, InvChangeLog, SupplyRecord, SupplyDealLetter, SupplyDealLetterActivity,
     MisInvoice, InvoiceActivity, InvoiceCounter, MisPackingList, MisPackingListActivity, Sequence]) {
     await M.init();
+    await M.createIndexes();
   }
 
   // Reserve the numbers atomically, then rebuild from what was actually
