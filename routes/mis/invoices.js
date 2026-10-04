@@ -533,6 +533,41 @@ const requireAnyPermission = (keys) => async (req, res, next) => {
   }
 };
 
+// ── Who may change an inter-branch document ───────────────────────────────────
+// It belongs to the branch it was sent to (doc.branchId): that side prices it,
+// moves it on, converts it, takes its payments, assigns it and links it. The
+// requesting branch follows along read-only, except that it may still correct
+// or withdraw its own request while it waits to be answered ('requested').
+// Ordinary customer documents are unaffected. Both guards run after loadInvoice.
+async function isFulfillingSide(userId, doc) {
+  if (doc.tradeMode !== 'interBranch') return true;
+  return assertBranchAccess(userId, doc.branchId);
+}
+
+async function canChangeDoc(userId, doc) {
+  if (await isFulfillingSide(userId, doc)) return true;
+  if (doc.docType !== 'pre_invoice' || doc.status !== 'requested' || !doc.requestingBranchId) return false;
+  return assertBranchAccess(userId, doc.requestingBranchId);
+}
+
+const requireDocChange = async (req, res, next) => {
+  try {
+    if (await canChangeDoc(req.user.id, req.misInvoice)) return next();
+    return res.status(403).json({ message: 'Only the branch this was sent to can change it once it has been answered' });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+const requireFulfillingSide = async (req, res, next) => {
+  try {
+    if (await isFulfillingSide(req.user.id, req.misInvoice)) return next();
+    return res.status(403).json({ message: 'Only the branch this was sent to can do that' });
+  } catch (err) {
+    return next(err);
+  }
+};
+
 // ── GET /mis/products-lookup — inventory line picker (BEFORE /invoices/:id) ───
 // Returns matching varieties WITH their active variants (code/unit/price) so the
 // form can add variant-level snapshot lines. Reuses inventory data read-only.
@@ -1130,7 +1165,7 @@ router.post('/invoices', verify, requireDocTypePermission('create'), async (req,
 });
 
 // ── PUT /mis/invoices/:id — update (recompute totals + activity) ──────────────
-router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'), async (req, res) => {
+router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'), requireDocChange, async (req, res) => {
   try {
     const userId = req.user.id;
     const doc    = req.misInvoice;
@@ -1323,7 +1358,7 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
 });
 
 // ── DELETE /mis/invoices/:id — soft delete (+ activity) ───────────────────────
-router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('delete'), async (req, res) => {
+router.delete('/invoices/:id', verify, loadInvoice, requireDocTypePermission('delete'), requireDocChange, async (req, res) => {
   try {
     const userId = req.user.id;
     const doc    = req.misInvoice;
@@ -1580,7 +1615,7 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
 });
 
 // ── PUT /mis/invoices/:id/payment — payment block (invoice only) ──────────────
-router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:payment:edit'), async (req, res) => {
+router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:payment:edit'), requireFulfillingSide, async (req, res) => {
   try {
     const doc = req.misInvoice;
     if (doc.docType !== 'invoice') {
@@ -1645,7 +1680,7 @@ router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:
 // or a view-only role. Gated by :edit for the doc type (assigning is a mutation
 // of the doc). Each newly-added assignee gets a notification. assignedTo is a
 // full replace of the set the caller sends (so it doubles as "unassign").
-router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission('edit'), async (req, res) => {
+router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission('edit'), requireFulfillingSide, async (req, res) => {
   try {
     const doc    = req.misInvoice;
     const userId = req.user.id;
@@ -1687,7 +1722,7 @@ router.put('/invoices/:id/assign', verify, loadInvoice, requireDocTypePermission
 // Attach this document to a Supply record, or detach it (send supplyRecordId
 // null/empty). The link is validated against the doc's OWN branch, so a doc can
 // never be attached to another branch's sourcing effort.
-router.put('/invoices/:id/supply-record', verify, loadInvoice, requireDocTypePermission('edit'), async (req, res) => {
+router.put('/invoices/:id/supply-record', verify, loadInvoice, requireDocTypePermission('edit'), requireFulfillingSide, async (req, res) => {
   try {
     const doc    = req.misInvoice;
     const userId = req.user.id;

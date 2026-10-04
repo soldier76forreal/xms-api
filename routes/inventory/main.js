@@ -1591,7 +1591,9 @@ router.get('/media', verify, requirePermission('inventory:view'), async (req, re
     ? await InvVariant.findOne({ _id: attachedToId, deleteDate: null }).select('branchId').lean()
     : await InvProduct.findOne({ _id: attachedToId, deleteDate: null }).select('branchId').lean();
   if (!owner) return res.status(404).json({ message: 'Not found' });
-  if (!(await assertBranchAccess(req.user.id, owner.branchId))) {
+  // Reading is open to a branch the owner SHARED its catalogue with (they see
+  // the product, so they see its photos); every media write stays own-branch.
+  if (!(await assertBranchReadAccess(req.user.id, owner.branchId))) {
     return res.status(403).json({ message: 'You do not have access to this branch' });
   }
 
