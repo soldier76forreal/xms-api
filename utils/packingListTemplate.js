@@ -190,6 +190,9 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
 <meta name="color-scheme" content="only light"/>
 <title>${esc(L.plConsolidatedTitle)} ${esc(doc.docNumber)}</title>
 <style>${baseStyles}
+  /* The browser prints this document too (Save as PDF), not only the server —
+     so it declares its own paper size. */
+  @page { size: A4; margin: 10mm; }
   body { direction: ${L.dir}; }
   .page { width: 190mm; margin: 0 auto; padding: 4mm 0; }
 </style>
@@ -253,6 +256,9 @@ function renderClassicPalletLabelHtml(doc, pallet, branch, profile = {}, lang) {
 <meta name="color-scheme" content="only light"/>
 <title>${esc(L.labelPalletId)} ${esc(pallet.palletId)}</title>
 <style>${baseStyles}
+  /* Same size labelPageSize('slab') hands the server renderer; declared here so
+     a browser print uses it too instead of A4/Letter. */
+  @page { size: 100mm 150mm; margin: 0; }
   body { direction: ${L.dir}; }
   .page { width: 90mm; margin: 0 auto; padding: 4mm; }
   .pallet-head { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0; }
@@ -330,6 +336,9 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
   const grades = [...new Set(rows.map((r) => r.grade).filter(Boolean))];
   const quality = grades.join('/');
   const n = rows.length;
+  // One grade letter is set big; a pallet mixing grades ("Q/W") has to shrink to
+  // stay inside the 28 mm cell instead of being clipped at the label's edge.
+  const qualityPt = Math.round(Math.min(48, 26 + n * 8) * (quality.length <= 1 ? 1 : Math.max(0.35, 2.2 / quality.length)));
   // Cells are a fixed 17 mm wide; a longer value (a 5-digit pallet code, a
   // 4-digit piece count) steps the font down instead of spilling over.
   const fit = (text, base = 16) => {
@@ -360,12 +369,17 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
 <meta name="color-scheme" content="only light"/>
 <title>Short pallet ${esc(pallet.palletId)}</title>
 <style>
-  @page { margin: 0; }
+  /* Same size labelPageSize('short', pallet) hands the server renderer. */
+  @page { size: ${labelPageSize('short', pallet).width} ${labelPageSize('short', pallet).height}; margin: 0; }
   :root { color-scheme: only light; }
-  html, body { background: #ffffff; margin: 0; }
+  /* The page is exactly rows x 12 mm + 8 mm tall, but the table's 0.35 mm
+     collapsed borders make its content a hair taller — enough to spill a sliver
+     onto a SECOND page (a blank label from the printer). Pin everything to the
+     page height and clip: any overflow lands in the strip's own padding. */
+  html, body { background: #ffffff; margin: 0; height: ${labelPageSize('short', pallet).height}; overflow: hidden; }
   * { box-sizing: border-box; }
   body { font-family: Cambria, Georgia, 'Times New Roman', serif; color: #111; }
-  .strip { display: flex; align-items: center; gap: 3mm; padding: 4mm 4mm; }
+  .strip { display: flex; align-items: center; gap: 3mm; padding: 4mm 4mm; height: ${labelPageSize('short', pallet).height}; }
   .num { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 15pt;
          min-width: 9mm; text-align: center; }
   table.lbl { border-collapse: collapse; width: 160mm; table-layout: fixed; }
@@ -377,7 +391,7 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
   td.logo { width: 29mm; padding: 1mm; }
   td.logo img { max-width: 100%; max-height: ${SHORT_ROW_MM * (n + 2) - 3}mm; display: block; margin: 0 auto; }
   td.q { width: 28mm; font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-weight: 300;
-         font-size: ${Math.min(48, 26 + n * 8)}pt; line-height: 1; }
+         font-size: ${qualityPt}pt; line-height: 1; }
   td.made { font-weight: 700; font-size: 14pt; }
 </style>
 </head>
