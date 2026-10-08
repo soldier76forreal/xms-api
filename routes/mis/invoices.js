@@ -1189,6 +1189,16 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
       delete req.body.customerSnapshot;
     }
 
+    // A website offer that is still open is what the customer was e-mailed and is
+    // looking at on their dashboard - its items and prices don't change behind
+    // their back. Withdraw it (Requests > Customer-branch requests) and send a new one.
+    if (doc.priceRequestId && doc.docType === 'pre_invoice' && doc.status === 'sent'
+        && doc.validUntil && doc.validUntil > new Date() && req.body.lineItems !== undefined) {
+      return res.status(409).json({
+        message: 'This offer is live on the website - withdraw it and send a new one to change its items or prices',
+      });
+    }
+
     // ── Stock follows acceptance (see "Stock commitment" above) ──
     const isQuote = doc.docType === 'pre_invoice';
     const effectiveLines = req.body.lineItems !== undefined ? req.body.lineItems : doc.lineItems;
@@ -1574,6 +1584,8 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
       // The quotation's supply-record link travels with it — an invoice raised
       // from a lot stays visible under that lot.
       supplyRecordId: pre.supplyRecordId || undefined,
+      // an offer made for a website request: its invoice stays visible to that customer
+      priceRequestId: pre.priceRequestId || undefined,
       notes,
       insertDate: new Date(),
       createdBy: userId,
@@ -1759,3 +1771,12 @@ module.exports = router;
 module.exports.computeTotals = computeTotals;
 module.exports.nextDocNumber = nextDocNumber;
 module.exports.logActivity   = logActivity;
+// Used by utils/websiteOffers.js — a website price-request offer is an ordinary
+// quotation, so it builds, renders, reserves stock and converts through these
+// very same functions instead of keeping a second copy of the rules.
+module.exports.loadProfile            = loadProfile;
+module.exports.resolveTemplateVariant = resolveTemplateVariant;
+module.exports.findStockOverages      = findStockOverages;
+module.exports.issueStockDecrement    = issueStockDecrement;
+module.exports.restoreStock           = restoreStock;
+module.exports.buildCustomerSnapshot  = buildCustomerSnapshot;

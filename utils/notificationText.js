@@ -56,6 +56,37 @@ const TEMPLATES = {
     }),
   },
 
+  // The customer answered a website price offer (utils/websiteOffers.js).
+  websiteOfferAccepted: {
+    en: ({ customerName, offerNumber, invoiceNumber }) => ({
+      title: 'Customer accepted your offer',
+      body: `${customerName || 'A customer'} accepted offer #${offerNumber} — invoice #${invoiceNumber} was created`,
+    }),
+    fa: ({ customerName, offerNumber, invoiceNumber }) => ({
+      title: 'مشتری پیشنهاد شما را پذیرفت',
+      body: `${customerName || 'یک مشتری'} پیشنهاد شماره ${offerNumber} را پذیرفت — فاکتور شماره ${invoiceNumber} صادر شد`,
+    }),
+    ar: ({ customerName, offerNumber, invoiceNumber }) => ({
+      title: 'قبل العميل عرضك',
+      body: `قبل ${customerName || 'عميل'} العرض رقم ${offerNumber} — تم إنشاء الفاتورة رقم ${invoiceNumber}`,
+    }),
+  },
+
+  websiteOfferExpired: {
+    en: ({ customerName, offerNumber }) => ({
+      title: 'Price offer expired',
+      body: `Offer #${offerNumber} for ${customerName || 'the customer'} ran out without an answer`,
+    }),
+    fa: ({ customerName, offerNumber }) => ({
+      title: 'پیشنهاد قیمت منقضی شد',
+      body: `پیشنهاد شماره ${offerNumber} برای ${customerName || 'مشتری'} بدون پاسخ منقضی شد`,
+    }),
+    ar: ({ customerName, offerNumber }) => ({
+      title: 'انتهى عرض السعر',
+      body: `انتهى العرض رقم ${offerNumber} للعميل ${customerName || ''} دون رد`,
+    }),
+  },
+
   crmAssignmentGroup: {
     en: ({ taskTitle, count, groupName }) => ({
       title: `New group CRM assignment: ${taskTitle}`,

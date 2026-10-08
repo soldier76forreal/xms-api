@@ -4,7 +4,8 @@ const jwt = require('jsonwebtoken');
 // a separate middleware and a separate req property (req.visitor, never
 // req.user) so a website-visitor token can never be mistaken for a staff
 // token by any existing `verify`-gated route, or vice versa. Issued only by
-// POST /public/website/otp/verify, payload shape { customerId, type:'websiteVisitor' }.
+// POST /public/website/otp/verify. Route-level capability checks keep request
+// history read-only tokens separate from checkout request-creation tokens.
 module.exports = function requireWebsiteVisitor(req, res, next) {
   const header = req.headers.authorization;
   if (!header) return res.status(401).json({ message: 'Not authenticated' });

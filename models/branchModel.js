@@ -15,11 +15,16 @@ const branchSchema = new mongoose.Schema({
   // branch via xms/src/components/crm/util/countryData.js. Optional: existing
   // branches predate this field and simply show no flag until an admin sets it.
   country:     { type: String, default: null },
+  websiteSlug: { type: String, default: '' },
+  flagImage:   { type: String, default: '' },
   // Which staff get notified when a public-website price request comes in
   // for a product tagged to this branch (see POST /public/website/price-requests).
   // Editable via the same Branch edit form as everything else above —
   // superAdmin-only, no separate permission key.
   priceRequestNotifyUsers: [{ type: mongoose.Schema.Types.ObjectId }],
+  // Associates responsible for website purchase requests. The legacy
+  // priceRequestNotifyUsers field remains readable during migration.
+  associates: [{ type: mongoose.Schema.Types.ObjectId }],
   // Which OTHER branches may browse THIS branch's Inventory + Supply and raise
   // stock requests against it. Direction matters: the list lives on the branch
   // being SHARED, so "Isfahan grants KSA" is an entry on Isfahan. Empty (the

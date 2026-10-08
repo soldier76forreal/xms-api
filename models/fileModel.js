@@ -30,7 +30,7 @@ var fileSchema = new mongoose.Schema({
     attachedTo: {
       type: {
         type: String,
-        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'userJobReport', 'tutorial', 'linkPage', 'blogPost', 'supplyDealLetterActivity'],
+        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'userJobReport', 'tutorial', 'linkPage', 'blogPost', 'supplyDealLetterActivity', 'websiteProduct'],
       },
       id: { type: mongoose.Schema.Types.ObjectId },
     },

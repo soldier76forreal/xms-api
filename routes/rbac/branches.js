@@ -1,7 +1,13 @@
 const express  = require('express');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const sharp = require('sharp');
+const path = require('path');
+const crypto = require('crypto');
+const { mkdir, writeFile } = require('fs/promises');
 const verify   = require('../users/verifyToken');
 const { requireSuperAdmin, isSuperAdmin, getUserBranches, assertBranchAccess, Branch, UserAccess } = require('../../utils/rbac');
+const { websiteBranchSlug, validWebsiteBranchSlug } = require('../../utils/websiteBranchSlug');
 
 const dbConnection = require('../../connections/xmsPr');
 const inventoryProductSchema = require('../../models/inventoryProductModel');
@@ -19,6 +25,16 @@ const SupplyRecord   = dbConnection.models.supplyRecord     || dbConnection.mode
 const User           = dbConnection.models.user             || dbConnection.model('user',             userSchema);
 
 const router = express.Router();
+const flagUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, ['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)),
+}).single('flag');
+
+async function slugConflict(slug, currentId) {
+  const branches = await Branch.find({ deleteDate: null }).select('_id name websiteSlug').lean();
+  return branches.some((branch) => String(branch._id) !== String(currentId || '') && websiteBranchSlug(branch) === slug);
+}
 
 // GET /branches — list. Any authenticated user can read (needed to render
 // their own branch switcher); mutations are superAdmin-only below. A non-
@@ -137,13 +153,21 @@ router.get('/:id/stats', verify, async (req, res) => {
 // POST /branches — create (superAdmin only)
 router.post('/', verify, requireSuperAdmin(), async (req, res) => {
   try {
+    const websiteSlug = websiteBranchSlug({ websiteSlug: req.body.websiteSlug, name: req.body.name });
+    if (!validWebsiteBranchSlug(websiteSlug) || await slugConflict(websiteSlug)) {
+      return res.status(400).json({ message: 'Choose a unique website path using lowercase letters, numbers and hyphens.' });
+    }
     const branch = await Branch.create({
       name: req.body.name,
+      websiteSlug,
       description: req.body.description || '',
       country: req.body.country || null,
       address: req.body.address || '',
       phone: req.body.phone || '',
       instagramHandle: req.body.instagramHandle || '',
+      associates: Array.isArray(req.body.associates)
+        ? [...new Set(req.body.associates.filter((id) => mongoose.Types.ObjectId.isValid(id)).map(String))]
+        : [],
       createdBy: req.user.id,
     });
     return res.status(201).json(branch);
@@ -156,8 +180,15 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
 // PUT /branches/:id — edit (superAdmin only)
 router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
   try {
+    const current = await Branch.findOne({ _id: req.params.id, deleteDate: null }).select('name websiteSlug').lean();
+    if (!current) return res.status(404).json({ message: 'Branch not found' });
+    const websiteSlug = websiteBranchSlug({ websiteSlug: req.body.websiteSlug || current.websiteSlug, name: req.body.name || current.name });
+    if (!validWebsiteBranchSlug(websiteSlug) || await slugConflict(websiteSlug, req.params.id)) {
+      return res.status(400).json({ message: 'Choose a unique website path using lowercase letters, numbers and hyphens.' });
+    }
     const updates = {
       name: req.body.name, description: req.body.description, status: req.body.status,
+      websiteSlug,
       country: req.body.country || null,
       address: req.body.address || '', phone: req.body.phone || '', instagramHandle: req.body.instagramHandle || '',
       updateDate: new Date(),
@@ -175,6 +206,11 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
     }
     if (Array.isArray(req.body.priceRequestNotifyUsers)) {
       updates.priceRequestNotifyUsers = req.body.priceRequestNotifyUsers;
+    }
+    if (Array.isArray(req.body.associates)) {
+      updates.associates = [...new Set(req.body.associates
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map(String))];
     }
     // Session 72 — per-branch MIS PDF template selection. Same conditional-touch
     // pattern as priceRequestNotifyUsers above: only written when the caller
@@ -196,6 +232,28 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
+});
+
+router.post('/:id/flag', verify, requireSuperAdmin(), (req, res) => {
+  flagUpload(req, res, async (uploadError) => {
+    if (uploadError) return res.status(400).json({ message: uploadError.message });
+    if (!req.file) return res.status(400).json({ message: 'Select a PNG, JPEG or WebP flag under 2 MB.' });
+    try {
+      const branch = await Branch.findOne({ _id: req.params.id, deleteDate: null });
+      if (!branch) return res.status(404).json({ message: 'Branch not found' });
+      const directory = path.join(__dirname, '../../public/uploads/branch-flags');
+      await mkdir(directory, { recursive: true });
+      const filename = crypto.randomUUID() + '.webp';
+      const content = await sharp(req.file.buffer).rotate().resize(128, 128, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 90 }).toBuffer();
+      await writeFile(path.join(directory, filename), content);
+      branch.flagImage = '/uploads/branch-flags/' + filename;
+      branch.updateDate = new Date();
+      await branch.save();
+      return res.status(200).json({ flagImage: branch.flagImage });
+    } catch (error) {
+      return res.status(400).json({ message: 'The selected flag image could not be processed.' });
+    }
+  });
 });
 
 // DELETE /branches/:id — soft delete (superAdmin only)

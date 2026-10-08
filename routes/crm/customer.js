@@ -17,7 +17,7 @@ const taskSchema             = require('../../models/taskModel');
 const fileSchema             = require('../../models/fileModel');
 
 const verify = require('../users/verifyToken');
-const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch } = require('../../utils/rbac');
+const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch, assertBranchAccess } = require('../../utils/rbac');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -284,6 +284,16 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
     // reverse lookup — who wants this product
     if (interestedIn && mongoose.Types.ObjectId.isValid(interestedIn)) {
       filters.push({ 'interestedProducts.productId': new mongoose.Types.ObjectId(interestedIn) });
+    }
+
+    if (req.query.branchId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.branchId)) {
+        return res.status(400).json({ message: 'Invalid branch id' });
+      }
+      if (!(await assertBranchAccess(userId, req.query.branchId))) {
+        return res.status(403).json({ message: 'You do not have access to this branch' });
+      }
+      filters.push({ branchId: new mongoose.Types.ObjectId(req.query.branchId) });
     }
 
     // "created by" filter — meaningless (and disabled client-side) when
@@ -820,7 +830,13 @@ router.get('/customers/:id/requests', verify, requirePermission('crm:view'), asy
       return { ...rest, codes };
     });
 
-    return res.status(200).json({ data, total, priceRequests });
+    // The offer (priced quotation) that answered each website request, if any.
+    const { offersByRequest, toStaffOffer } = require('../../utils/websiteOffers');
+    const offers = await offersByRequest(priceRequests.map((pr) => pr._id));
+    const now = new Date();
+    const requestsWithOffers = priceRequests.map((pr) => ({ ...pr, offer: toStaffOffer(offers.get(String(pr._id)), now) }));
+
+    return res.status(200).json({ data, total, priceRequests: requestsWithOffers });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }

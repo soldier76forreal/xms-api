@@ -24,6 +24,20 @@ const dateStr = (d) => {
   return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
 };
 
+// An absolute expiry (a website offer) in the clock of the branch that made it —
+// "07 Oct 2026, 17:30 GMT+4" — never the server's. en-GB for every language so
+// the digits and month names stay unambiguous on a printed page.
+const zonedWhen = (d, tz) => {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz || 'Asia/Dubai', day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
+    }).format(new Date(d));
+  } catch (_) {
+    return dateStr(d);
+  }
+};
+
 // LMC brand logo, embedded as a base64 data URI (read once at module load —
 // puppeteer renders from an in-memory HTML string with no server to fetch
 // static assets from, so a data URI is the reliable path).
@@ -252,7 +266,9 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
         ${isInvoice ? `<div class="words">${esc(L.amountInWords)}: <b>${esc(words)}</b></div>` : ''}
         ${isInvoice ? paymentBlock(doc, L) : ''}
         ${isInvoice && doc.salesRepName ? `<div class="muted">${esc(L.salesRep)}: <b>${esc(doc.salesRepName)}</b></div>` : ''}
-        ${!isInvoice && doc.validityDays ? `<div class="validity">${esc(L.validity(doc.validityDays))}</div>` : ''}
+        ${!isInvoice && doc.validUntil
+          ? `<div class="validity">${esc(L.validUntil(zonedWhen(doc.validUntil, doc.validUntilTz)))}</div>`
+          : (!isInvoice && doc.validityDays ? `<div class="validity">${esc(L.validity(doc.validityDays))}</div>` : '')}
         ${doc.notes ? `<div class="muted notes">${esc(doc.notes)}</div>` : ''}
       </div>
       ${totalsBlock(doc, L)}

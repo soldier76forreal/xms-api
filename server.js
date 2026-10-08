@@ -137,12 +137,12 @@ app.use('/files/public', rateLimit({ name: 'public', windowMs: 60_000, max: 60 }
 // production. Re-enable these two lines together with the route mount below
 // (routes/public/website.js — see featureFlags.js on the frontend for the
 // matching UI-side switch) once the site is ready to launch.
-// app.use('/public/website', rateLimit({ name: 'public', windowMs: 60_000, max: 120 }));
+app.use('/public/website', rateLimit({ name: 'public', windowMs: 60_000, max: 120 }));
 // OTP send/verify get a much tighter budget on top of the general one above —
 // this is what's actually standing between the outside world and both the
 // email-sending quota and brute-forcing a 6-digit code (the per-email
 // cooldown/lockout in the route itself is the other, finer-grained layer).
-// app.use('/public/website/otp', rateLimit({ name: 'public', windowMs: 60_000, max: 10 }));
+app.use('/public/website/otp', rateLimit({ name: 'publicOtp', windowMs: 60_000, max: 10 }));
 
 // ── Native file download ──────────────────────────────────────────────────────
 // Streams a public/uploads file with `Content-Disposition: attachment` so the
@@ -195,7 +195,7 @@ app.use('/tasks'         , require('./routes/tasks/tasks') )
 app.use('/files' , require('./routes/fileManager/main') )
 // DISABLED for this deploy — public Next.js site (website/) isn't finished
 // yet; see the rate-limit comment above and tools/featureFlags.js on xms.
-// app.use('/public/website' , require('./routes/public/website') )
+app.use('/public/website' , require('./routes/public/website') )
 app.use('/price-requests' , require('./routes/priceRequests/main') )
 app.use('/inventory' , require('./routes/inventory/main') )
 app.use('/inventory/categories' , require('./routes/inventory/categories') )
@@ -206,6 +206,7 @@ app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
 app.use('/digitalMarketing/blog' , require('./routes/digitalMarketing/blog') )
+app.use('/digitalMarketing/product-content' , require('./routes/digitalMarketing/productContent') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
 app.use('/shortlinks' , require('./routes/shortLinks/main') )
 app.use('/media' , require('./routes/media/main') )
@@ -338,4 +339,3 @@ server.listen(PORT, async () => {
         }
     });
 });
-

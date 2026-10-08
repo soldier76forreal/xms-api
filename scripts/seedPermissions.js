@@ -127,6 +127,10 @@ const PERMISSIONS = [
   { key: 'digitalMarketing:blog:create',             module: 'digitalMarketing', description: 'Create a blog post' },
   { key: 'digitalMarketing:blog:edit',               module: 'digitalMarketing', description: 'Edit / publish a blog post' },
   { key: 'digitalMarketing:blog:delete',             module: 'digitalMarketing', description: 'Delete a blog post' },
+  { key: 'digitalMarketing:productContent:create',   module: 'digitalMarketing', description: 'Create website product content' },
+  { key: 'digitalMarketing:productContent:edit',     module: 'digitalMarketing', description: 'Edit / publish website product content' },
+  { key: 'digitalMarketing:productContent:delete',   module: 'digitalMarketing', description: 'Delete website product content' },
+  { key: 'digitalMarketing:productContent:taxonomy', module: 'digitalMarketing', description: 'Manage website product categories and tags' },
   // Tutorial Center — shared reference material, no row-level dataScope
   { key: 'tutorials:view',   module: 'tutorials', description: 'View tutorials' },
   { key: 'tutorials:upload', module: 'tutorials', description: 'Upload a new tutorial' },

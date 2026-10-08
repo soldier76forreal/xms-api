@@ -273,8 +273,12 @@ router.get('/variants-lookup', verify, requirePermission('supply:view'), async (
       return res.status(403).json({ message: 'You do not have access to this branch' });
     }
     const variants = await InvVariant.find({ productId, deleteDate: null, status: 'active' })
-      .select('_id code unit quantity supply').sort({ code: 1 }).lean();
-    res.json({ data: variants });
+      .select('_id code unit quantity supply spec.lengthCm spec.widthCm spec.thicknessMm spec.unsized').sort({ code: 1 }).lean();
+    // `product` lets the deal letter form's specification builder name the record's product
+    res.json({
+      data: variants,
+      product: { _id: product._id, code: product.code, name: product.name, defaultUnit: product.defaultUnit },
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

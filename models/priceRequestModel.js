@@ -24,6 +24,9 @@ const priceRequestSchema = new mongoose.Schema({
   // the route. Never null; a price request with no attributable customer
   // shouldn't be able to exist.
   customerId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
+  // All items in a website purchase request belong to one selected branch.
+  // Optional at schema level so pre-migration records remain editable.
+  branchId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
   name:  { type: String, required: true },   // snapshot of what the visitor typed
   email: { type: String, required: true },   // snapshot — customer's email may change later
 
@@ -34,6 +37,13 @@ const priceRequestSchema = new mongoose.Schema({
   phone:   { type: String, default: '' },
   country: { type: String, required: true },
   city:    { type: String, required: true },
+  receivingAddress: {
+    country:    { type: String, default: '' },
+    city:       { type: String, default: '' },
+    address:    { type: String, default: '' },
+    postalCode: { type: String, default: '' },
+    mapLink:    { type: String, default: '' },
+  },
 
   status: { type: String, enum: ['new', 'seen', 'responded', 'closed'], default: 'new', index: true },
 
@@ -47,7 +57,7 @@ const priceRequestSchema = new mongoose.Schema({
     respondedAt:    { type: Date, default: null },
   },
 
-  source:   { type: String, enum: ['productPage', 'productTable'], required: true },
+  source:   { type: String, enum: ['productPage', 'productTable', 'purchaseList'], required: true },
   language: { type: String, enum: ['en', 'ar', 'fa'], default: 'en' },
 
   insertDate: { type: Date, default: Date.now },
@@ -55,6 +65,7 @@ const priceRequestSchema = new mongoose.Schema({
 });
 
 priceRequestSchema.index({ customerId: 1, insertDate: -1 });
+priceRequestSchema.index({ branchId: 1, insertDate: -1 });
 priceRequestSchema.index({ 'items.productId': 1 });
 priceRequestSchema.index({ 'items.branchId': 1 });
 

@@ -9,7 +9,8 @@ const invoiceActivitySchema = new mongoose.Schema({
   docType:   { type: String, enum: ['invoice', 'pre_invoice'] },
   type: {
     type: String,
-    enum: ['created', 'updated', 'status', 'converted', 'pdf_generated', 'payment', 'stock_decremented', 'stock_restored', 'assigned', 'deleted'],
+    enum: ['created', 'updated', 'status', 'converted', 'pdf_generated', 'payment', 'stock_decremented', 'stock_restored', 'assigned', 'deleted',
+           'website_offer_sent', 'website_offer_accepted', 'website_offer_expired', 'website_offer_withdrawn'],
     required: true,
   },
   field:    { type: String },

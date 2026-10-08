@@ -97,10 +97,19 @@ var personalInformationSchema = new mongoose.Schema({
       nextFollowUpAt: { type: Date },
       owner: { type: mongoose.Schema.Types.ObjectId },
       assignedTo: [{ type: mongoose.Schema.Types.ObjectId }],
+      // The branch that owns this CRM relationship. Website visitors are
+      // assigned from the branch selected while they build/submit a purchase
+      // list; staff-created customers use the active branch in customerForm.
+      branchId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
       interestedProducts: [{
         productId: { type: mongoose.Schema.Types.ObjectId },
         variantId: { type: mongoose.Schema.Types.ObjectId },
+        branchId: { type: mongoose.Schema.Types.ObjectId, default: null },
         note: { type: String },
+        source: { type: String, default: 'xms' },
+        addedToWebsitePurchaseList: { type: Boolean, default: false },
+        requestedQuantity: { type: Number, default: null },
+        addedAt: { type: Date, default: Date.now },
       }],
       createdBy: { type: mongoose.Schema.Types.ObjectId },
       // Phase 6 — additive: customer VAT number (ب.ضـ) for the MIS tax-invoice

@@ -145,6 +145,20 @@ const misInvoiceSchema = new mongoose.Schema({
   // ── pre-invoice-only ──────────────────────────────────────────────────────
   validityDays: { type: Number },                        // "valid for N days from its date"
 
+  // ── website price-request offers ──────────────────────────────────────────
+  // A quotation raised in answer to a customer's website purchase request
+  // (utils/websiteOffers.js). It is the SAME misInvoice doc as any other
+  // quotation — these three fields are all that mark it. `validUntil` is an
+  // absolute expiry (hours matter here, days don't): while the status is 'sent'
+  // the customer can accept it on the website until then, which converts it into
+  // an invoice (the invoice carries the same priceRequestId, so the customer
+  // sees both on their dashboard). Customer-visible documents are ONLY those
+  // with a priceRequestId.
+  priceRequestId:     { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
+  validUntil:         { type: Date, default: null },
+  validUntilTz:       { type: String },                  // IANA zone the expiry is printed in (the branch's clock)
+  customerAcceptedAt: { type: Date, default: null },
+
   // ── conversion links ──────────────────────────────────────────────────────
   convertedToInvoiceId:      { type: mongoose.Schema.Types.ObjectId },
   convertedFromPreInvoiceId: { type: mongoose.Schema.Types.ObjectId },
