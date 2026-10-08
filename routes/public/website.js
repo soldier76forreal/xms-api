@@ -21,6 +21,7 @@ const requireWebsiteVisitor = require('../../utils/requireWebsiteVisitor');
 const { sendMail } = require('../../utils/mailer');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 const { websiteBranchSlug } = require('../../utils/websiteBranchSlug');
+const { AnalyticsEvent, sanitizeBatch, hostOf } = require('../../utils/websiteAnalytics');
 const {
   offersByRequest, toPublicOffer, renderCustomerDocument, acceptOffer, OfferError,
 } = require('../../utils/websiteOffers');
@@ -907,6 +908,34 @@ router.post('/me/offers/:id/accept', requireWebsiteVisitor, async (req, res) => 
     }
     console.error('POST /public/website/me/offers/:id/accept failed:', err);
     return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /public/website/analytics — what the site's own visitors did.
+//
+// Unauthenticated by necessity (most visitors never sign in) and therefore treated as
+// hostile input: utils/websiteAnalytics.js clamps every field and drops anything it does
+// not recognise, so the worst a forged call can do is add rows that look like traffic.
+// It answers 204 whatever happens — a browser must never retry or surface an error for a
+// measurement call, and an attacker learns nothing from the reply. If the visitor happens
+// to be signed in, their token ties the events to the CRM customer; otherwise they stay
+// pseudonymous.
+router.post('/analytics', async (req, res) => {
+  try {
+    let customerId = null;
+    const header = req.headers.authorization;
+    if (header) {
+      try {
+        const verified = jwt.verify(header.split(' ')[1], process.env.TOKEN_SECRET);
+        if (verified.type === 'websiteVisitor' && verified.customerId) customerId = verified.customerId;
+      } catch (_) { /* an expired or bogus token simply means "not signed in" here */ }
+    }
+    const events = sanitizeBatch(req.body, { customerId, selfHost: hostOf(`https://${req.headers.host || ''}`) });
+    if (events.length) await AnalyticsEvent.insertMany(events, { ordered: false });
+    return res.status(204).end();
+  } catch (err) {
+    console.error('POST /public/website/analytics failed:', err.message);
+    return res.status(204).end();
   }
 });
 
