@@ -14,11 +14,12 @@ function envFlag(name, fallback) {
 // ─────────────────────────────────────────────────────────────────────────────
 // WEBSITE_API_ENABLED — everything this API exists to serve the PUBLIC WEBSITE.
 //
-// OFF (the default) means XMS runs as a self-contained management panel: the
-// public Next.js site (website/) is not deployed, so the API should not be
-// carrying its endpoints, its unauthenticated surface, or its background work.
+// ON (the default). Turning it off makes XMS a self-contained management panel:
+// the API stops carrying the website's endpoints, its unauthenticated surface
+// and its background work, which is what you want on a deployment where the
+// public Next.js site (website/) is not going up alongside it.
 //
-// What it switches off, all in server.js:
+// What switching it off takes away, all in server.js:
 //   · /public/website          the whole unauthenticated visitor API (catalog
 //                              browsing, e-mail OTP, the customer dashboard,
 //                              offer accept, the analytics ingest) + its two
@@ -41,6 +42,6 @@ function envFlag(name, fallback) {
 // packing lists, Inventory, Supply, Users/RBAC, File Manager, Tutorials, the rest
 // of Digital Marketing (raw contents, ready to upload, link pages, WhatsApp share)
 // and every shared dependency such as sharp or ffmpeg.
-const WEBSITE_API_ENABLED = envFlag('WEBSITE_API_ENABLED', false);
+const WEBSITE_API_ENABLED = envFlag('WEBSITE_API_ENABLED', true);
 
 module.exports = { WEBSITE_API_ENABLED, envFlag };
