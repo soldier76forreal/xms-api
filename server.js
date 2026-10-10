@@ -120,6 +120,20 @@ app.use(cookieParser());
 // setting it tight enough to be that would break normal use.
 app.use(rateLimit({ name: 'global', windowMs: 60_000, max: 1000 }));
 
+// ── The public website is a switch, not a deletion ───────────────────────────
+// XMS runs as a self-contained management panel with the website side off; see
+// api/featureFlags.js for exactly what that covers and how to turn it back on.
+// A disabled path answers 503 with the reason rather than 404, so a stale client
+// or a half-flipped deploy says what is wrong instead of looking like a bug.
+const { WEBSITE_API_ENABLED } = require('./featureFlags');
+const websiteOff = (req, res) => res.status(503).json({
+  message: 'Website features are switched off on this server. '
+    + 'Set WEBSITE_API_ENABLED=true (api/featureFlags.js) to enable them.',
+  code: 'WEBSITE_API_DISABLED',
+});
+const mountWebsite = (path, load) => { app.use(path, WEBSITE_API_ENABLED ? load() : websiteOff); };
+console.log(`Public website API: ${WEBSITE_API_ENABLED ? 'enabled' : 'disabled'}`);
+
 // The public, unauthenticated link-page resolver is the one route reachable
 // with no credentials at all, so it gets its own much tighter budget — this is
 // what stops someone brute-forcing page codes.
@@ -132,17 +146,18 @@ app.use('/files/public', rateLimit({ name: 'public', windowMs: 60_000, max: 60 }
 // visitor paging through a catalog legitimately fires more requests than a
 // one-shot code lookup, so this gets a looser budget than the two above
 // (still tight enough to blunt a scraping bot).
-// DISABLED for this deploy — the public Next.js site (website/) isn't
-// finished yet, so its unauthenticated API has no reason to be reachable in
-// production. Re-enable these two lines together with the route mount below
-// (routes/public/website.js — see featureFlags.js on the frontend for the
-// matching UI-side switch) once the site is ready to launch.
-app.use('/public/website', rateLimit({ name: 'public', windowMs: 60_000, max: 120 }));
-// OTP send/verify get a much tighter budget on top of the general one above —
-// this is what's actually standing between the outside world and both the
-// email-sending quota and brute-forcing a 6-digit code (the per-email
-// cooldown/lockout in the route itself is the other, finer-grained layer).
-app.use('/public/website/otp', rateLimit({ name: 'publicOtp', windowMs: 60_000, max: 10 }));
+// Both of these exist only while the website side is switched on; with
+// WEBSITE_API_ENABLED off the routes they protect are not mounted at all.
+if (WEBSITE_API_ENABLED) {
+  app.use('/public/website', rateLimit({ name: 'public', windowMs: 60_000, max: 120 }));
+  // OTP send/verify get a much tighter budget on top of the general one above —
+  // this is what's actually standing between the outside world and both the
+  // email-sending quota and brute-forcing a 6-digit code (the per-email
+  // cooldown/lockout in the route itself is the other, finer-grained layer).
+  // Its own bucket name is load-bearing: sharing 'public' once made ten ordinary
+  // page requests from one IP block every OTP send.
+  app.use('/public/website/otp', rateLimit({ name: 'publicOtp', windowMs: 60_000, max: 10 }));
+}
 
 // ── Native file download ──────────────────────────────────────────────────────
 // Streams a public/uploads file with `Content-Disposition: attachment` so the
@@ -193,10 +208,13 @@ app.use('/notifications' , require('./routes/notifications/notifications') )
 app.use('/tasks'         , require('./routes/tasks/tasks') )
 
 app.use('/files' , require('./routes/fileManager/main') )
-// DISABLED for this deploy — public Next.js site (website/) isn't finished
-// yet; see the rate-limit comment above and tools/featureFlags.js on xms.
-app.use('/public/website' , require('./routes/public/website') )
-app.use('/price-requests' , require('./routes/priceRequests/main') )
+// ── The public website's half of this API ────────────────────────────────────
+// Off by default (api/featureFlags.js). mountWebsite keeps each of these in the
+// position it has to be in, and keeps the require() lazy so a disabled route file
+// is never loaded — that is what stops the offer-expiry interval, which starts on
+// require of routes/priceRequests/main.js.
+mountWebsite('/public/website' , () => require('./routes/public/website') )
+mountWebsite('/price-requests' , () => require('./routes/priceRequests/main') )
 app.use('/inventory' , require('./routes/inventory/main') )
 app.use('/inventory/categories' , require('./routes/inventory/categories') )
 app.use('/inventory/tags' , require('./routes/inventory/tags') )
@@ -205,9 +223,9 @@ app.use('/supply' , require('./routes/supply/main') )
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
-app.use('/digitalMarketing/blog' , require('./routes/digitalMarketing/blog') )
-app.use('/digitalMarketing/product-content' , require('./routes/digitalMarketing/productContent') )
-app.use('/digitalMarketing/analytics'       , require('./routes/digitalMarketing/websiteAnalytics') )
+mountWebsite('/digitalMarketing/blog' , () => require('./routes/digitalMarketing/blog') )
+mountWebsite('/digitalMarketing/product-content' , () => require('./routes/digitalMarketing/productContent') )
+mountWebsite('/digitalMarketing/analytics'       , () => require('./routes/digitalMarketing/websiteAnalytics') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
 app.use('/shortlinks' , require('./routes/shortLinks/main') )
 app.use('/media' , require('./routes/media/main') )
