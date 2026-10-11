@@ -18,6 +18,11 @@
  *              their own invoice + quotation, and 8 stock requests to Isfahan
  *              (pending, priced, accepted, converted, declined)
  *   packing    10 Isfahan packing lists, 5 linked to invoices and 5 free
+ *   website    each branch gets its public website path, and UAE is marked the
+ *              branch a visitor lands on (Branch.websiteDefault). With
+ *              --with-website it also loads the public site's own content -
+ *              the product pages and their categories/tags, from
+ *              scripts/websiteContentData/ (see exportWebsiteContent.js)
  *
  * Accepted quotations / requests and paid invoices have taken their quantities
  * out of stock, or out of their supply lot, the same way the app does it, with
@@ -35,6 +40,7 @@
  *   node scripts/seedTestDeployment.js                          dry run on DB_CONNECT
  *   node scripts/seedTestDeployment.js --yes                    apply
  *   node scripts/seedTestDeployment.js --db "<mongodb uri>" --yes
+ *   node scripts/seedTestDeployment.js --db "<uri>" --yes --with-website
  */
 'use strict';
 
@@ -44,6 +50,10 @@ const fs = require('fs');
 // ── arguments / environment ─────────────────────────────────────────────────
 const argv = process.argv.slice(2);
 const APPLY = argv.includes('--yes');
+// The public website's own content. Opt-in: a deployment that is only running the
+// management panel has no use for it, and it is the one part of the seed that comes from
+// an export rather than being generated here.
+const WITH_WEBSITE = argv.includes('--with-website');
 const dbAt = argv.indexOf('--db');
 const DB_OVERRIDE = dbAt === -1 ? null : argv[dbAt + 1];
 if (dbAt !== -1 && (!DB_OVERRIDE || DB_OVERRIDE.startsWith('--'))) {
@@ -175,11 +185,14 @@ const ACCESS = {
 };
 
 // ── branches ────────────────────────────────────────────────────────────────
+// websiteSlug is set rather than left to be derived from the name: it is a public URL, so it
+// should not quietly change the day someone renames a branch. websiteDefault marks the branch a
+// visitor who has not chosen one lands on - exactly one branch may carry it.
 const BRANCHES = [
-  { key: 'isfahan', name: 'Isfahan', country: 'IR', description: 'Supplying branch: buys quarry coupes, has them cut and ships stone to customers and to the other branches', address: 'Km 18, Isfahan–Najafabad Road, Isfahan, Iran' },
-  { key: 'ksa',     name: 'KSA',     country: 'SA', description: 'Sales branch, Saudi Arabia', address: 'King Fahd Road, Al Olaya, Riyadh, Saudi Arabia' },
-  { key: 'ahvaz',   name: 'Ahvaz',   country: 'IR', description: 'Sales branch, Khuzestan', address: 'Kianpars, Ahvaz, Iran' },
-  { key: 'uae',     name: 'UAE',     country: 'AE', description: 'Sales branch, United Arab Emirates', address: 'RAK Airport Road, Ras Al Khaimah, UAE' },
+  { key: 'isfahan', name: 'Isfahan', country: 'IR', slug: 'isfahan', description: 'Supplying branch: buys quarry coupes, has them cut and ships stone to customers and to the other branches', address: 'Km 18, Isfahan–Najafabad Road, Isfahan, Iran' },
+  { key: 'ksa',     name: 'KSA',     country: 'SA', slug: 'ksa',     description: 'Sales branch, Saudi Arabia', address: 'King Fahd Road, Al Olaya, Riyadh, Saudi Arabia' },
+  { key: 'ahvaz',   name: 'Ahvaz',   country: 'IR', slug: 'ahvaz',   description: 'Sales branch, Khuzestan', address: 'Kianpars, Ahvaz, Iran' },
+  { key: 'uae',     name: 'UAE',     country: 'AE', slug: 'uae',     description: 'Sales branch, United Arab Emirates', address: 'RAK Airport Road, Ras Al Khaimah, UAE', websiteDefault: true },
 ];
 // Isfahan shares its Inventory and Supply with the two branches it supplies.
 const SHARES = { isfahan: ['ksa', 'ahvaz'] };
@@ -1322,6 +1335,7 @@ async function main() {
     await Branch.create({
       _id: branchIds[b.key], name: b.name, description: b.description, country: b.country,
       address: b.address, status: 'active', insertDate: daysAgo(62), createdBy: userIds.admin1,
+      websiteSlug: b.slug, websiteDefault: Boolean(b.websiteDefault),
     });
   }
   for (const [owner, shared] of Object.entries(SHARES)) {
@@ -1412,6 +1426,51 @@ async function main() {
   await MisPackingListActivity.insertMany(plan.packingActivities);
   step('packing lists', plan.packingLists.length);
 
+  // ── the public website's own content ──────────────────────────────────────
+  if (WITH_WEBSITE) {
+    const dir = path.join(__dirname, 'websiteContentData');
+    const files = {
+      websiteproducttaxonomies: 'websiteProductTaxonomy',
+      websiteproductcontents: 'websiteProductContent',
+    };
+    const missing = Object.keys(files).filter((c) => !fs.existsSync(path.join(dir, `${c}.json`)));
+    if (missing.length) {
+      console.error(`\n--with-website needs ${missing.join(', ')}.json in scripts/websiteContentData/.`);
+      console.error('Run scripts/exportWebsiteContent.js on the machine that has the content.');
+      process.exitCode = 1;
+      return;
+    }
+    // _id is kept: a product page stores its categories and tags as references into the
+    // taxonomy collection, so re-keying either side strips every page's categories.
+    let loaded = 0;
+    for (const [col, modelName] of Object.entries(files)) {
+      const docs = EJSON.parse(fs.readFileSync(path.join(dir, `${col}.json`), 'utf8'), { relaxed: false });
+      const already = await dbConnection.db.collection(col).countDocuments({});
+      if (already) {
+        console.log(`  website: ${col} already holds ${already} document(s) — left alone`);
+        continue;
+      }
+      if (docs.length) await dbConnection.db.collection(col).insertMany(docs, { ordered: false });
+      loaded += docs.length;
+      // Built from the app's own schemas: these went in through the raw driver, so Mongoose
+      // never compiled the models and the collection would otherwise have only _id_.
+      const schema = require(`../models/${modelName}Model`);
+      const Model = dbConnection.models[modelName] || dbConnection.model(modelName, schema);
+      await Model.createIndexes();
+    }
+    step('website pages + taxonomies', loaded);
+
+    // A page is tied to Inventory by its product CODE. Where it matches nothing the page still
+    // renders, with an empty varieties table and no stock - worth saying out loud here.
+    const pages = await dbConnection.db.collection('websiteproductcontents')
+      .find({ status: 'published' }).project({ code: 1, slug: 1 }).toArray();
+    const codes = new Set((await dbConnection.db.collection('inventoryproducts')
+      .find({}, { projection: { code: 1 } }).toArray()).map((x) => String(x.code || '').toUpperCase()));
+    const orphans = pages.filter((d) => !codes.has(String(d.code || '').toUpperCase()));
+    console.log(`  website: ${pages.length - orphans.length}/${pages.length} published pages match a seeded product`);
+    for (const o of orphans) console.log(`           ${String(o.code).padEnd(10)} ${o.slug} — no such product, page will show no stock`);
+  }
+
   // what the app will read back, as a check
   const finalChecks = [];
   for (const [id, expected] of Object.entries(plan.finalStock)) {
@@ -1432,6 +1491,10 @@ async function main() {
   }
 
   console.log('\nDone. Sign in with any phone number above; the passwords come with the deployment notes.');
+  if (!WITH_WEBSITE) {
+    console.log('The public website has no content in this database. Add it with --with-website,');
+    console.log('or separately with scripts/importWebsiteContent.js.');
+  }
 }
 
 function report(plan, info) {
