@@ -1,0 +1,9382 @@
+[
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4bf8"
+    },
+    "type": "category",
+    "name": "رخام",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-b1-d8-ae-d8-a7-d9-85",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "343"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "343"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500189"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797563"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500189"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-322-close-up-black-marble-textured-back23ground2-copy-scaled.jpg",
+      "attachmentId": {
+        "$numberInt": "322"
+      },
+      "alt": "رخام"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4bfb"
+    },
+    "type": "category",
+    "name": "أرماني جراي",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a3-d8-b1-d9-85-d8-a7-d9-86-d9-8a-d8-ac-d8-b1-d8-a7-d9-8a",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "369"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "369"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500207"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797588"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500207"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4bfe"
+    },
+    "type": "category",
+    "name": "Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "22"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "22"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500215"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797594"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500215"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-1009-Untitledf3fs-2.jpg",
+      "attachmentId": {
+        "$numberInt": "1009"
+      },
+      "alt": "Marble"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c01"
+    },
+    "type": "category",
+    "name": "Armani Grey",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "armani-grey",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "561"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "561"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500221"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797601"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500221"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c04"
+    },
+    "type": "category",
+    "name": "Step and Riser",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "step-and-riser",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "586"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "586"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500229"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797606"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500229"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-2672-baf1c73d-0a8c-4f7f-b44b-9dc2dd93589f-1-copyac.png",
+      "attachmentId": {
+        "$numberInt": "2672"
+      },
+      "alt": "Step and Riser"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c07"
+    },
+    "type": "tag",
+    "name": "Dark gray marble with white veins",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "dark-gray-marble-with-white-veins",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "146"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "146"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500234"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797611"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500234"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c0a"
+    },
+    "type": "tag",
+    "name": "Marble for luxury interiors",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble-for-luxury-interiors",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "147"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "147"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500238"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797616"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500238"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c0d"
+    },
+    "type": "tag",
+    "name": "Bookmatched gray marble slabs",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "bookmatched-gray-marble-slabs",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "148"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "148"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500242"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797621"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500242"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c10"
+    },
+    "type": "tag",
+    "name": "Iranian gray marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "iranian-gray-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "149"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "149"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500247"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797627"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500247"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c1b"
+    },
+    "type": "category",
+    "name": "تندرا جراي",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d9-86-d8-af-d8-b1-d8-a7-d8-ac-d8-b1-d8-a7-d9-8a",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "186"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "186"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500288"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797655"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500288"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c1e"
+    },
+    "type": "category",
+    "name": "Tundra Gray",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "tundra-gray",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "140"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "140"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500294"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797660"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500294"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c21"
+    },
+    "type": "tag",
+    "name": "Natural Stone Flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-stone-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "63"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "63"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500298"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797664"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500298"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c24"
+    },
+    "type": "tag",
+    "name": "Tundra Gray Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "tundra-gray-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "141"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "141"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500301"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797670"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500301"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c27"
+    },
+    "type": "tag",
+    "name": "Gray marble tiles",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "gray-marble-tiles",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "142"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "142"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500304"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797674"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500304"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c2a"
+    },
+    "type": "tag",
+    "name": "Marble for modern interiors",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble-for-modern-interiors",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "143"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "143"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500308"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797679"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500308"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c2d"
+    },
+    "type": "tag",
+    "name": "Polished gray marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "polished-gray-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "144"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "144"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500312"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797683"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500312"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c3a"
+    },
+    "type": "category",
+    "name": "ترافرتين أحمر أذرشهر",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-a3-d8-ad-d9-85-d8-b1-d8-a3-d8-b0-d8-b1-d8-b4-d9-87-d8-b1",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "191"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "191"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500333"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797698"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500333"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c3d"
+    },
+    "type": "category",
+    "name": "ترافرتين",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "345"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "345"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500339"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797702"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500339"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-1012-Untitled-l2.jpg",
+      "attachmentId": {
+        "$numberInt": "1012"
+      },
+      "alt": "ترافرتين"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c40"
+    },
+    "type": "category",
+    "name": "Travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "28"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "28"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500344"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797706"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500344"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-1012-Untitled-l2.jpg",
+      "attachmentId": {
+        "$numberInt": "1012"
+      },
+      "alt": "Travertine"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c43"
+    },
+    "type": "category",
+    "name": "Red Azarshahr Travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "red-azarshahr-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "139"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "139"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500347"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797710"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500347"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c50"
+    },
+    "type": "category",
+    "name": "ترافرتين ليموني",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d9-84-d9-8a-d9-85-d9-88-d9-86-d9-8a",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "190"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "190"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500370"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797724"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500370"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c53"
+    },
+    "type": "category",
+    "name": "Lemon travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "lemon-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "138"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "138"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500374"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797729"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500374"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c60"
+    },
+    "type": "category",
+    "name": "ترافرتين سیلفر",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-b3-db-8c-d9-84-d9-81-d8-b1",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "193"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "193"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500393"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797742"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500393"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c63"
+    },
+    "type": "category",
+    "name": "Silver Travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "silver-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "137"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "137"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500398"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797747"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500398"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c70"
+    },
+    "type": "category",
+    "name": "ترافرتين مملوء",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d9-85-d9-85-d9-84-d9-88-d8-a1",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "189"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "189"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500422"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797759"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500422"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c73"
+    },
+    "type": "category",
+    "name": "Filled travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "filled-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "133"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "133"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500427"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797764"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500427"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c76"
+    },
+    "type": "tag",
+    "name": "Polished travertine stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "polished-travertine-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "134"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "134"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500430"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797769"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500430"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c79"
+    },
+    "type": "tag",
+    "name": "Travertine slabs Iran",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-slabs-iran",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "135"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "135"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500433"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797774"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500433"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c7c"
+    },
+    "type": "tag",
+    "name": "Honed beige travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "honed-beige-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "136"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "136"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500437"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797779"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500437"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c87"
+    },
+    "type": "category",
+    "name": "هرمس بلو",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-87-d8-b1-d9-85-d8-b3-d8-a8-d9-84-d9-88",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "179"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "179"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500456"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797792"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500456"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c8a"
+    },
+    "type": "category",
+    "name": "Hermes Blue",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "hermes-blue",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "121"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "121"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500461"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797796"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500461"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c97"
+    },
+    "type": "category",
+    "name": "هرسین",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-87-d8-b1-d8-b3-db-8c-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "488"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "488"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500885"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797810"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500885"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4c9a"
+    },
+    "type": "category",
+    "name": "Hersin",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "hersin",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "485"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "485"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500890"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797814"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500890"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cad"
+    },
+    "type": "category",
+    "name": "كابتشينو",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-83-d8-a7-d8-a8-d8-aa-d8-b4-d9-8a-d9-86-d9-88",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "591"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "591"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500919"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797829"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500919"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cb0"
+    },
+    "type": "category",
+    "name": "Cappuccino",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "cappuccino",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "491"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "491"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500923"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797834"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500923"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cc7"
+    },
+    "type": "category",
+    "name": "Agig Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "agig-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "558"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "558"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501009"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797849"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501009"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cca"
+    },
+    "type": "category",
+    "name": "Uncategorized",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "uncategorized-ar",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "201"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "201"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500656"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797856"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500656"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4ccd"
+    },
+    "type": "category",
+    "name": "أجيج",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a3-d8-ac-d9-8a-d8-ac",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "593"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "593"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501014"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797861"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501014"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cd4"
+    },
+    "type": "category",
+    "name": "Armani Brown Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "armani-brown-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "556"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "556"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501027"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797873"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501027"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cd7"
+    },
+    "type": "category",
+    "name": "Interior",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "interior",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "587"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "587"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501033"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797877"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501033"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-2674-2da2.jpg",
+      "attachmentId": {
+        "$numberInt": "2674"
+      },
+      "alt": "Interior"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cda"
+    },
+    "type": "category",
+    "name": "أرماني براون",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a3-d8-b1-d9-85-d8-a7-d9-86-d9-8a-d8-a8-d8-b1-d8-a7-d9-88-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "595"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "595"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501037"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797882"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501037"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cdd"
+    },
+    "type": "category",
+    "name": "داخلي",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-af-d8-a7-d8-ae-d9-84-d9-8a",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "597"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "597"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501040"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797886"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501040"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4ce6"
+    },
+    "type": "category",
+    "name": "Black Beauty",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "black-beauty",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "461"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "461"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501086"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797898"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501086"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4ce9"
+    },
+    "type": "category",
+    "name": "بلاك بيوتي",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a8-d9-84-d8-a7-d9-83-d8-a8-d9-8a-d9-88-d8-aa-d9-8a",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "601"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "601"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501090"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797905"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501090"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cf0"
+    },
+    "type": "category",
+    "name": "Cream Marfil Souza",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "cream-marfil-souza",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "463"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "463"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501103"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797916"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501103"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cf3"
+    },
+    "type": "category",
+    "name": "كريما مارفيل سوزا",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-83-d8-b1-d9-8a-d9-85-d8-a7-d9-85-d8-a7-d8-b1-d9-81-d9-8a-d9-84-d8-b3-d9-88-d8-b2-d8-a7",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "603"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "603"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501107"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797920"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501107"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cfa"
+    },
+    "type": "category",
+    "name": "Creama Marfil Ahrar Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "creama-marfil-ahrar-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "581"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "581"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501121"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797932"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501121"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4cfd"
+    },
+    "type": "category",
+    "name": "كريما مارفيل أحرار",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-83-d8-b1-d9-8a-d9-85-d8-a7-d9-85-d8-a7-d8-b1-d9-81-d9-8a-d9-84-d8-a3-d8-ad-d8-b1-d8-a7-d8-b1",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "605"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "605"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501125"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797937"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501125"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d04"
+    },
+    "type": "category",
+    "name": "Creama marfil shine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "creama-marfil-shine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "583"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "583"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501138"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797948"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501138"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d07"
+    },
+    "type": "category",
+    "name": "كريما مارفيل شاين",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-83-d8-b1-d9-8a-d9-85-d8-a7-d9-85-d8-a7-d8-b1-d9-81-d9-8a-d9-84-d8-b4-d8-a7-d9-8a-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "607"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "607"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501142"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797952"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501142"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d0e"
+    },
+    "type": "category",
+    "name": "Golden Black",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "golden-black",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "546"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "546"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501156"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797961"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501156"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d11"
+    },
+    "type": "category",
+    "name": "جولدن بلاك",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-ac-d9-88-d9-84-d8-af-d9-86-d8-a8-d9-84-d8-a7-d9-83",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "613"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "613"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501160"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797966"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501160"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d22"
+    },
+    "type": "category",
+    "name": "Granite",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "granite",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "29"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "29"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500483"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797976"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500483"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-1011-Untitled62-2.jpg",
+      "attachmentId": {
+        "$numberInt": "1011"
+      },
+      "alt": "Granite"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d25"
+    },
+    "type": "category",
+    "name": "Grey Sardo Granite",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "grey-sardo-granite",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "506"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "506"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501203"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797980"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501203"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d28"
+    },
+    "type": "category",
+    "name": "Flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "585"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "585"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501210"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797984"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501210"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-2673-baf1c73d-0a8c-4f7f-b44b-9dc2dd93589f-1-copy22.jpg",
+      "attachmentId": {
+        "$numberInt": "2673"
+      },
+      "alt": "Flooring"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d2b"
+    },
+    "type": "category",
+    "name": "جرانيت",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-ac-d8-b1-d8-a7-d9-86-d9-8a-d8-aa",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "347"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "347"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500491"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797989"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500491"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-1011-Untitled62-2.jpg",
+      "attachmentId": {
+        "$numberInt": "1011"
+      },
+      "alt": "جرانيت"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d2e"
+    },
+    "type": "category",
+    "name": "أرضيات",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a3-d8-b1-d8-b6-d9-8a-d8-a7-d8-aa",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "615"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "615"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501214"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797992"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501214"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670d3540a0226e0b4d31"
+    },
+    "type": "category",
+    "name": "جراي ساردو",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-ac-d8-b1-d8-a7-d9-8a-d8-b3-d8-a7-d8-b1-d8-af-d9-88",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "617"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "617"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501218"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190797996"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501218"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d46"
+    },
+    "type": "category",
+    "name": "Travertine Aras",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-aras",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "524"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "524"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501353"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798017"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501353"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d49"
+    },
+    "type": "category",
+    "name": "ترافرتين أراس",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-a3-d8-b1-d8-a7-d8-b3",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "631"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "631"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501357"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798021"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501357"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d50"
+    },
+    "type": "category",
+    "name": "Travertine Beige Angel",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-beige-angel",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "541"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "541"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501371"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798033"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501371"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d53"
+    },
+    "type": "category",
+    "name": "ترافرتين بيج أنجل",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-a8-d9-8a-d8-ac-d8-a3-d9-86-d8-ac-d9-84",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "633"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "633"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501374"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798037"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501374"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d5c"
+    },
+    "type": "category",
+    "name": "Travertine Beige Diamond",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-beige-diamond",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "539"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "539"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501391"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798052"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501391"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d5f"
+    },
+    "type": "category",
+    "name": "Exterior",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "exterior",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "588"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "588"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501396"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798057"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501396"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "url": "/uploads/wordpress/wp-2675-3233csa.jpg",
+      "attachmentId": {
+        "$numberInt": "2675"
+      },
+      "alt": "Exterior"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d62"
+    },
+    "type": "category",
+    "name": "خارجي",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-ae-d8-a7-d8-b1-d8-ac-d9-8a",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "629"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "629"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501400"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798061"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501400"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d65"
+    },
+    "type": "category",
+    "name": "ترافرتين بيج دايموند",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-a8-d9-8a-d8-ac-d8-af-d8-a7-d9-8a-d9-85-d9-88-d9-86-d8-af",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "635"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "635"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501404"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798065"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501404"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d72"
+    },
+    "type": "category",
+    "name": "Travertine Blond",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-blond",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "526"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "526"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501428"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798075"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501428"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d75"
+    },
+    "type": "category",
+    "name": "ترافرتين بلوند",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-a8-d9-84-d9-88-d9-86-d8-af",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "637"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "637"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501432"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798080"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501432"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d7c"
+    },
+    "type": "category",
+    "name": "Travertine Kanyane",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-kanyane",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "522"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "522"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501447"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798089"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501447"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d7f"
+    },
+    "type": "category",
+    "name": "ترافرتين كانيان",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d9-83-d8-a7-d9-86-d9-8a-d8-a7-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "639"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "639"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501451"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798093"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501451"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d86"
+    },
+    "type": "category",
+    "name": "Travertine Notcha",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-notcha-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "510"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "510"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501465"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798102"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501465"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d89"
+    },
+    "type": "category",
+    "name": "ترافرتين نوتشا",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d9-86-d9-88-d8-aa-d8-b4-d8-a7",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "641"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "641"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501469"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798106"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501469"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d92"
+    },
+    "type": "category",
+    "name": "Travertine Notcha Kachan Dark",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-notcha-kachan-dark",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "512"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "512"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501485"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798114"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501485"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4d95"
+    },
+    "type": "category",
+    "name": "ترافرتين نوتشا كاشان دارك",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d9-86-d9-88-d8-aa-d8-b4-d8-a7-d9-83-d8-a7-d8-b4-d8-a7-d9-86-d8-af-d8-a7-d8-b1-d9-83",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "643"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "643"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501490"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798117"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501490"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4da4"
+    },
+    "type": "category",
+    "name": "Travertine Romano",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-romano",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "516"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "516"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501521"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798134"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501521"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4da7"
+    },
+    "type": "category",
+    "name": "ترافرتين رومانو",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-b1-d9-88-d9-85-d8-a7-d9-86-d9-88",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "645"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "645"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501525"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798137"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501525"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4db4"
+    },
+    "type": "category",
+    "name": "Travertine Silver Kashan",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-silver-kashan",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "535"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "535"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501555"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798154"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501555"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4db7"
+    },
+    "type": "category",
+    "name": "ترافرتين سيلفر كاشان",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-b3-d9-8a-d9-84-d9-81-d8-b1-d9-83-d8-a7-d8-b4-d8-a7-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "647"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "647"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501559"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798158"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501559"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4dc2"
+    },
+    "type": "category",
+    "name": "Travertine Silver Ramsha",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-silver-ramsha",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "537"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "537"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501579"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798168"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501579"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4dc5"
+    },
+    "type": "category",
+    "name": "ترافرتين سيلفر رامشا",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-b3-d9-8a-d9-84-d9-81-d8-b1-d8-b1-d8-a7-d9-85-d8-b4-d8-a7",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "649"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "649"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501583"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798172"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501583"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4dd0"
+    },
+    "type": "category",
+    "name": "Zara creama marfil",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "zara-creama-marfil",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "150"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "150"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501603"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798182"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501603"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4dd3"
+    },
+    "type": "category",
+    "name": "زارا كريما مارفيل",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-b2-d8-a7-d8-b1-d8-a7-d9-83-d8-b1-d9-8a-d9-85-d8-a7-d9-85-d8-a7-d8-b1-d9-81-d9-8a-d9-84",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "187"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "187"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501606"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798187"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501606"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4dd6"
+    },
+    "type": "tag",
+    "name": "Cream-colored marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "cream-colored-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "151"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "151"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501609"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798189"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501609"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4dd9"
+    },
+    "type": "tag",
+    "name": "Luxury cream marble flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-cream-marble-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "152"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "152"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501613"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798193"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501613"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4ddc"
+    },
+    "type": "tag",
+    "name": "Beige natural stone slabs",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "beige-natural-stone-slabs",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "153"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "153"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501616"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798196"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501616"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4ddf"
+    },
+    "type": "tag",
+    "name": "Marble export from Iran",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble-export-from-iran",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "154"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "154"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501619"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798200"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501619"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3670e3540a0226e0b4df2"
+    },
+    "type": "category",
+    "name": "Black Marquina",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "black-marquina",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "465"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "465"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500965"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791190798212"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500965"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f495"
+    },
+    "type": "category",
+    "name": "Lagon green",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "lagon-green",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "103"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "103"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500487"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362099"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500487"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f49a"
+    },
+    "type": "category",
+    "name": "لاغون جرين",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-84-d8-a7-d8-ba-d9-88-d9-86-d8-ac-d8-b1-d9-8a-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "619"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "619"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500495"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362111"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500495"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f49d"
+    },
+    "type": "tag",
+    "name": "Green granite for countertops",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "green-granite-for-countertops",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "104"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "104"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500499"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362115"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500499"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4a0"
+    },
+    "type": "tag",
+    "name": "Luxury green granite",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-green-granite",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "105"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "105"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500502"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362118"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500502"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4a3"
+    },
+    "type": "tag",
+    "name": "High-end granite flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-end-granite-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "106"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "106"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500505"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362121"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500505"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4a6"
+    },
+    "type": "tag",
+    "name": "Exotic natural stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "exotic-natural-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "107"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "107"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500509"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362125"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500509"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4af"
+    },
+    "type": "category",
+    "name": "ماكو بلاك",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-85-d8-a7-d9-83-d9-88-d8-a8-d9-84-d8-a7-d9-83",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "181"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "181"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500526"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362135"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500526"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4b2"
+    },
+    "type": "category",
+    "name": "Maco black",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "maco-black",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "98"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "98"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500531"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362139"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500531"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4b5"
+    },
+    "type": "tag",
+    "name": "Black marble with white veining",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "black-marble-with-white-veining",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "99"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "99"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500535"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362143"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500535"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4b8"
+    },
+    "type": "tag",
+    "name": "Luxury black marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-black-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "100"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "100"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500538"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362146"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500538"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4bb"
+    },
+    "type": "tag",
+    "name": "High-end marble flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-end-marble-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "101"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "101"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500541"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362149"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500541"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4be"
+    },
+    "type": "tag",
+    "name": "Modern black countertops",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "modern-black-countertops",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "102"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "102"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500544"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362152"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500544"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4c6"
+    },
+    "type": "category",
+    "name": "ماجستيك رز",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-85-d8-a7-d8-ac-d8-b3-d8-aa-d9-8a-d9-83-d8-b1-d8-b2",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "183"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "183"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500556"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362162"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500556"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4c9"
+    },
+    "type": "category",
+    "name": "Majestic Rose",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "majestic-rose",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "94"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "94"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500561"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362166"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500561"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4cc"
+    },
+    "type": "tag",
+    "name": "Luxury marble flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-marble-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "72"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "72"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500564"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362170"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500564"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4cf"
+    },
+    "type": "tag",
+    "name": "Dark brown marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "dark-brown-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "95"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "95"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500567"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362173"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500567"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4d2"
+    },
+    "type": "tag",
+    "name": "High-end marble countertops",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-end-marble-countertops",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "96"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "96"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500570"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362178"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500570"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4d5"
+    },
+    "type": "tag",
+    "name": "Bold veined marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "bold-veined-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "97"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "97"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500573"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362184"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500573"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4de"
+    },
+    "type": "category",
+    "name": "Golbahar marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "golbahar-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "90"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "90"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500591"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362197"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500591"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4e1"
+    },
+    "type": "category",
+    "name": "جلبهار",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-ac-d9-84-d8-a8-d9-87-d8-a7-d8-b1",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "611"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "611"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500595"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362201"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500595"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4e4"
+    },
+    "type": "tag",
+    "name": "Gray beige marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "gray-beige-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "91"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "91"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500598"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362205"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500598"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4e7"
+    },
+    "type": "tag",
+    "name": "High-quality marble slabs",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-quality-marble-slabs",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "92"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "92"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500602"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362208"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500602"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4ea"
+    },
+    "type": "tag",
+    "name": "Natural stone for interiors",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-stone-for-interiors",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "93"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "93"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500605"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362212"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500605"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4f3"
+    },
+    "type": "category",
+    "name": "رخام كاشان",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-b1-d8-ae-d8-a7-d9-85-d9-83-d8-a7-d8-b4-d8-a7-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "180"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "180"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500622"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362220"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500622"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4f6"
+    },
+    "type": "category",
+    "name": "Kashan marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "kashan-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "88"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "88"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500627"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362223"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500627"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4f9"
+    },
+    "type": "tag",
+    "name": "marble countertops",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble-countertops",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "36"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "36"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500630"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362226"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500630"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4fc"
+    },
+    "type": "tag",
+    "name": "Premium natural stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "premium-natural-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "71"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "71"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500633"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362229"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500633"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f4ff"
+    },
+    "type": "tag",
+    "name": "Beige marble slabs",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "beige-marble-slabs",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "89"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "89"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500636"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362232"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500636"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f508"
+    },
+    "type": "category",
+    "name": "Takkab cream unfilled",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "takkab-cream-unfilled",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "87"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "87"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500652"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362240"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500652"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f50d"
+    },
+    "type": "category",
+    "name": "تكاب كريم",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d9-83-d8-a7-d8-a8-d9-83-d8-b1-d9-8a-d9-85",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "627"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "627"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500659"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362245"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500659"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f510"
+    },
+    "type": "tag",
+    "name": "Travertine Wall Cladding",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-wall-cladding",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "49"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "49"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500662"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362248"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500662"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f513"
+    },
+    "type": "tag",
+    "name": "Takkab Cream Travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "takkab-cream-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "83"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "83"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500665"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362251"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500665"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f516"
+    },
+    "type": "tag",
+    "name": "Unfilled travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "unfilled-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "84"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "84"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500669"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362254"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500669"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f519"
+    },
+    "type": "tag",
+    "name": "Natural travertine stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-travertine-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "85"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "85"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500672"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362258"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500672"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f51c"
+    },
+    "type": "tag",
+    "name": "Beige travertine flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "beige-travertine-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "86"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "86"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500674"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362261"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500674"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f524"
+    },
+    "type": "category",
+    "name": "Mahalat black",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "mahalat-black",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "82"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "82"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500690"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362269"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500690"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f527"
+    },
+    "type": "category",
+    "name": "محلات بلاك",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-85-d8-ad-d9-84-d8-a7-d8-aa-d8-a8-d9-84-d8-a7-d9-83",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "621"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "621"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500694"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362273"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500694"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f530"
+    },
+    "type": "category",
+    "name": "Simon Crystal",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "simon-crystal",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "68"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "68"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500711"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362281"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500711"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f533"
+    },
+    "type": "category",
+    "name": "كريستال سيمون",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d9-83-d8-b1-d9-8a-d8-b3-d8-aa-d8-a7-d9-84-d8-b3-d9-8a-d9-85-d9-88-d9-86",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "185"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "185"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500715"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362284"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500715"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f536"
+    },
+    "type": "tag",
+    "name": "High-Quality Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-quality-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "64"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "64"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500718"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362288"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500718"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f539"
+    },
+    "type": "tag",
+    "name": "Simon Crystal Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "simon-crystal-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "69"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "69"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500722"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362291"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500722"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f53c"
+    },
+    "type": "tag",
+    "name": "White marble slabs",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "white-marble-slabs",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "70"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "70"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500725"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362294"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500725"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f53f"
+    },
+    "type": "tag",
+    "name": "Best price marble exporter",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "best-price-marble-exporter",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "73"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "73"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500729"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362297"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500729"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f542"
+    },
+    "type": "tag",
+    "name": "High-end marble for interiors",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-end-marble-for-interiors",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "74"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "74"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500732"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362300"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500732"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f545"
+    },
+    "type": "tag",
+    "name": "Polished marble tiles",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "polished-marble-tiles",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "75"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "75"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500736"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362304"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500736"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f548"
+    },
+    "type": "tag",
+    "name": "Vianna Marble natural stones",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "vianna-marble-natural-stones",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "76"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "76"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500739"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362306"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500739"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f54b"
+    },
+    "type": "tag",
+    "name": "White crystalline marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "white-crystalline-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "77"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "77"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500742"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362309"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500742"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f54e"
+    },
+    "type": "tag",
+    "name": "Natural stone supplier",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-stone-supplier",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "78"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "78"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500745"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362313"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500745"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f551"
+    },
+    "type": "tag",
+    "name": "Marble exporter",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble-exporter",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "79"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "79"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500748"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362315"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500748"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f554"
+    },
+    "type": "tag",
+    "name": "Marble slabs and tiles",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "marble-slabs-and-tiles",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "80"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "80"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500751"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362319"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500751"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f557"
+    },
+    "type": "tag",
+    "name": "Luxury stone surfaces",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-stone-surfaces",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "81"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "81"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500754"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362322"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500754"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f560"
+    },
+    "type": "category",
+    "name": "Red travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "red-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "42"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "42"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500770"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362330"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500770"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f563"
+    },
+    "type": "category",
+    "name": "ترافرتين أحمر",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-aa-d8-b1-d8-a7-d9-81-d8-b1-d8-aa-d9-8a-d9-86-d8-a3-d8-ad-d9-85-d8-b1",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "349"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "349"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500775"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362333"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500775"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f566"
+    },
+    "type": "tag",
+    "name": "Red Travertine Tile",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "red-travertine-tile",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "43"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "43"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500778"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362337"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500778"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f569"
+    },
+    "type": "tag",
+    "name": "Travertine Flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "44"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "44"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500781"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362340"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500781"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f56c"
+    },
+    "type": "tag",
+    "name": "Red Marble Alternative",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "red-marble-alternative",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "45"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "45"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500783"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362344"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500783"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f56f"
+    },
+    "type": "tag",
+    "name": "Natural Stone Slab",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-stone-slab",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "46"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "46"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500785"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362347"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500785"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f572"
+    },
+    "type": "tag",
+    "name": "Luxury Stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "47"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "47"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500788"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362350"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500788"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f575"
+    },
+    "type": "tag",
+    "name": "Decorative Travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "decorative-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "48"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "48"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500792"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362353"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500792"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f578"
+    },
+    "type": "tag",
+    "name": "Outdoor Travertine",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "outdoor-travertine",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "50"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "50"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500795"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362356"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500795"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f57b"
+    },
+    "type": "tag",
+    "name": "Travertine Countertops",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-countertops",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "51"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "51"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500798"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362359"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500798"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f57e"
+    },
+    "type": "tag",
+    "name": "High-End Stone Finishes",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "high-end-stone-finishes",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "52"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "52"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500800"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362361"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500800"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f581"
+    },
+    "type": "tag",
+    "name": "Red Travertine Pavers",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "red-travertine-pavers",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "53"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "53"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500804"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362364"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500804"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f584"
+    },
+    "type": "tag",
+    "name": "Travertine Facade",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "travertine-facade",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "54"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "54"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500807"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362368"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500807"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f587"
+    },
+    "type": "tag",
+    "name": "Interior Stone Design",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "interior-stone-design",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "55"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "55"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500810"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362371"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500810"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f58a"
+    },
+    "type": "tag",
+    "name": "Classic Stone Decor",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "classic-stone-decor",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "56"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "56"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500812"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362375"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500812"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f58d"
+    },
+    "type": "tag",
+    "name": "Weather-Resistant Stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "weather-resistant-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "57"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "57"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500816"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362378"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500816"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f590"
+    },
+    "type": "tag",
+    "name": "Durable Natural Stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "durable-natural-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "58"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "58"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500819"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362381"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500819"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f59a"
+    },
+    "type": "category",
+    "name": "Ghorve crystal",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "ghorve-crystal",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "31"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "31"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500838"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362389"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500838"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f59d"
+    },
+    "type": "category",
+    "name": "غورفه كريستال",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-ba-d9-88-d8-b1-d9-81-d9-87-d9-83-d8-b1-d9-8a-d8-b3-d8-aa-d8-a7-d9-84",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "609"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "609"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500842"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362393"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500842"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5a0"
+    },
+    "type": "tag",
+    "name": "Ghorveh Crystal Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "ghorveh-crystal-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "32"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "32"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500845"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362395"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500845"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5a3"
+    },
+    "type": "tag",
+    "name": "white marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "white-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "33"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "33"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500848"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362399"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500848"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5a6"
+    },
+    "type": "tag",
+    "name": "natural stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "34"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "34"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500851"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362403"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500851"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5a9"
+    },
+    "type": "tag",
+    "name": "luxury flooring",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-flooring",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "35"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "35"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500855"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362406"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500855"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5ac"
+    },
+    "type": "tag",
+    "name": "wall cladding",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "wall-cladding",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "37"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "37"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500858"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362409"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500858"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5af"
+    },
+    "type": "tag",
+    "name": "durable marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "durable-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "38"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "38"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500861"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362412"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500861"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5b2"
+    },
+    "type": "tag",
+    "name": "polished marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "polished-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "39"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "39"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500864"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362415"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500864"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5b5"
+    },
+    "type": "tag",
+    "name": "honed marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "honed-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "40"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "40"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500867"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362418"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500867"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5b8"
+    },
+    "type": "tag",
+    "name": "Iran marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "iran-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "41"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "41"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500870"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362421"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500870"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5ed"
+    },
+    "type": "category",
+    "name": "رخام مارکینه",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-b1-d8-ae-d8-a7-d9-85-d9-85-d8-a7-d8-b1-da-a9-db-8c-d9-86-d9-87",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "501"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "501"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500961"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362456"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500961"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f5f2"
+    },
+    "type": "category",
+    "name": "Black Maquina",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "black-maquina",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "496"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "496"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223500968"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362463"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223500968"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f617"
+    },
+    "type": "category",
+    "name": "Bianco crystal",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "bianco-crystal",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "467"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "467"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501058"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362502"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501058"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f61a"
+    },
+    "type": "category",
+    "name": "بيانكو كريستال",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a8-d9-8a-d8-a7-d9-86-d9-83-d9-88-d9-83-d8-b1-d9-8a-d8-b3-d8-aa-d8-a7-d9-84",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "599"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "599"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501062"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362505"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501062"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f61d"
+    },
+    "type": "tag",
+    "name": "long-lasting marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "long-lasting-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "479"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "479"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501065"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362509"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501065"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f620"
+    },
+    "type": "tag",
+    "name": "Bianco crystal",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "bianco-crystal",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "481"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "481"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501068"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362511"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501068"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f623"
+    },
+    "type": "tag",
+    "name": "natural crystal structure",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "natural-crystal-structure",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "483"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "483"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501072"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362515"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501072"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f676"
+    },
+    "type": "category",
+    "name": "Scotto Crystal",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "scotto-crystal",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "59"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "59"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501257"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362611"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501257"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f679"
+    },
+    "type": "category",
+    "name": "سكوتو كريستال",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-b3-d9-83-d9-88-d8-aa-d9-88-d9-83-d8-b1-d9-8a-d8-b3-d8-aa-d8-a7-d9-84",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "623"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "623"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501260"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362614"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501260"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f67c"
+    },
+    "type": "tag",
+    "name": "Persian Scotto Crystal Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "persian-scotto-crystal-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "60"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "60"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501263"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362618"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501263"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f67f"
+    },
+    "type": "tag",
+    "name": "Luxury Marble Stone",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "luxury-marble-stone",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "61"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "61"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501266"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362621"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501266"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f682"
+    },
+    "type": "tag",
+    "name": "Premium Persian Marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "premium-persian-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "62"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "62"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501269"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362624"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501269"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f685"
+    },
+    "type": "tag",
+    "name": "Persian Marble Suppliers",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "persian-marble-suppliers",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "65"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "65"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501272"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362627"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501272"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f688"
+    },
+    "type": "tag",
+    "name": "Interior Marble Cladding",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "interior-marble-cladding",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "66"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "66"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501274"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362630"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501274"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f68b"
+    },
+    "type": "tag",
+    "name": "Elegant Marble Design",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "elegant-marble-design",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "67"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "67"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501277"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362633"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501277"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f695"
+    },
+    "type": "category",
+    "name": "Persian Silk",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "persian-silk",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "469"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "469"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501297"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362641"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501297"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f698"
+    },
+    "type": "category",
+    "name": "بيرشان سيلك",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "d8-a8-d9-8a-d8-b1-d8-b4-d8-a7-d9-86-d8-b3-d9-8a-d9-84-d9-83",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "625"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "625"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501300"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362644"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501300"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f69b"
+    },
+    "type": "tag",
+    "name": "persian silk",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "persian-silk",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "471"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "471"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501304"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362647"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501304"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f69e"
+    },
+    "type": "tag",
+    "name": "best for kitchen floor",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "best-for-kitchen-floor",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "473"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "473"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501307"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362651"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501307"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f6a1"
+    },
+    "type": "tag",
+    "name": "persian marble",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "persian-marble",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "475"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "475"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501310"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362654"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501310"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6ac3abaa05aac7d6eed4f6a4"
+    },
+    "type": "tag",
+    "name": "grey-beige color",
+    "nameAr": "",
+    "nameFa": "",
+    "slug": "grey-beige-color",
+    "slugAr": "",
+    "slugFa": "",
+    "description": "",
+    "descriptionAr": "",
+    "descriptionFa": "",
+    "source": {
+      "wordpressTermIds": [
+        {
+          "$numberInt": "477"
+        }
+      ],
+      "wordpressTermTaxonomyIds": [
+        {
+          "$numberInt": "477"
+        }
+      ],
+      "importedAt": {
+        "$date": {
+          "$numberLong": "1791223501313"
+        }
+      }
+    },
+    "insertDate": {
+      "$date": {
+        "$numberLong": "1791208362657"
+      }
+    },
+    "updateDate": {
+      "$date": {
+        "$numberLong": "1791223501313"
+      }
+    },
+    "deleteDate": null,
+    "__v": {
+      "$numberInt": "0"
+    },
+    "image": {
+      "alt": "",
+      "url": ""
+    }
+  }
+]

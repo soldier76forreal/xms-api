@@ -1,0 +1,43 @@
+{
+  "exportedAt": "2026-10-11T08:59:56.616Z",
+  "sourceDatabase": "xms",
+  "collections": {
+    "websiteproductcontents": 48,
+    "websiteproducttaxonomies": 187,
+    "blogposts": 3
+  },
+  "productPages": {
+    "total": 48,
+    "published": 33,
+    "draft": 15,
+    "publishedWithoutAProduct": [
+      {
+        "code": "M19",
+        "slug": "hermes-blue-marble"
+      },
+      {
+        "code": "MA11",
+        "slug": "hersin-marble-light"
+      },
+      {
+        "code": "MA32",
+        "slug": "cream-marfil-souza-marble"
+      },
+      {
+        "code": "MA15",
+        "slug": "zara-creama-marfil-marble"
+      }
+    ],
+    "draftPlaceholderCodes": 15
+  },
+  "images": {
+    "distinctReferences": 156,
+    "underApiUploads": 152,
+    "absoluteUrls": [
+      "https://lazulitemarble.com/wp-content/uploads/2025/06/20251127_133744-copy-300x169.jpg",
+      "https://lazulitemarble.com/wp-content/uploads/2025/06/20251127_134131-copy-300x169.jpg",
+      "https://lazulitemarble.com/wp-content/uploads/2025/06/20251127_141306-copy-300x169.jpg",
+      "http://localhost:10011/wp-content/uploads/2025/06/photo_2025-06-07_18-49-32.jpg"
+    ]
+  }
+}
