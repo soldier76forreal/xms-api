@@ -13,6 +13,8 @@
  *   4. they are there and visible, and the problem is in the browser
  *
  * Usage (from api/):
+ *   node scripts/diagnoseCrmCustomers.js --recent 30            the newest customers, and
+ *                                                               which of them are hidden
  *   node scripts/diagnoseCrmCustomers.js                      the collection only
  *   node scripts/diagnoseCrmCustomers.js --phone 09xxxxxxxxx  also: what THIS user sees
  */
@@ -23,6 +25,8 @@ const path = require('path');
 const argv = process.argv.slice(2);
 const phoneAt = argv.indexOf('--phone');
 const PHONE = phoneAt === -1 ? null : argv[phoneAt + 1];
+const recentAt = argv.indexOf('--recent');
+const RECENT = recentAt === -1 ? 0 : (parseInt(argv[recentAt + 1], 10) || 20);
 const dbAt = argv.indexOf('--db');
 const DB_OVERRIDE = dbAt === -1 ? null : argv[dbAt + 1];
 
@@ -234,6 +238,46 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
     line();
     line('  a sample record, field names only:');
     line('    ' + Object.keys(sample).join(', '));
+  }
+
+  // ── 3b. the newest customers, and whether each one is hidden ──────────────
+  // "The recent ones are the important ones" is the normal case, and a count of what is
+  // hidden does not answer it. This lists them by when they were ADDED, says which are
+  // hidden and when they were deleted, so it is clear before restoring anything whether
+  // the records that matter are in the set that would come back.
+  if (RECENT) {
+    head(`The ${RECENT} most recently added customers`);
+    const recent = await col.find({}, {
+      projection: {
+        insertDate: 1, deleteDate: 1, phoneNumber: 1,
+        'personalInformation.firstName': 1, 'personalInformation.lastName': 1,
+        'personalInformation.companyName': 1,
+      },
+    }).sort({ insertDate: -1 }).limit(RECENT).toArray();
+
+    line('  added       status      deleted on    phone              name');
+    for (const r of recent) {
+      const added = r.insertDate ? new Date(r.insertDate).toISOString().slice(0, 10) : '—';
+      const hidden = r.deleteDate != null;
+      const on = hidden ? new Date(r.deleteDate).toISOString().slice(0, 10) : '';
+      const p = r.personalInformation || {};
+      const who = p.companyName || [p.firstName, p.lastName].filter(Boolean).join(' ') || '(no name)';
+      line(`  ${added}  ${(hidden ? 'HIDDEN' : 'visible').padEnd(10)} ${on.padEnd(13)} ${String(r.phoneNumber || '—').padEnd(18)} ${who}`);
+    }
+
+    const hiddenOnes = recent.filter((r) => r.deleteDate != null);
+    line();
+    line(`  of these ${recent.length}: ${recent.length - hiddenOnes.length} visible, ${hiddenOnes.length} hidden`);
+    if (hiddenOnes.length) {
+      const days = new Map();
+      for (const r of hiddenOnes) {
+        const d = new Date(r.deleteDate).toISOString().slice(0, 10);
+        days.set(d, (days.get(d) || 0) + 1);
+      }
+      for (const [d, n] of [...days].sort((a, b) => b[1] - a[1])) {
+        line(`     ${n} of them were deleted on ${d}  ->  restore with --on ${d}`);
+      }
+    }
   }
 
   // ── 4. what one specific user would see ───────────────────────────────────
