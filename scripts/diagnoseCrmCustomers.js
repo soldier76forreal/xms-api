@@ -196,10 +196,16 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
           line('     this did NOT go through the app. It was a direct database operation.');
         }
 
+        // Recommend the DAY, not the batch. A bulk delete through the list arrives as a run
+        // of batches, so --at would restore one page of it and quietly leave the rest hidden.
+        const dayTotal = byDay.get(day);
+        const dayBatches = moments.filter((m) => new Date(m._id).toISOString().slice(0, 10) === day).length;
         line();
-        line('  If that was not intended, restore them with:');
-        line('        node scripts/restoreSoftDeletedCustomers.js                  (dry run)');
-        line(`        node scripts/restoreSoftDeletedCustomers.js --at "${new Date(biggest._id).toISOString()}" --yes`);
+        line(`  If that was not intended, restore that whole day - ${dayTotal} record(s) across`);
+        line(`  ${dayBatches} batch(es). Deletions on OTHER days are left alone, which matters here:`);
+        line('  one-at-a-time removals over the years are somebody doing it on purpose.');
+        line('        node scripts/restoreSoftDeletedCustomers.js                  (dry run, per-day)');
+        line(`        node scripts/restoreSoftDeletedCustomers.js --on ${day} --yes`);
       }
     }
   }
