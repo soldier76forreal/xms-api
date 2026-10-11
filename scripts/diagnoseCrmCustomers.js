@@ -114,14 +114,33 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
       { $match: { deleteDate: { $type: 'date' } } },
       { $group: { _id: '$deleteDate', n: { $sum: 1 } } },
       { $sort: { n: -1 } },
-      { $limit: 6 },
     ]).toArray();
     if (moments.length) {
-      line();
-      line('  when they were deleted (identical timestamps = one bulk operation):');
+      // By DAY first and in full. Showing only the biggest few moments hides the tail, and
+      // the tail is exactly what you need to know: whether every deletion belongs to the
+      // same incident or some are older and deliberate.
+      const byDay = new Map();
       for (const m of moments) {
+        const day = new Date(m._id).toISOString().slice(0, 10);
+        byDay.set(day, (byDay.get(day) || 0) + m.n);
+      }
+      line();
+      line('  which day they were deleted on (every day, nothing hidden):');
+      let accounted = 0;
+      for (const [day, n] of [...byDay].sort((a, b) => b[1] - a[1])) {
+        const batches = moments.filter((m) => new Date(m._id).toISOString().slice(0, 10) === day).length;
+        line(`    ${day}   ${String(n).padStart(6)} record(s) in ${batches} batch(es)`);
+        accounted += n;
+      }
+      line(`    ${''.padEnd(10)}  ${String(accounted).padStart(6)} total`);
+
+      line();
+      line('  the individual batches, in time order (identical timestamps = one bulk operation):');
+      const chrono = [...moments].sort((a, b) => new Date(a._id) - new Date(b._id));
+      for (const m of chrono.slice(0, 15)) {
         line(`    ${new Date(m._id).toISOString()}   ${String(m.n).padStart(6)} record(s)`);
       }
+      if (moments.length > 15) line(`    … and ${moments.length - 15} more batches`);
       const biggest = moments[0];
       if (biggest.n > 10) {
         line();
@@ -132,8 +151,14 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
         // stamps updatedBy with the caller and writes an activity row naming them. So this
         // is answerable from the data rather than guessed at.
         head('Who did it');
+        // Across the whole DAY, not just the biggest batch - a bulk delete through the list
+        // arrives as several batches, and attributing only one of them understates it.
+        const day = new Date(biggest._id).toISOString().slice(0, 10);
+        const dayFrom = new Date(`${day}T00:00:00.000Z`);
+        const dayTo = new Date(`${day}T23:59:59.999Z`);
+        line(`  looking at everything deleted on ${day}`);
         const actors = await col.aggregate([
-          { $match: { deleteDate: biggest._id } },
+          { $match: { deleteDate: { $gte: dayFrom, $lte: dayTo } } },
           { $group: { _id: '$updatedBy', n: { $sum: 1 } } },
           { $sort: { n: -1 } },
         ]).toArray();
@@ -151,22 +176,22 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
         }
 
         // the second, independent record of the same event
-        const from = new Date(new Date(biggest._id).getTime() - 60000);
-        const to = new Date(new Date(biggest._id).getTime() + 60000);
+        // The same day, not a minute around one batch - the batches themselves span longer
+        // than a minute, so a tighter window would undercount the very thing being counted.
         const acts = await db.collection('customeractivities').aggregate([
-          { $match: { date: { $gte: from, $lte: to } } },
+          { $match: { date: { $gte: dayFrom, $lte: dayTo } } },
           { $group: { _id: { actor: '$actorId', name: '$actorName', type: '$type' }, n: { $sum: 1 } } },
           { $sort: { n: -1 } },
           { $limit: 5 },
         ]).toArray();
         line();
         if (acts.length) {
-          line('  activity rows written in the same minute (the app logs every change):');
+          line('  activity rows written that day (the app logs every change):');
           for (const a of acts) {
             line(`    ${String(a.n).padStart(6)}  ${a._id.type || 'activity'} by ${a._id.name || a._id.actor || 'unknown'}`);
           }
         } else {
-          line('  no activity rows were written in that minute.');
+          line('  no activity rows were written that day.');
           line('  -> the app writes one per customer on a bulk delete, so their absence means');
           line('     this did NOT go through the app. It was a direct database operation.');
         }
