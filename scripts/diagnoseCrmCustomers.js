@@ -126,8 +126,53 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
       if (biggest.n > 10) {
         line();
         line(`  >>> ${biggest.n} customers share one timestamp to the millisecond. Nobody deletes`);
-        line('      that many by hand - one operation did it. If that was not intended, restore');
-        line('      them with:');
+        line('      that many by hand - one operation did it.');
+
+        // The app's only bulk delete is PUT /crm/customers/bulk {action:'delete'}, and it
+        // stamps updatedBy with the caller and writes an activity row naming them. So this
+        // is answerable from the data rather than guessed at.
+        head('Who did it');
+        const actors = await col.aggregate([
+          { $match: { deleteDate: biggest._id } },
+          { $group: { _id: '$updatedBy', n: { $sum: 1 } } },
+          { $sort: { n: -1 } },
+        ]).toArray();
+        for (const a of actors) {
+          if (!a._id) {
+            line(`  ${String(a.n).padStart(6)} record(s) have no updatedBy`);
+            line('         -> the app always stamps it on a bulk delete, so these were almost');
+            line('            certainly changed OUTSIDE the app - a script, or the database directly.');
+            continue;
+          }
+          const u = await db.collection('users').findOne({ _id: a._id });
+          const who = u ? `${u.firstName || ''} ${u.lastName || ''} (${u.phoneNumber || 'no phone'})` : 'a user no longer in the database';
+          line(`  ${String(a.n).padStart(6)} record(s) by  ${who}`);
+          line(`         user id ${a._id}`);
+        }
+
+        // the second, independent record of the same event
+        const from = new Date(new Date(biggest._id).getTime() - 60000);
+        const to = new Date(new Date(biggest._id).getTime() + 60000);
+        const acts = await db.collection('customeractivities').aggregate([
+          { $match: { date: { $gte: from, $lte: to } } },
+          { $group: { _id: { actor: '$actorId', name: '$actorName', type: '$type' }, n: { $sum: 1 } } },
+          { $sort: { n: -1 } },
+          { $limit: 5 },
+        ]).toArray();
+        line();
+        if (acts.length) {
+          line('  activity rows written in the same minute (the app logs every change):');
+          for (const a of acts) {
+            line(`    ${String(a.n).padStart(6)}  ${a._id.type || 'activity'} by ${a._id.name || a._id.actor || 'unknown'}`);
+          }
+        } else {
+          line('  no activity rows were written in that minute.');
+          line('  -> the app writes one per customer on a bulk delete, so their absence means');
+          line('     this did NOT go through the app. It was a direct database operation.');
+        }
+
+        line();
+        line('  If that was not intended, restore them with:');
         line('        node scripts/restoreSoftDeletedCustomers.js                  (dry run)');
         line(`        node scripts/restoreSoftDeletedCustomers.js --at "${new Date(biggest._id).toISOString()}" --yes`);
       }
