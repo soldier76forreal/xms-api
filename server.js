@@ -284,13 +284,15 @@ server.requestTimeout = 0;
 server.headersTimeout = 120_000;
 server.keepAliveTimeout = 75_000;
 
-// Port 7130 — the reverse proxy maps https://api.lazulitemarble.com onto this
-// local port; this is the PRODUCTION default and must stay 7130 unless the
-// reverse proxy config changes too. Local dev has been running on 4789
-// instead (a deliberate, Pouriya-confirmed local-only deviation — see project
-// memory) via PORT=4789 in the local .env, which overrides this default
-// without ever touching what actually ships.
-const PORT = process.env.PORT || 7130;
+// Port 4789 — the reverse proxy maps https://api.lazulitemarble.com onto this
+// local port. This is the PRODUCTION default, confirmed by Pouriya against the
+// live host on 2026-10-11; it must stay 4789 unless the reverse proxy config
+// changes too.
+//
+// It used to say 7130 here, and called 4789 a "local-only deviation" — that was
+// backwards, and shipping it would have bound a port the proxy does not forward.
+// PORT still overrides, which is how local dev runs on 60130.
+const PORT = process.env.PORT || 4789;
 server.listen(PORT, async () => {
     console.log(`server running on port ${PORT}.`);
     // On restart all socket connections are gone → mark everyone offline

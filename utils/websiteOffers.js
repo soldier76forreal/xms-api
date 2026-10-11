@@ -125,7 +125,7 @@ function durationText(lang, hours) {
 }
 
 function dashboardLink(branch, lang, priceRequestId) {
-  const base = String(process.env.WEBSITE_BASE_URL || 'https://www.lazulitemarble.com').replace(/\/+$/, '');
+  const base = String(process.env.WEBSITE_BASE_URL || 'https://lazulitemarble.com').replace(/\/+$/, '');
   const slug = branch ? websiteBranchSlug(branch) : '';
   return `${base}/${slug ? slug + '/' : ''}${lang === 'en' ? '' : lang + '/'}my-account/?offer=${priceRequestId}`;
 }
