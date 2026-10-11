@@ -31,6 +31,17 @@ const flagUpload = multer({
   fileFilter: (_req, file, cb) => cb(null, ['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype)),
 }).single('flag');
 
+// The website's default branch is a single-winner flag: setting it on one branch takes it
+// off every other. Done as its own write after the create/update rather than inside it, so a
+// failure here can never leave the branch itself unsaved - the worst case is two branches
+// carrying the flag, which the website resolves by taking the first.
+async function clearOtherWebsiteDefaults(keepId) {
+  await Branch.updateMany(
+    { _id: { $ne: keepId }, websiteDefault: true },
+    { $set: { websiteDefault: false } },
+  );
+}
+
 async function slugConflict(slug, currentId) {
   const branches = await Branch.find({ deleteDate: null }).select('_id name websiteSlug').lean();
   return branches.some((branch) => String(branch._id) !== String(currentId || '') && websiteBranchSlug(branch) === slug);
@@ -165,11 +176,13 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
       address: req.body.address || '',
       phone: req.body.phone || '',
       instagramHandle: req.body.instagramHandle || '',
+      websiteDefault: req.body.websiteDefault === true,
       associates: Array.isArray(req.body.associates)
         ? [...new Set(req.body.associates.filter((id) => mongoose.Types.ObjectId.isValid(id)).map(String))]
         : [],
       createdBy: req.user.id,
     });
+    if (branch.websiteDefault) await clearOtherWebsiteDefaults(branch._id);
     return res.status(201).json(branch);
   } catch (err) {
     if (err.code === 11000) return res.status(400).json({ message: 'A branch with this name already exists' });
@@ -207,6 +220,9 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
     if (Array.isArray(req.body.priceRequestNotifyUsers)) {
       updates.priceRequestNotifyUsers = req.body.priceRequestNotifyUsers;
     }
+    // The website's default branch. Only touched when the caller actually sends it, so a
+    // plain name/status edit cannot silently move it.
+    if (typeof req.body.websiteDefault === 'boolean') updates.websiteDefault = req.body.websiteDefault;
     if (Array.isArray(req.body.associates)) {
       updates.associates = [...new Set(req.body.associates
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
@@ -228,6 +244,7 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
       { new: true }
     );
     if (!branch) return res.status(404).json({ message: 'Branch not found' });
+    if (updates.websiteDefault === true) await clearOtherWebsiteDefaults(branch._id);
     return res.status(200).json(branch);
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });

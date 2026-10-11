@@ -16,6 +16,11 @@ const branchSchema = new mongoose.Schema({
   // branches predate this field and simply show no flag until an admin sets it.
   country:     { type: String, default: null },
   websiteSlug: { type: String, default: '' },
+  // The branch a visitor to the public website sees before they choose one, and the
+  // branch an unprefixed URL resolves to. At most one branch carries it: the branch
+  // routes clear it everywhere else whenever it is set (see routes/rbac/branches.js).
+  // With none set the website keeps its old fallback order, so this is additive.
+  websiteDefault: { type: Boolean, default: false },
   flagImage:   { type: String, default: '' },
   // Which staff get notified when a public-website price request comes in
   // for a product tagged to this branch (see POST /public/website/price-requests).

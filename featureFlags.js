@@ -44,4 +44,19 @@ function envFlag(name, fallback) {
 // and every shared dependency such as sharp or ffmpeg.
 const WEBSITE_API_ENABLED = envFlag('WEBSITE_API_ENABLED', true);
 
-module.exports = { WEBSITE_API_ENABLED, envFlag };
+// ─────────────────────────────────────────────────────────────────────────────
+// WEBSITE_BLOG_ENABLED — the website's blog, and the tab in XMS that writes it.
+//
+// OFF (the default). The blog was taken off the public site, so the endpoints
+// that feed it and the editor that authors it have no reason to answer:
+//   · GET /public/website/blog · /blog/:slug   the public reader
+//   · /digitalMarketing/blog                   the CMS behind the XMS Blog tab
+//
+// Nothing is deleted - blogPostModel, routes/digitalMarketing/blog.js and the
+// posts already in the database all stay. The website half of the same switch
+// is WEBSITE_BLOG_ENABLED in the website's own environment (see
+// website/live-clone/app/[[...path]]/route.js), and the XMS half is
+// BLOG_ENABLED in xms/src/tools/featureFlags.js. Turn all three on together.
+const WEBSITE_BLOG_ENABLED = envFlag('WEBSITE_BLOG_ENABLED', false);
+
+module.exports = { WEBSITE_API_ENABLED, WEBSITE_BLOG_ENABLED, envFlag };

@@ -21,6 +21,7 @@ const requireWebsiteVisitor = require('../../utils/requireWebsiteVisitor');
 const { sendMail } = require('../../utils/mailer');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 const { websiteBranchSlug } = require('../../utils/websiteBranchSlug');
+const { WEBSITE_BLOG_ENABLED } = require('../../featureFlags');
 const { AnalyticsEvent, sanitizeBatch, hostOf } = require('../../utils/websiteAnalytics');
 const {
   offersByRequest, toPublicOffer, renderCustomerDocument, acceptOffer, OfferError,
@@ -104,6 +105,7 @@ function branchPayload(branch) {
     name: branch.name,
     country: branch.country || null,
     websiteSlug: websiteBranchSlug(branch),
+    websiteDefault: Boolean(branch.websiteDefault),
     flagImage: branch.flagImage || '',
     address: branch.address || '',
     phone: branch.phone || '',
@@ -438,12 +440,17 @@ router.get('/tags', async (req, res) => {
 // user here) — every active branch is a legitimate public choice.
 router.get('/branches', async (req, res) => {
   try {
-    const branches = await Branch.find({ deleteDate: null, status: 'active' }).select('name country websiteSlug flagImage address phone instagramHandle').sort({ name: 1 }).lean();
+    const branches = await Branch.find({ deleteDate: null, status: 'active' }).select('name country websiteSlug websiteDefault flagImage address phone instagramHandle').sort({ name: 1 }).lean();
     return res.status(200).json({ data: branches.map((branch) => branchPayload(branch)) });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
 });
+
+// The blog is off for this deployment (api/featureFlags.js). Answering 404 rather than an
+// empty list is deliberate: an empty list reads as "there are no posts yet", which would
+// have a site render an empty blog page instead of not having one.
+router.use('/blog', (req, res, next) => (WEBSITE_BLOG_ENABLED ? next() : res.status(404).json({ message: 'Not found' })));
 
 // GET /public/website/blog?page=&limit=&lang= — published posts only, newest first.
 router.get('/blog', async (req, res) => {

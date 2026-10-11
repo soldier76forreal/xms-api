@@ -125,7 +125,7 @@ app.use(rateLimit({ name: 'global', windowMs: 60_000, max: 1000 }));
 // api/featureFlags.js for exactly what that covers and how to turn it back on.
 // A disabled path answers 503 with the reason rather than 404, so a stale client
 // or a half-flipped deploy says what is wrong instead of looking like a bug.
-const { WEBSITE_API_ENABLED } = require('./featureFlags');
+const { WEBSITE_API_ENABLED, WEBSITE_BLOG_ENABLED } = require('./featureFlags');
 const websiteOff = (req, res) => res.status(503).json({
   message: 'Website features are switched off on this server. '
     + 'Set WEBSITE_API_ENABLED=true (api/featureFlags.js) to enable them.',
@@ -223,7 +223,9 @@ app.use('/supply' , require('./routes/supply/main') )
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 
 app.use('/digitalMarketing' , require('./routes/digitalMarketing/main') )
-mountWebsite('/digitalMarketing/blog' , () => require('./routes/digitalMarketing/blog') )
+// The blog CMS needs the website side AND the blog itself to be on.
+if (WEBSITE_BLOG_ENABLED) mountWebsite('/digitalMarketing/blog' , () => require('./routes/digitalMarketing/blog') )
+else app.use('/digitalMarketing/blog', websiteOff)
 mountWebsite('/digitalMarketing/product-content' , () => require('./routes/digitalMarketing/productContent') )
 mountWebsite('/digitalMarketing/analytics'       , () => require('./routes/digitalMarketing/websiteAnalytics') )
 app.use('/tutorials' , require('./routes/tutorials/main') )
