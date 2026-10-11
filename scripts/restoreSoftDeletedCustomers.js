@@ -9,15 +9,20 @@
  * touch any other field — `updateDate` is deliberately left as it is, so the evidence of
  * when the records were deleted survives in case it is needed again.
  *
- * Dry run unless --yes. By default it refuses to act on everything at once: pass --at with
- * the timestamp the records were deleted at, so one accidental bulk write is undone without
- * also reviving customers somebody meant to remove. --all overrides that, deliberately.
+ * Dry run unless --yes. By default it refuses to act on everything at once: name the day
+ * (--on) or the exact batch (--at), so one accidental bulk delete is undone without also
+ * reviving customers somebody removed on purpose - possibly years earlier. --all overrides
+ * that, deliberately.
  *
  * Usage (from api/):
- *   node scripts/restoreSoftDeletedCustomers.js                             what is deleted, and when
- *   node scripts/restoreSoftDeletedCustomers.js --at "2026-07-14T17:02:07.557Z"
- *   node scripts/restoreSoftDeletedCustomers.js --at "<ts>" --yes           restore just those
- *   node scripts/restoreSoftDeletedCustomers.js --all --yes                 restore every one
+ *   node scripts/restoreSoftDeletedCustomers.js                     what is deleted, and when
+ *   node scripts/restoreSoftDeletedCustomers.js --on 2026-07-14     everything deleted that day
+ *   node scripts/restoreSoftDeletedCustomers.js --on 2026-07-14 --yes
+ *   node scripts/restoreSoftDeletedCustomers.js --at "<ts>" --yes   one batch exactly
+ *   node scripts/restoreSoftDeletedCustomers.js --all --yes         every one, whenever
+ *
+ * --on is usually the right one. A bulk delete through the list UI arrives as a run of
+ * batches - one per page of records, seconds apart - so --at recovers only one page of it.
  *
  * Take a mongodump first if you are unsure. Clearing deleteDate is reversible by hand
  * (set it back), but a backup costs nothing.
@@ -31,6 +36,8 @@ const APPLY = argv.includes('--yes');
 const ALL = argv.includes('--all');
 const atIdx = argv.indexOf('--at');
 const AT = atIdx === -1 ? null : argv[atIdx + 1];
+const onIdx = argv.indexOf('--on');
+const ON = onIdx === -1 ? null : argv[onIdx + 1];
 const dbAt = argv.indexOf('--db');
 const DB_OVERRIDE = dbAt === -1 ? null : argv[dbAt + 1];
 
@@ -43,6 +50,24 @@ if (AT) {
   atDate = new Date(AT);
   if (Number.isNaN(atDate.getTime())) {
     console.error(`--at is not a date I can read: ${AT}`);
+    process.exit(1);
+  }
+}
+
+// A bulk delete done through the list UI arrives as a run of batches - one per page of
+// records, seconds apart - so a single --at only recovers one page of it. --on takes the
+// whole day, which is the natural unit for "undo what happened then" while still leaving
+// deletions from other days, possibly years earlier and entirely deliberate, alone.
+let onFrom = null; let onTo = null;
+if (onIdx !== -1) {
+  if (!ON || ON.startsWith('--') || !/^\d{4}-\d{2}-\d{2}$/.test(ON)) {
+    console.error('--on needs a day as YYYY-MM-DD, e.g. --on 2026-07-14');
+    process.exit(1);
+  }
+  onFrom = new Date(`${ON}T00:00:00.000Z`);
+  onTo = new Date(`${ON}T23:59:59.999Z`);
+  if (Number.isNaN(onFrom.getTime())) {
+    console.error(`--on is not a day I can read: ${ON}`);
     process.exit(1);
   }
 }
@@ -82,23 +107,43 @@ const mongoose = require('mongoose');
     { $group: { _id: '$deleteDate', n: { $sum: 1 } } },
     { $sort: { n: -1 } },
   ]).toArray();
-  console.log('\ndeleted at:');
-  for (const m of moments.slice(0, 10)) {
+  // By DAY first - that is the unit a decision gets made in. A run of batches on one day is
+  // one event; a deletion years earlier is somebody removing a customer on purpose.
+  const byDay = new Map();
+  for (const m of moments) {
+    const day = new Date(m._id).toISOString().slice(0, 10);
+    byDay.set(day, (byDay.get(day) || 0) + m.n);
+  }
+  console.log('\ndeleted on:');
+  for (const [day, n] of [...byDay].sort((a, b) => b[1] - a[1])) {
+    const batches = moments.filter((m) => new Date(m._id).toISOString().slice(0, 10) === day).length;
+    const mark = ON === day ? '  <-- selected' : '';
+    console.log(`  ${day}   ${String(n).padStart(6)} record(s) in ${batches} batch(es)${mark}`);
+  }
+
+  console.log('\nthe individual batches:');
+  for (const m of moments.slice(0, 15)) {
     const mark = atDate && new Date(m._id).getTime() === atDate.getTime() ? '  <-- selected' : '';
     console.log(`  ${new Date(m._id).toISOString()}   ${String(m.n).padStart(6)} record(s)${mark}`);
   }
-  if (moments.length > 10) console.log(`  … and ${moments.length - 10} more moments`);
+  if (moments.length > 15) console.log(`  … and ${moments.length - 15} more`);
 
   // what this run would touch
   let filter;
   if (ALL) {
     filter = { deleteDate: { $ne: null } };
+  } else if (onFrom) {
+    filter = { deleteDate: { $gte: onFrom, $lte: onTo } };
   } else if (atDate) {
     filter = { deleteDate: atDate };
   } else {
     console.log('\nPick what to restore:');
-    console.log('  --at "<timestamp from the list above>"   just that bulk operation (preferred)');
-    console.log('  --all                                     every soft-deleted customer');
+    console.log('  --on YYYY-MM-DD                          everything deleted that day (usually what you want:');
+    console.log('                                           a bulk delete through the list arrives as several');
+    console.log('                                           batches seconds apart, and --at catches only one)');
+    console.log('  --at "<timestamp from the list above>"   one batch exactly');
+    console.log('  --all                                     every soft-deleted customer, whenever - including');
+    console.log('                                           ones removed deliberately years ago');
     console.log('\nNothing was changed.');
     await conn.close();
     process.exit(0);
