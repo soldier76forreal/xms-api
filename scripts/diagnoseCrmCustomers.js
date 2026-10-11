@@ -43,20 +43,37 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
   const db = conn.getClient().db();
   line(`database: ${db.databaseName}`);
 
+  // ── 0. where is the data, whatever it is called? ──────────────────────────
+  // Matching on the NAME is not enough: an older app may have called the collection
+  // something else entirely. Count everything, so a collection holding hundreds of
+  // records cannot be missed regardless of what it is named.
+  head('Every collection, by document count');
+  const names = (await db.listCollections().toArray()).map((c) => c.name);
+  const counts = [];
+  for (const n of names) counts.push({ n, c: await db.collection(n).countDocuments({}) });
+  counts.sort((a, b) => b.c - a.c);
+  for (const r of counts.filter((r) => r.c > 0).slice(0, 20)) {
+    line(`  ${String(r.c).padStart(7)}  ${r.n}`);
+  }
+  const empties = counts.filter((r) => r.c === 0).length;
+  if (empties) line(`  (${empties} more, all empty)`);
+
   // ── 1. is there more than one place customers could be? ───────────────────
   head('Collections that could hold customers');
-  const names = (await db.listCollections().toArray()).map((c) => c.name);
   const candidates = names.filter((n) => /customer|client|contact/i.test(n));
   for (const n of candidates) {
-    line(`  ${n.padEnd(28)} ${await db.collection(n).countDocuments({})} documents`);
+    line(`  ${n.padEnd(28)} ${counts.find((r) => r.n === n).c} documents`);
   }
   if (!candidates.includes('customers')) {
     line('  !! there is no `customers` collection - the CRM reads that one and nothing else');
   }
-  const others = candidates.filter((n) => n !== 'customers');
-  for (const n of others) {
-    const n2 = await db.collection(n).countDocuments({});
-    if (n2) line(`  !! "${n}" holds ${n2} document(s) the CRM will never read`);
+  for (const n of candidates.filter((n) => n !== 'customers' && n !== 'customeractivities')) {
+    const n2 = counts.find((r) => r.n === n).c;
+    if (n2) {
+      line(`  !! "${n}" holds ${n2} document(s). The CRM reads ONLY "customers" -`);
+      line('     Mongoose pluralises the "customer" model to that name. Records anywhere');
+      line('     else are invisible to it no matter how correct they look.');
+    }
   }
 
   const col = db.collection('customers');
@@ -68,8 +85,54 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
   const deleted = await col.countDocuments({ deleteDate: { $ne: null } });
   line(`  total                      ${total}`);
   line(`  the list query can see     ${visible}      (deleteDate null or absent)`);
-  line(`  soft-deleted               ${deleted}`);
-  if (deleted) line('  -> soft-deleted records never appear; that is by design');
+  line(`  excluded by deleteDate     ${deleted}`);
+
+  // The base filter is {deleteDate: null}, which matches null AND a missing field - but
+  // nothing else. An older app that wrote '' or false or 0 there would have every one of
+  // its records silently excluded, so show what is actually stored rather than a count.
+  if (deleted) {
+    const kinds = await col.aggregate([
+      { $match: { deleteDate: { $ne: null } } },
+      { $group: { _id: { $type: '$deleteDate' }, n: { $sum: 1 }, sample: { $first: '$deleteDate' } } },
+      { $sort: { n: -1 } },
+    ]).toArray();
+    line();
+    line('  what those records hold in deleteDate:');
+    for (const k of kinds) {
+      line(`    ${String(k._id).padEnd(10)} ${String(k.n).padStart(6)}   e.g. ${JSON.stringify(k.sample)}`);
+      if (k._id !== 'date') {
+        line('      ^^ not a date and not null, so the list filter excludes it. If these are');
+        line('         NOT meant to be deleted, clear the field:');
+        line(`         db.customers.updateMany({ deleteDate: { $type: "${k._id}" } }, { $set: { deleteDate: null } })`);
+      }
+    }
+
+    // People delete customers one at a time, so a crowd of records sharing one timestamp
+    // to the millisecond is not someone tidying up - it is a single bulk write. Showing the
+    // grouping is what separates a deliberate clear-out from something having wiped the list.
+    const moments = await col.aggregate([
+      { $match: { deleteDate: { $type: 'date' } } },
+      { $group: { _id: '$deleteDate', n: { $sum: 1 } } },
+      { $sort: { n: -1 } },
+      { $limit: 6 },
+    ]).toArray();
+    if (moments.length) {
+      line();
+      line('  when they were deleted (identical timestamps = one bulk operation):');
+      for (const m of moments) {
+        line(`    ${new Date(m._id).toISOString()}   ${String(m.n).padStart(6)} record(s)`);
+      }
+      const biggest = moments[0];
+      if (biggest.n > 10) {
+        line();
+        line(`  >>> ${biggest.n} customers share one timestamp to the millisecond. Nobody deletes`);
+        line('      that many by hand - one operation did it. If that was not intended, restore');
+        line('      them with:');
+        line('        node scripts/restoreSoftDeletedCustomers.js                  (dry run)');
+        line(`        node scripts/restoreSoftDeletedCustomers.js --at "${new Date(biggest._id).toISOString()}" --yes`);
+      }
+    }
+  }
 
   // ── 3. the shape a legacy record has ──────────────────────────────────────
   head('Shape of what is in there');
