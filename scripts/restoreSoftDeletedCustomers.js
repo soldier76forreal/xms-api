@@ -17,6 +17,8 @@
  * Usage (from api/):
  *   node scripts/restoreSoftDeletedCustomers.js                     what is deleted, and when
  *   node scripts/restoreSoftDeletedCustomers.js --on 2026-07-14     everything deleted that day
+ *   node scripts/restoreSoftDeletedCustomers.js --on 2026-07-14 --min-batch 50
+ *                                                                   only that day's BULK batches
  *   node scripts/restoreSoftDeletedCustomers.js --on 2026-07-14 --yes
  *   node scripts/restoreSoftDeletedCustomers.js --at "<ts>" --yes   one batch exactly
  *   node scripts/restoreSoftDeletedCustomers.js --all --yes         every one, whenever
@@ -38,6 +40,16 @@ const atIdx = argv.indexOf('--at');
 const AT = atIdx === -1 ? null : argv[atIdx + 1];
 const onIdx = argv.indexOf('--on');
 const ON = onIdx === -1 ? null : argv[onIdx + 1];
+// A day can hold both halves of the story: the accidental bulk pages AND a few records
+// somebody removed on purpose the same day - a duplicate, a test entry. Those arrive as
+// batches of one. --min-batch restores only batches of at least N, so the accident is undone
+// without quietly reviving the deliberate removals alongside it.
+const minIdx = argv.indexOf('--min-batch');
+const MIN_BATCH = minIdx === -1 ? 0 : parseInt(argv[minIdx + 1], 10);
+if (minIdx !== -1 && (!Number.isFinite(MIN_BATCH) || MIN_BATCH < 1)) {
+  console.error('--min-batch needs a whole number, e.g. --min-batch 50');
+  process.exit(1);
+}
 const dbAt = argv.indexOf('--db');
 const DB_OVERRIDE = dbAt === -1 ? null : argv[dbAt + 1];
 
@@ -133,7 +145,27 @@ const mongoose = require('mongoose');
   if (ALL) {
     filter = { deleteDate: { $ne: null } };
   } else if (onFrom) {
-    filter = { deleteDate: { $gte: onFrom, $lte: onTo } };
+    if (MIN_BATCH) {
+      // Only the batches on that day that are big enough to be the bulk operation.
+      const keep = moments
+        .filter((m) => m._id >= onFrom && m._id <= onTo && m.n >= MIN_BATCH)
+        .map((m) => m._id);
+      const skipped = moments.filter((m) => m._id >= onFrom && m._id <= onTo && m.n < MIN_BATCH);
+      console.log(`\nbatches on ${ON} of ${MIN_BATCH}+ records: ${keep.length}`);
+      if (skipped.length) {
+        console.log(`leaving ${skipped.length} smaller batch(es) alone (${skipped.reduce((s, m) => s + m.n, 0)} record(s)) —`);
+        console.log('those are one-off removals, not part of the bulk operation:');
+        for (const m of skipped) console.log(`   ${new Date(m._id).toISOString()}   ${m.n} record(s)`);
+      }
+      if (!keep.length) {
+        console.log('\nNo batch that day reaches that size. Nothing was changed.');
+        await conn.close();
+        process.exit(1);
+      }
+      filter = { deleteDate: { $in: keep } };
+    } else {
+      filter = { deleteDate: { $gte: onFrom, $lte: onTo } };
+    }
   } else if (atDate) {
     filter = { deleteDate: atDate };
   } else {
@@ -141,6 +173,9 @@ const mongoose = require('mongoose');
     console.log('  --on YYYY-MM-DD                          everything deleted that day (usually what you want:');
     console.log('                                           a bulk delete through the list arrives as several');
     console.log('                                           batches seconds apart, and --at catches only one)');
+    console.log('  --on YYYY-MM-DD --min-batch 50           the same, but only the BULK batches - leaves');
+    console.log('                                           same-day one-off removals (a duplicate, a test');
+    console.log('                                           record) deleted, which is usually right');
     console.log('  --at "<timestamp from the list above>"   one batch exactly');
     console.log('  --all                                     every soft-deleted customer, whenever - including');
     console.log('                                           ones removed deliberately years ago');
