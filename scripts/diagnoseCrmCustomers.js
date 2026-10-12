@@ -334,6 +334,31 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
       line(`  roles    ${roles.map((r) => r.name).join(', ') || '(none)'}`);
       line(`  superAdmin: ${roles.some((r) => r.isSuperAdmin) ? 'yes' : 'no'}`);
 
+      // The permission gate, resolved the way the server does it:
+      // union(role + group + grants) minus denies. There is NO superAdmin bypass in
+      // requirePermission - a missing key is a 403 for everyone, which is worth stating
+      // plainly because it is the first thing people assume they are exempt from.
+      const groupsForPerms = (access && access.groups && access.groups.length)
+        ? await db.collection('groups').find({ _id: { $in: access.groups } }).toArray() : [];
+      const granted = new Set();
+      for (const r of roles) for (const k of (r.permissions || [])) granted.add(k);
+      for (const g of groupsForPerms) for (const k of (g.permissions || [])) granted.add(k);
+      for (const k of ((access && access.grants) || [])) granted.add(k);
+      for (const k of ((access && access.denies) || [])) granted.delete(k);
+
+      const CRM_KEYS = ['crm:view', 'crm:customer:create', 'crm:customer:edit', 'crm:customer:delete'];
+      line();
+      line('  CRM permissions:');
+      for (const k of CRM_KEYS) line(`    ${granted.has(k) ? 'yes' : 'NO '}  ${k}`);
+      if (!granted.has('crm:view')) {
+        line();
+        line('  >>> crm:view is NOT granted. GET /crm/customers answers 403 for this user and');
+        line('      the list comes up empty however much data there is. Grant it on their role');
+        line('      (Users > Roles), or if the key is missing from the catalog entirely run');
+        line('      scripts/seedPermissions.js first - requirePermission has no superAdmin bypass.');
+      }
+      line(`  (${granted.size} permission key(s) in total)`);
+
       // the CRM scope is the narrowest thing that applies
       const scopes = roles.map((r) => (r.dataScopes || {}).crm).filter(Boolean);
       const groupIds = (access && access.groups) || [];
