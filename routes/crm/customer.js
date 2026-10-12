@@ -293,7 +293,18 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
       if (!(await assertBranchAccess(userId, req.query.branchId))) {
         return res.status(403).json({ message: 'You do not have access to this branch' });
       }
-      filters.push({ branchId: new mongoose.Types.ObjectId(req.query.branchId) });
+      // A customer with NO branch belongs to everyone, not to nobody. CRM is not
+      // branch-isolated the way Inventory and MIS are, and the CRM screen has no branch
+      // picker — crm.js just sends whatever branch is globally active. Matching branchId
+      // exactly therefore hid every unassigned customer from every branch at once: on the
+      // live database that left 1 of 129 visible, which reads as "my customers are gone".
+      filters.push({
+        $or: [
+          { branchId: new mongoose.Types.ObjectId(req.query.branchId) },
+          { branchId: null },
+          { branchId: { $exists: false } },
+        ],
+      });
     }
 
     // "created by" filter — meaningless (and disabled client-side) when
