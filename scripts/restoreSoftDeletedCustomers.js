@@ -21,6 +21,8 @@
  *                                                                   only that day's BULK batches
  *   node scripts/restoreSoftDeletedCustomers.js --on 2026-07-14 --yes
  *   node scripts/restoreSoftDeletedCustomers.js --at "<ts>" --yes   one batch exactly
+ *   node scripts/restoreSoftDeletedCustomers.js --added-from 2026-03-01 --added-to 2026-07-13
+ *                                                                   by when the customer was ADDED
  *   node scripts/restoreSoftDeletedCustomers.js --all --yes         every one, whenever
  *
  * --on is usually the right one. A bulk delete through the list UI arrives as a run of
@@ -44,6 +46,24 @@ const ON = onIdx === -1 ? null : argv[onIdx + 1];
 // somebody removed on purpose the same day - a duplicate, a test entry. Those arrive as
 // batches of one. --min-batch restores only batches of at least N, so the accident is undone
 // without quietly reviving the deliberate removals alongside it.
+// Choosing by WHEN THE CUSTOMER WAS ADDED, rather than when they were deleted. That is how
+// people actually remember their records - "the ones from this spring" - and it is the only
+// way to take part of a single bulk delete while leaving the rest of it alone.
+const fromIdx = argv.indexOf('--added-from');
+const toIdx = argv.indexOf('--added-to');
+const ADDED_FROM = fromIdx === -1 ? null : argv[fromIdx + 1];
+const ADDED_TO = toIdx === -1 ? null : argv[toIdx + 1];
+let addedFrom = null; let addedTo = null;
+for (const [flag, raw, set] of [['--added-from', ADDED_FROM, (d) => { addedFrom = d; }],
+  ['--added-to', ADDED_TO, (d) => { addedTo = d; }]]) {
+  if (raw === null) continue;
+  if (!raw || raw.startsWith('--') || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    console.error(`${flag} needs a day as YYYY-MM-DD, e.g. ${flag} 2026-03-01`);
+    process.exit(1);
+  }
+  set(new Date(flag === '--added-to' ? `${raw}T23:59:59.999Z` : `${raw}T00:00:00.000Z`));
+}
+
 const minIdx = argv.indexOf('--min-batch');
 const MIN_BATCH = minIdx === -1 ? 0 : parseInt(argv[minIdx + 1], 10);
 if (minIdx !== -1 && (!Number.isFinite(MIN_BATCH) || MIN_BATCH < 1)) {
@@ -142,7 +162,17 @@ const mongoose = require('mongoose');
 
   // what this run would touch
   let filter;
-  if (ALL) {
+  if (addedFrom || addedTo) {
+    // Only ever among records that are currently hidden - this can never un-delete
+    // something that was not deleted, nor touch a visible record.
+    const added = {};
+    if (addedFrom) added.$gte = addedFrom;
+    if (addedTo) added.$lte = addedTo;
+    filter = { deleteDate: { $ne: null }, insertDate: added };
+    if (onFrom) filter.deleteDate = { $gte: onFrom, $lte: onTo };
+    console.log(`
+selecting by when the customer was ADDED: ${ADDED_FROM || 'any'} to ${ADDED_TO || 'any'}`);
+  } else if (ALL) {
     filter = { deleteDate: { $ne: null } };
   } else if (onFrom) {
     if (MIN_BATCH) {
@@ -177,6 +207,10 @@ const mongoose = require('mongoose');
     console.log('                                           same-day one-off removals (a duplicate, a test');
     console.log('                                           record) deleted, which is usually right');
     console.log('  --at "<timestamp from the list above>"   one batch exactly');
+    console.log('  --added-from YYYY-MM-DD --added-to YYYY-MM-DD');
+    console.log('                                           by when the customer was ADDED, not deleted -');
+    console.log('                                           use this to take one period out of a bulk');
+    console.log('                                           delete and leave the older records hidden');
     console.log('  --all                                     every soft-deleted customer, whenever - including');
     console.log('                                           ones removed deliberately years ago');
     console.log('\nNothing was changed.');

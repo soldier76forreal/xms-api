@@ -13,6 +13,8 @@
  *   4. they are there and visible, and the problem is in the browser
  *
  * Usage (from api/):
+ *   node scripts/diagnoseCrmCustomers.js --hidden                every hidden record grouped by
+ *                                                               the month it was added, with names
  *   node scripts/diagnoseCrmCustomers.js --recent 30            the newest customers, and
  *                                                               which of them are hidden
  *   node scripts/diagnoseCrmCustomers.js                      the collection only
@@ -25,6 +27,7 @@ const path = require('path');
 const argv = process.argv.slice(2);
 const phoneAt = argv.indexOf('--phone');
 const PHONE = phoneAt === -1 ? null : argv[phoneAt + 1];
+const HIDDEN_VIEW = argv.includes('--hidden');
 const recentAt = argv.indexOf('--recent');
 const RECENT = recentAt === -1 ? 0 : (parseInt(argv[recentAt + 1], 10) || 20);
 const dbAt = argv.indexOf('--db');
@@ -278,6 +281,42 @@ const head = (s) => { line(); line(s); line('-'.repeat(s.length)); };
         line(`     ${n} of them were deleted on ${d}  ->  restore with --on ${d}`);
       }
     }
+  }
+
+  // ── 3c. what is actually IN the hidden set ────────────────────────────────
+  // Deciding what to bring back needs to be done on the records themselves, not on counts.
+  // Grouped by the month they were ADDED - which is how people remember their customers -
+  // with real names and numbers, so a whole period can be recognised and chosen or skipped.
+  if (HIDDEN_VIEW) {
+    head('What is in the hidden set, by the month it was added');
+    const groups = await col.aggregate([
+      { $match: { deleteDate: { $ne: null } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$insertDate' } },
+          n: { $sum: 1 },
+          samples: {
+            $push: {
+              phone: '$phoneNumber',
+              name: { $ifNull: ['$personalInformation.companyName', '$personalInformation.firstName'] },
+            },
+          },
+        },
+      },
+      { $sort: { _id: -1 } },
+    ]).toArray();
+
+    for (const g of groups) {
+      line(`  ${g._id || '(no date)'}   ${String(g.n).padStart(5)} hidden`);
+      for (const s of g.samples.slice(0, 4)) {
+        line(`              ${String(s.phone || '—').padEnd(20)} ${s.name || '(no name)'}`);
+      }
+      if (g.n > 4) line(`              … and ${g.n - 4} more`);
+    }
+    line();
+    line('  Restore a period with:');
+    line('    node scripts/restoreSoftDeletedCustomers.js --added-from YYYY-MM-DD --added-to YYYY-MM-DD');
+    line('  (add --yes to apply; it only ever touches records that are currently hidden)');
   }
 
   // ── 4. what one specific user would see ───────────────────────────────────
