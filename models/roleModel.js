@@ -16,6 +16,15 @@ const roleSchema = new mongoose.Schema({
   // never by role name, so renaming the role can't silently break the gate.
   // Intended for exactly one role in the system.
   isSuperAdmin: { type: Boolean, default: false },
+
+  // Which job report form this role's holders file their daily report on.
+  // A plain String, not an enum: the registry in utils/jobReportTemplates.js
+  // is the source of truth for what is valid and an unknown value falls back
+  // to 'classic', so adding a template is a code change and never a schema
+  // migration - the same rule branch.misTemplates follows. A user holding
+  // several roles gets the most specific one; see resolveUserJobReportTemplate
+  // in utils/rbac.js.
+  jobReportTemplate: { type: String, default: 'classic' },
   insertDate:  { type: Date, default: Date.now },
   updateDate:  { type: Date, default: null },
   deleteDate:  { type: Date, default: null },

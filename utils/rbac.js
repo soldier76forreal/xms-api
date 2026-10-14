@@ -111,6 +111,26 @@ async function getEffectiveScopes(userId) {
   return merged;
 }
 
+// ── Which job report form does this user file on? ────────────────────────────
+// Roles carry the template (role.jobReportTemplate); a user can hold several.
+// Rule: the first role that names something other than the default wins, with
+// roles walked in name order so the answer is stable rather than dependent on
+// the order ids happen to come back in. A user whose roles all say 'classic'
+// -- or who has no role at all -- files the classic report, which is what
+// every user did before templates existed.
+async function resolveUserJobReportTemplate(userId) {
+  const { DEFAULT_TEMPLATE, isKnownTemplate } = require('./jobReportTemplates');
+  const access = await UserAccess.findOne({ userId: String(userId) }).lean();
+  if (!access || !access.roles || !access.roles.length) return DEFAULT_TEMPLATE;
+
+  const roles = await Role.find({ _id: { $in: access.roles }, deleteDate: null })
+    .select('name jobReportTemplate').sort('name').lean();
+  const named = roles.find((r) => r.jobReportTemplate
+    && r.jobReportTemplate !== DEFAULT_TEMPLATE
+    && isKnownTemplate(r.jobReportTemplate));
+  return named ? named.jobReportTemplate : DEFAULT_TEMPLATE;
+}
+
 // ── requirePermission factory ─────────────────────────────────────────────────
 // Usage: router.post('/something', verify, requirePermission('module:resource:action'), handler)
 // Backend is the ONLY real gate — frontend <Can> is UX only.
@@ -232,6 +252,7 @@ function requireBranchRead() {
 
 module.exports = {
   getEffectivePermissions, getEffectiveScopes, requirePermission, clearPermissionCache,
+  resolveUserJobReportTemplate,
   getUsersWithPermission,
   isSuperAdmin, requireSuperAdmin, getUserBranches, assertBranchAccess, requireBranch,
   assertBranchReadAccess, requireBranchRead,

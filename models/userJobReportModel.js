@@ -15,6 +15,44 @@ const userJobReportSchema = new mongoose.Schema({
   reportDate: { type: Date, required: true, index: true },
   title:      { type: String, default: '' },
   body:       { type: String, default: '' },
+
+  // ── Which form this report was filed on ───────────────────────────────────
+  // A role picks the template its holders file on (role.jobReportTemplate);
+  // the registry in utils/jobReportTemplates.js decides what is valid, so this
+  // is a plain String and NOT a Mongoose enum - the same reason
+  // branch.misTemplates is. An unknown key falls back to 'classic' at render
+  // time instead of making the document unreadable. Every report filed before
+  // templates existed has no value here and therefore reads as 'classic',
+  // which is exactly what it is.
+  templateKey: { type: String, default: 'classic' },
+
+  // The answers, keyed by the template's section keys: a `fields` section
+  // stores an object, a `table` section an array of row objects. Declared
+  // Mixed because its shape IS the template, which lives in code - so any
+  // write must call markModified('sections') (Mongoose cannot see into a
+  // Mixed path, and a silently-dropped update is the BUG-05 trap again).
+  // Never trusted from the client: resolveJobReportSections() in
+  // utils/jobReportSections.js rebuilds it from the template spec and
+  // re-snapshots every customer/variety/content reference server-side.
+  sections: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+
+  // Flat, de-duplicated references pulled out of `sections` in the same
+  // operation - what makes "every report that mentions this customer" a
+  // query instead of a scan over Mixed.
+  links: {
+    customers:  [{ customerId: mongoose.Schema.Types.ObjectId, name: String, phone: String }],
+    varieties:  [{ variantId: mongoose.Schema.Types.ObjectId, productId: mongoose.Schema.Types.ObjectId, code: String, productName: String }],
+    dmContents: [{ kind: String, recordId: mongoose.Schema.Types.ObjectId, title: String }],
+  },
+
+  // 'draft' is an autosave in progress - the form writes one on every pause so
+  // a rep who gets a phone call mid-report loses nothing. It is the author's
+  // own working copy: excluded from the admin list, and it notifies nobody
+  // until it is submitted. A classic report created the old way is born
+  // 'submitted', which is why that is the default.
+  status:      { type: String, enum: ['draft', 'submitted'], default: 'submitted', index: true },
+  submittedAt: { type: Date, default: null },
+  autoSavedAt: { type: Date, default: null },
   files: [{
     fileId:    { type: mongoose.Schema.Types.ObjectId },
     kind:      { type: String, enum: ['audio', 'video', 'image', 'document'] },
@@ -61,5 +99,7 @@ const userJobReportSchema = new mongoose.Schema({
 });
 
 userJobReportSchema.index({ deleteDate: 1, lastActivityAt: -1 });
+userJobReportSchema.index({ userId: 1, status: 1, reportDate: -1 });
+userJobReportSchema.index({ 'links.customers.customerId': 1 });
 
 module.exports = userJobReportSchema;

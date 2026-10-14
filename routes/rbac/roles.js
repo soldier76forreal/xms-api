@@ -1,6 +1,7 @@
 const express = require('express');
 const verify  = require('../users/verifyToken');
 const { requireSuperAdmin, clearPermissionCache, Role } = require('../../utils/rbac');
+const { isKnownTemplate, DEFAULT_TEMPLATE } = require('../../utils/jobReportTemplates');
 
 const router = express.Router();
 
@@ -26,6 +27,9 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
       permissions: req.body.permissions || [],
       dataScopes:  req.body.dataScopes  || {},
       isSuperAdmin: !!req.body.isSuperAdmin,
+      // An unknown key would still fall back at render time, but refusing it
+      // here keeps a typo out of the database in the first place.
+      jobReportTemplate: isKnownTemplate(req.body.jobReportTemplate) ? req.body.jobReportTemplate : DEFAULT_TEMPLATE,
       isSystem:    false,
     });
     return res.status(201).json(role);
@@ -48,6 +52,12 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
     // It was previously omitted here, so renaming a role silently did nothing.
     if (!role.isSystem && req.body.name !== undefined) update.name = String(req.body.name).trim();
     if (req.body.isSuperAdmin !== undefined) update.isSuperAdmin = !!req.body.isSuperAdmin;
+    // Only touched when the caller actually sends it, so a plain
+    // name/permission edit can never silently move a role's form.
+    if (req.body.jobReportTemplate !== undefined) {
+      update.jobReportTemplate = isKnownTemplate(req.body.jobReportTemplate)
+        ? req.body.jobReportTemplate : DEFAULT_TEMPLATE;
+    }
     const updated = await Role.findOneAndUpdate(
       { _id: req.params.id },
       { $set: update },
