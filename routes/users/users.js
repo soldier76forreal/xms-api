@@ -32,8 +32,8 @@ const externalLinkPageSchema   = require('../../models/externalLinkPageModel');
 const dbConnection        = require('../../connections/xmsPr');
 const verify              = require('./verifyToken');
 const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, getUserBranches, resolveUserJobReportTemplate, UserAccess, Role, Group, Branch } = require('../../utils/rbac');
-const { listJobReportTemplates, resolveJobReportTemplate, isKnownTemplate, DEFAULT_TEMPLATE } = require('../../utils/jobReportTemplates');
-const { resolveJobReportSections, DM_KINDS, customerLabel, crmScopeFilter } = require('../../utils/jobReportSections');
+const { listJobReportTemplates, resolveJobReportTemplate, isKnownTemplate, DEFAULT_TEMPLATE, SOCIAL_CHANNELS } = require('../../utils/jobReportTemplates');
+const { resolveJobReportSections, DM_KINDS, customerLabel, crmScopeFilter, dmScopeFilter, inventoryProductScopeFilter } = require('../../utils/jobReportSections');
 const { renderJobReportHtml } = require('../../utils/jobReportTemplate');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
@@ -574,6 +574,9 @@ router.get('/jobReports/templates', verify, async (req, res) => {
       // hard-coded copy, which is what keeps the form and the printed sheet
       // from drifting apart.
       mine, spec: resolveJobReportTemplate(mine),
+      // The channels a `recipient` field offers — sent with the spec for the
+      // same reason the labels are: the printed sheet names them too.
+      channels: SOCIAL_CHANNELS,
     });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -585,7 +588,7 @@ router.get('/jobReports/templates', verify, async (req, res) => {
 // form opening a salesperson's sheet).
 router.get('/jobReports/templates/:key', verify, async (req, res) => {
   try {
-    return res.status(200).json({ spec: resolveJobReportTemplate(req.params.key) });
+    return res.status(200).json({ spec: resolveJobReportTemplate(req.params.key), channels: SOCIAL_CHANNELS });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
@@ -640,8 +643,14 @@ router.get('/jobReports/lookup/varieties', verify, requirePermission('inventory:
     const superAdmin = await isSuperAdmin(req.user.id);
     const branchIds = superAdmin ? null : await getUserBranches(req.user.id);
 
+    // Inventory's own row-level scope, applied through the one definition the
+    // save path also uses — a picker that offers what the save would reject is
+    // worse than no picker.
+    const invScope = superAdmin ? null : await inventoryProductScopeFilter(req.user.id);
+
     const productQuery = { deleteDate: null, $or: [{ name: re }, { nameAr: re }, { code: re }] };
     if (branchIds) productQuery.branchId = { $in: branchIds };
+    if (invScope) Object.assign(productQuery, invScope);
     const byName = await InvProduct.find(productQuery).select('_id').limit(15).lean();
 
     const variantQuery = {
@@ -651,16 +660,21 @@ router.get('/jobReports/lookup/varieties', verify, requirePermission('inventory:
     if (branchIds) variantQuery.branchId = { $in: branchIds };
 
     const variants = await InvVariant.find(variantQuery)
-      .select('_id productId branchId code unit quantity').sort('code').limit(25).lean();
+      .select('_id productId branchId code unit quantity').sort('code').limit(60).lean();
+
+    const scopedProductQuery = { _id: { $in: variants.map((v) => v.productId) } };
+    if (invScope) Object.assign(scopedProductQuery, invScope);
     const [products, branches] = await Promise.all([
-      InvProduct.find({ _id: { $in: variants.map((v) => v.productId) } }).select('_id name nameAr').lean(),
+      InvProduct.find(scopedProductQuery).select('_id name nameAr').lean(),
       Branch.find({ _id: { $in: variants.map((v) => v.branchId) } }).select('_id name').lean(),
     ]);
     const productById = new Map(products.map((p) => [String(p._id), p]));
     const branchById = new Map(branches.map((b) => [String(b._id), b]));
 
     return res.status(200).json({
-      data: variants.map((v) => {
+      // A code match whose product is out of scope is dropped here, not shown
+      // and then refused on save.
+      data: variants.filter((v) => productById.has(String(v.productId))).slice(0, 25).map((v) => {
         const p = productById.get(String(v.productId)) || {};
         return {
           variantId: v._id, productId: v.productId, branchId: v.branchId,
@@ -685,9 +699,16 @@ router.get('/jobReports/lookup/content', verify, requirePermission('digitalMarke
     if (search.length < 2) return res.status(200).json({ data: [] });
     const re = new RegExp(escapeJrRegex(search), 'i');
 
+    // Digital Marketing is not branch-scoped but it IS row-level scoped: on a
+    // 'mine' scope a creator only sees their own batches, here as anywhere.
+    // whatsappShare and linkPage carry no owner and are deliberately shared
+    // records, so the scope does not apply to them.
+    const dmScope = (await isSuperAdmin(req.user.id)) ? null : await dmScopeFilter(req.user.id);
+    const scoped = (q) => (dmScope ? { ...q, ...dmScope } : q);
+
     const [raw, ready, shares, pages] = await Promise.all([
-      RawContent.find({ deleteDate: null, title: re }).select('_id title insertDate').limit(10).lean(),
-      ReadyToUpload.find({ deleteDate: null, $or: [{ title: re }, { caption: re }] })
+      RawContent.find(scoped({ deleteDate: null, title: re })).select('_id title insertDate').limit(10).lean(),
+      ReadyToUpload.find(scoped({ deleteDate: null, $or: [{ title: re }, { caption: re }] }))
         .select('_id title caption insertDate').limit(10).lean(),
       WhatsappShare.find({ deleteDate: null, $or: [{ productName: re }, { variantCode: re }] })
         .select('_id productName variantCode insertDate').limit(10).lean(),

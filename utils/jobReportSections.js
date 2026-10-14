@@ -15,6 +15,7 @@
 
 'use strict';
 
+const mongoose = require('mongoose');
 const dbConnection = require('../connections/xmsPr');
 const customerSchema       = require('../models/customerModel');
 const inventoryProductSchema = require('../models/inventoryProductModel');
@@ -23,8 +24,8 @@ const rawContentSchema     = require('../models/rawContentModel');
 const readyToUploadSchema  = require('../models/readyToUploadModel');
 const whatsappShareSchema  = require('../models/whatsappShareModel');
 const externalLinkPageSchema = require('../models/externalLinkPageModel');
-const { isSuperAdmin, getUserBranches, getEffectiveScopes, Group } = require('./rbac');
-const { resolveJobReportTemplate } = require('./jobReportTemplates');
+const { isSuperAdmin, getUserBranches, getEffectiveScopes, getEffectivePermissions, Group } = require('./rbac');
+const { resolveJobReportTemplate, CHANNEL_VALUES } = require('./jobReportTemplates');
 
 const Customer   = dbConnection.models.customer         || dbConnection.model('customer', customerSchema);
 const InvProduct = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
@@ -73,6 +74,11 @@ const customerLabel = (c) => {
   return name || c.phoneNumber || '';
 };
 
+// ── Row-level scope, one definition per module ──────────────────────────────
+// Each of these mirrors the filter its own section already applies to its own
+// list, and BOTH the picker route and the save path use it — a security filter
+// that exists twice is a security filter that drifts.
+
 // Mirrors routes/crm/customer.js's own buildScopeFilter — a report may only
 // reference a customer its author could see in the CRM list.
 async function crmScopeFilter(userId) {
@@ -84,6 +90,36 @@ async function crmScopeFilter(userId) {
   const memberIds = [...new Set(groups.flatMap((g) => (g.members || []).map((m) => String(m))))];
   if (!memberIds.length) return { $or: [{ owner: userId }, { assignedTo: userId }] };
   return { $or: [{ owner: { $in: memberIds } }, { assignedTo: { $in: memberIds } }] };
+}
+
+// Mirrors routes/digitalMarketing/main.js's buildScopeFilter: on a 'mine'
+// scope a creator only sees their own content, so they can only point a report
+// at their own content either.
+async function dmScopeFilter(userId) {
+  const scopes = await getEffectiveScopes(userId);
+  const scope = scopes.digitalMarketing;
+  if (!scope || scope === 'all') return null;
+  const mine = new mongoose.Types.ObjectId(String(userId));
+  if (scope === 'mine') return { owner: mine };
+  const groups = await Group.find({ members: userId, deleteDate: null }).select('members').lean();
+  const memberIds = [...new Set(groups.flatMap((g) => (g.members || []).map(String)))];
+  if (!memberIds.length) return { owner: mine };
+  return { owner: { $in: memberIds.map((id) => new mongoose.Types.ObjectId(id)) } };
+}
+
+// Mirrors routes/inventory/main.js: the Inventory scope is judged on the
+// PRODUCT's createdBy, not the variant's, which is why this returns a filter
+// for the product query rather than the variant one.
+async function inventoryProductScopeFilter(userId) {
+  const scopes = await getEffectiveScopes(userId);
+  const scope = scopes.inventory;
+  if (!scope || scope === 'all') return null;
+  const mine = new mongoose.Types.ObjectId(String(userId));
+  if (scope === 'mine') return { createdBy: mine };
+  const groups = await Group.find({ members: userId, deleteDate: null }).select('members').lean();
+  const memberIds = [...new Set(groups.flatMap((g) => (g.members || []).map(String)))];
+  if (!memberIds.length) return { createdBy: mine };
+  return { createdBy: { $in: memberIds.map((id) => new mongoose.Types.ObjectId(id)) } };
 }
 
 // Every reference in the whole payload is collected first and resolved in one
@@ -113,12 +149,23 @@ function collectRefs(tpl, raw) {
       if (!Array.isArray(given)) return;
       given.slice(0, MAX_ROWS_PER_TABLE).forEach((row) => {
         (section.columns || []).forEach((col) => {
+          // A recipient only has something to resolve in its customer mode.
+          if (col.type === 'recipient') {
+            const v = row && row[col.key];
+            if (v && v.mode === 'customer') takeRef('customer', v);
+            return;
+          }
           if (refs[col.type] || col.type === 'dmContent') takeRef(col.type, row && row[col.key]);
         });
       });
     } else {
       if (!given || typeof given !== 'object') return;
       (section.fields || []).forEach((field) => {
+        if (field.type === 'recipient') {
+          const v = given[field.key];
+          if (v && v.mode === 'customer') takeRef('customer', v);
+          return;
+        }
         if (refs[field.type] || field.type === 'dmContent') takeRef(field.type, given[field.key]);
       });
     }
@@ -127,8 +174,11 @@ function collectRefs(tpl, raw) {
   return refs;
 }
 
-async function loadCustomers(ids, userId) {
-  if (!ids.size) return new Map();
+async function loadCustomers(ids, userId, perms) {
+  // A dataScope answers "which of the records I may see", NOT "may I see any".
+  // Without crm:view there is nothing to scope, and a report must not become a
+  // way to read a name out of the CRM. Default-deny, as everywhere else.
+  if (!ids.size || !perms.has('crm:view')) return new Map();
   const query = { _id: { $in: Array.from(ids) }, deleteDate: null };
   const scope = await crmScopeFilter(userId);
   if (scope) Object.assign(query, scope);
@@ -138,42 +188,62 @@ async function loadCustomers(ids, userId) {
   }]));
 }
 
-async function loadVarieties(ids, userId) {
-  if (!ids.size) return new Map();
+async function loadVarieties(ids, userId, perms) {
+  if (!ids.size || !perms.has('inventory:view')) return new Map();
   const superAdmin = await isSuperAdmin(userId);
   const branchIds = superAdmin ? null : await getUserBranches(userId);
   const query = { _id: { $in: Array.from(ids) }, deleteDate: null };
   if (branchIds) query.branchId = { $in: branchIds };
   const variants = await InvVariant.find(query).select('_id productId branchId code unit quantity').lean();
-  const products = await InvProduct.find({ _id: { $in: variants.map((v) => v.productId) } })
-    .select('_id name nameAr').lean();
+
+  // Two gates, both of them the Inventory section's own: the caller must hold
+  // the branch, and must pass Inventory's row-level scope on the product. A
+  // variant whose product does not come back is simply not resolved, so the
+  // cell saves as empty rather than quietly carrying a record the author
+  // cannot open.
+  const productQuery = { _id: { $in: variants.map((v) => v.productId) } };
+  const scope = superAdmin ? null : await inventoryProductScopeFilter(userId);
+  if (scope) Object.assign(productQuery, scope);
+  const products = await InvProduct.find(productQuery).select('_id name nameAr').lean();
+
   const productById = new Map(products.map((p) => [String(p._id), p]));
-  return new Map(variants.map((v) => {
-    const p = productById.get(String(v.productId)) || {};
-    return [String(v._id), {
-      variantId: v._id, productId: v.productId, branchId: v.branchId,
-      code: v.code || '', productName: p.name || '', productNameAr: p.nameAr || '',
-      unit: v.unit || '',
-    }];
-  }));
+  return new Map(variants
+    .filter((v) => productById.has(String(v.productId)))
+    .map((v) => {
+      const p = productById.get(String(v.productId)) || {};
+      return [String(v._id), {
+        variantId: v._id, productId: v.productId, branchId: v.branchId,
+        code: v.code || '', productName: p.name || '', productNameAr: p.nameAr || '',
+        unit: v.unit || '',
+      }];
+    }));
 }
 
 // Digital Marketing is NOT branch-scoped (confirmed decision, see CLAUDE.md),
 // so a DM record resolves on existence alone — the same bar as opening it in
 // the DM section with digitalMarketing:view.
 const DM_KINDS = {
-  rawContent:    { model: () => RawContent,    title: (d) => d.title || '' },
-  readyToUpload: { model: () => ReadyToUpload, title: (d) => d.title || d.caption || '' },
-  whatsappShare: { model: () => WhatsappShare, title: (d) => [d.productName, d.variantCode].filter(Boolean).join(' · ') },
-  linkPage:      { model: () => ExternalLinkPage, title: (d) => d.title || d.companyName || d.code || '' },
+  rawContent:    { model: () => RawContent,    scoped: true,  title: (d) => d.title || '' },
+  readyToUpload: { model: () => ReadyToUpload, scoped: true,  title: (d) => d.title || d.caption || '' },
+  whatsappShare: { model: () => WhatsappShare, scoped: false, title: (d) => [d.productName, d.variantCode].filter(Boolean).join(' · ') },
+  linkPage:      { model: () => ExternalLinkPage, scoped: false, title: (d) => d.title || d.companyName || d.code || '' },
 };
 
-async function loadDmContents(byKind) {
+async function loadDmContents(byKind, userId, perms) {
   const out = new Map();
+  if (!perms.has('digitalMarketing:view')) return out;
+  // Digital Marketing is not branch-scoped, but it IS row-level scoped: on a
+  // 'mine' scope a creator may only reference their own content.
+  const scope = (await isSuperAdmin(userId)) ? null : await dmScopeFilter(userId);
   await Promise.all(Array.from(byKind.entries()).map(async ([kind, ids]) => {
     const spec = DM_KINDS[kind];
     if (!spec || !ids.size) return;
-    const rows = await spec.model().find({ _id: { $in: Array.from(ids) }, deleteDate: null }).lean();
+    const query = { _id: { $in: Array.from(ids) }, deleteDate: null };
+    // whatsappShare and linkPage carry no `owner`, so the scope cannot be
+    // applied to them — they are deliberately shared records (a share history
+    // and a public page), and scoping them would hide the team's own work.
+    if (scope && spec.scoped) Object.assign(query, scope);
+    const rows = await spec.model().find(query).lean();
     rows.forEach((d) => out.set(`${kind}:${String(d._id)}`, {
       kind, recordId: d._id, title: spec.title(d) || '',
     }));
@@ -188,8 +258,30 @@ function resolveValue(field, value, resolved) {
       return (id && resolved.customers.get(id)) || null;
     }
     case 'variety': {
-      const id = value && String(value.variantId || value.id || '');
+      if (!value) return null;
+      // A field with allowText also takes a stone the catalogue does not carry
+      // — stored as {text} so it can never be mistaken for a real variety.
+      if (value.text != null && !value.variantId && !value.id) {
+        const text = clampText(value.text, MAX_TEXT).trim();
+        return text ? { text } : null;
+      }
+      const id = String(value.variantId || value.id || '');
       return (id && resolved.varieties.get(id)) || null;
+    }
+    case 'recipient': {
+      if (!value) return null;
+      const mode = String(value.mode || '');
+      if (mode === 'channel') {
+        const channel = String(value.channel || '');
+        return CHANNEL_VALUES.includes(channel) ? { mode: 'channel', channel } : null;
+      }
+      if (mode === 'customer') {
+        const id = String(value.customerId || value.id || '');
+        const found = id && resolved.customers.get(id);
+        return found ? { mode: 'customer', ...found } : null;
+      }
+      const text = clampText(value.text, MAX_TEXT).trim();
+      return text ? { mode: 'text', text } : null;
     }
     case 'dmContent': {
       if (!value) return null;
@@ -223,11 +315,15 @@ function applyComputed(section, row) {
   });
 }
 
-// A row the user started and abandoned (every cell empty) is noise on a
-// printed sheet — dropped rather than stored as a blank line.
-const rowIsEmpty = (row) => Object.values(row).every(
-  (v) => v == null || v === '' || (typeof v === 'object' && !v),
-);
+// A row the user started and abandoned is noise on a printed sheet — dropped
+// rather than stored as a blank line. A reference cell is an OBJECT, so a
+// shallow truthiness test would call {text:''} filled; this looks inside.
+const cellIsEmpty = (v) => {
+  if (v == null || v === '') return true;
+  if (typeof v !== 'object') return false;
+  return Object.values(v).every((inner) => inner == null || inner === '');
+};
+const rowIsEmpty = (row) => Object.values(row).every(cellIsEmpty);
 
 /**
  * @returns {{ sections: Object, links: Object, bound: Object }}
@@ -242,10 +338,13 @@ async function resolveJobReportSections(userId, templateKey, rawSections) {
   const raw = (rawSections && typeof rawSections === 'object') ? rawSections : {};
 
   const refs = collectRefs(tpl, raw);
+  // Resolved once for the whole payload: the keys decide WHETHER a reference
+  // type resolves at all, the scopes decide WHICH records within it.
+  const perms = await getEffectivePermissions(userId);
   const [customers, varieties, dmContents] = await Promise.all([
-    loadCustomers(refs.customer, userId),
-    loadVarieties(refs.variety, userId),
-    loadDmContents(refs.dmContent),
+    loadCustomers(refs.customer, userId, perms),
+    loadVarieties(refs.variety, userId, perms),
+    loadDmContents(refs.dmContent, userId, perms),
   ]);
   const resolved = { customers, varieties, dmContents };
 
@@ -301,5 +400,6 @@ async function resolveJobReportSections(userId, templateKey, rawSections) {
 
 module.exports = {
   resolveJobReportSections, DM_KINDS,
-  MAX_ROWS_PER_TABLE, customerLabel, crmScopeFilter,
+  MAX_ROWS_PER_TABLE, customerLabel,
+  crmScopeFilter, dmScopeFilter, inventoryProductScopeFilter,
 };

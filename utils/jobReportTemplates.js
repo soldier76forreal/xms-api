@@ -21,9 +21,13 @@
 // Field types the renderer understands:
 //   date · time · number · money · text · textarea · select
 //   customer   → CRM customer (picked, or created on the spot)
-//   variety    → Inventory product / variety, by its stone code
+//   variety    → Inventory product / variety, by its stone code. With
+//                `allowText: true` the field also takes plain text, for a
+//                stone the catalogue does not carry — stored as {text}.
 //   dmContent  → a Digital Marketing record (raw content, ready to upload,
 //                WhatsApp share or external link page)
+//   recipient  → who/what something went to: one of SOCIAL_CHANNELS, a CRM
+//                customer, or plain text. Stored as {mode, …}.
 // The three reference types are never trusted from the client: every one is
 // re-fetched and re-snapshotted server-side (see resolveSections in
 // utils/jobReportSections.js), the same discipline as an MIS line item.
@@ -31,6 +35,32 @@
 'use strict';
 
 const LANGS = ['en', 'ar', 'fa'];
+
+// Where content goes. Defined here, beside the templates, for the same reason
+// the labels are: the printed sheet has to name the channel in Arabic too, and
+// a second copy would drift. `icon` is a NAME the frontend maps to a component
+// — this file stays free of anything React.
+// The VALUE is the English literal and is what gets stored; only the label is
+// translated (brand names are not translated at all, per the i18n rules).
+const SOCIAL_CHANNELS = [
+  { value: 'whatsapp',  icon: 'whatsapp',  color: '#25D366', label: { en: 'WhatsApp',  ar: 'واتساب',   fa: 'واتساپ' } },
+  { value: 'instagram', icon: 'instagram', color: '#E1306C', label: { en: 'Instagram', ar: 'إنستغرام', fa: 'اینستاگرام' } },
+  { value: 'tiktok',    icon: 'tiktok',    color: '#000000', label: { en: 'TikTok',    ar: 'تيك توك',  fa: 'تیک‌تاک' } },
+  { value: 'telegram',  icon: 'telegram',  color: '#229ED9', label: { en: 'Telegram',  ar: 'تيليغرام', fa: 'تلگرام' } },
+  { value: 'facebook',  icon: 'facebook',  color: '#1877F2', label: { en: 'Facebook',  ar: 'فيسبوك',   fa: 'فیسبوک' } },
+  { value: 'youtube',   icon: 'youtube',   color: '#FF0000', label: { en: 'YouTube',   ar: 'يوتيوب',   fa: 'یوتیوب' } },
+  { value: 'snapchat',  icon: 'snapchat',  color: '#FFFC00', label: { en: 'Snapchat',  ar: 'سناب شات', fa: 'اسنپ‌چت' } },
+  { value: 'x',         icon: 'x',         color: '#000000', label: { en: 'X',         ar: 'إكس',      fa: 'ایکس' } },
+  { value: 'linkedin',  icon: 'linkedin',  color: '#0A66C2', label: { en: 'LinkedIn',  ar: 'لينكد إن', fa: 'لینکدین' } },
+  { value: 'pinterest', icon: 'pinterest', color: '#E60023', label: { en: 'Pinterest', ar: 'بينتريست', fa: 'پینترست' } },
+  { value: 'email',     icon: 'email',     color: '#6E7781', label: { en: 'Email',     ar: 'بريد إلكتروني', fa: 'ایمیل' } },
+  { value: 'sms',       icon: 'sms',       color: '#6E7781', label: { en: 'SMS',       ar: 'رسالة نصية', fa: 'پیامک' } },
+  { value: 'website',   icon: 'website',   color: '#6E7781', label: { en: 'Website',   ar: 'الموقع',   fa: 'وب‌سایت' } },
+  { value: 'other',     icon: 'other',     color: '#6E7781', label: { en: 'Other',     ar: 'أخرى',     fa: 'سایر' } },
+];
+
+const CHANNEL_VALUES = SOCIAL_CHANNELS.map((c) => c.value);
+const channelByValue = (value) => SOCIAL_CHANNELS.find((c) => c.value === value) || null;
 const DEFAULT_TEMPLATE = 'classic';
 
 // ── classic — the free-text report, unchanged in behaviour ──────────────────
@@ -140,7 +170,7 @@ const salesperson = {
       label: { en: 'Confirmed orders', ar: 'الطلبات المؤكدة', fa: 'سفارش‌های قطعی' },
       columns: [
         { key: 'customer', type: 'customer', width: 2, label: { en: 'Customer', ar: 'العميل', fa: 'مشتری' } },
-        { key: 'variety', type: 'variety', width: 2, label: { en: 'Marble type', ar: 'نوع الرخام', fa: 'نوع سنگ' } },
+        { key: 'variety', type: 'variety', width: 2, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
         { key: 'quantity', type: 'number', min: 0, label: { en: 'Quantity (m³)', ar: 'الكمية (م3)', fa: 'مقدار (م۳)' } },
         { key: 'unitPrice', type: 'money', label: { en: 'Price per metre', ar: 'سعر المتر', fa: 'قیمت هر متر' } },
         {
@@ -161,7 +191,7 @@ const salesperson = {
       label: { en: 'Orders not agreed', ar: 'طلبات لم تتفق', fa: 'سفارش‌های منتفی' },
       columns: [
         { key: 'customer', type: 'customer', width: 2, label: { en: 'Customer', ar: 'العميل', fa: 'مشتری' } },
-        { key: 'variety', type: 'variety', width: 2, label: { en: 'Marble type', ar: 'نوع الرخام', fa: 'نوع سنگ' } },
+        { key: 'variety', type: 'variety', width: 2, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
         { key: 'quantity', type: 'number', min: 0, label: { en: 'Quantity', ar: 'الكمية', fa: 'مقدار' } },
         { key: 'price', type: 'money', label: { en: 'Price', ar: 'السعر', fa: 'قیمت' } },
         {
@@ -235,7 +265,7 @@ const salesperson = {
         fa: 'اطلاعات بازار و رقبا که امروز به دست آمد',
       },
       columns: [
-        { key: 'variety', type: 'variety', width: 2, label: { en: 'Marble type', ar: 'نوع الرخام', fa: 'نوع سنگ' } },
+        { key: 'variety', type: 'variety', width: 2, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
         { key: 'competitor', type: 'text', width: 2, label: { en: 'Competitor', ar: 'المنافس', fa: 'رقیب' } },
         { key: 'price', type: 'money', label: { en: 'Price', ar: 'السعر', fa: 'قیمت' } },
         { key: 'notes', type: 'text', width: 3, label: { en: 'Notes', ar: 'ملاحظات', fa: 'یادداشت‌ها' } },
@@ -251,7 +281,7 @@ const salesperson = {
         fa: 'پرتقاضاترین انواع امروز',
       },
       columns: [
-        { key: 'variety', type: 'variety', width: 2, label: { en: 'Marble type', ar: 'نوع الرخام', fa: 'نوع سنگ' } },
+        { key: 'variety', type: 'variety', width: 2, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
         { key: 'notes', type: 'text', width: 4, label: { en: 'Notes', ar: 'ملاحظات', fa: 'یادداشت‌ها' } },
       ],
     },
@@ -265,7 +295,7 @@ const salesperson = {
         fa: 'اقلام موجود اما کم‌تقاضا',
       },
       columns: [
-        { key: 'variety', type: 'variety', width: 2, label: { en: 'Marble type', ar: 'نوع الرخام', fa: 'نوع سنگ' } },
+        { key: 'variety', type: 'variety', width: 2, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
         { key: 'notes', type: 'text', width: 4, label: { en: 'Notes', ar: 'ملاحظات', fa: 'یادداشت‌ها' } },
       ],
     },
@@ -289,7 +319,7 @@ const salesperson = {
         },
         { key: 'customer', type: 'customer', width: 2, label: { en: 'Customer', ar: 'العميل', fa: 'مشتری' } },
         {
-          key: 'closestVariety', type: 'variety', width: 2,
+          key: 'closestVariety', type: 'variety', width: 2, allowText: true,
           label: { en: 'Closest variety we carry', ar: 'أقرب صنف لدينا', fa: 'نزدیک‌ترین نوع موجود' },
         },
         { key: 'notes', type: 'text', width: 2, label: { en: 'Notes', ar: 'ملاحظات', fa: 'یادداشت‌ها' } },
@@ -309,7 +339,7 @@ const salesperson = {
           key: 'content', type: 'dmContent', width: 3,
           label: { en: 'Content', ar: 'المحتوى', fa: 'محتوا' },
         },
-        { key: 'customer', type: 'customer', width: 2, label: { en: 'Sent to', ar: 'أُرسل إلى', fa: 'ارسال به' } },
+        { key: 'sentTo', type: 'recipient', width: 2, label: { en: 'Sent to', ar: 'أُرسل إلى', fa: 'ارسال به' } },
         { key: 'notes', type: 'text', width: 3, label: { en: 'Notes', ar: 'ملاحظات', fa: 'یادداشت‌ها' } },
       ],
     },
@@ -368,6 +398,7 @@ function pickLabel(label, lang) {
 
 module.exports = {
   TEMPLATES, LANGS, DEFAULT_TEMPLATE,
+  SOCIAL_CHANNELS, CHANNEL_VALUES, channelByValue,
   resolveJobReportTemplate, isKnownTemplate, listJobReportTemplates,
   eachField, pickLabel,
 };
