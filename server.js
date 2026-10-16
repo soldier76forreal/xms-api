@@ -37,7 +37,14 @@ const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{
 const ALLOWED_ORIGINS = (origin, callback) => {
   if (!origin) return callback(null, true);
   if (PROD_ORIGINS.includes(origin) || LOCAL_ORIGIN.test(origin)) return callback(null, true);
-  return callback(new Error('Not allowed by CORS'));
+  const err = new Error('Not allowed by CORS');
+  // Marked so the error middleware can tell a REFUSAL (a decision this code
+  // made on purpose, and reports properly) from a FAULT. Without this the only
+  // way to tell them apart was the message string.
+  err.status = 403;
+  err.code = 'CORS_ORIGIN_REFUSED';
+  err.origin = origin;
+  return callback(err);
 };
 var io = require('socket.io')(server , {
     cors: {
@@ -235,15 +242,50 @@ app.use('/ghost' , require('./routes/ghost/main') )
 // app.use('/findCourse' , require("./routes/controlPanel/findCourse"));
 
 app.use((err, req, res, next) => {
+    // An outcome this code CHOSE — a refused origin, a file over the upload
+    // cap — is not a crash. It gets counted, not stack-traced: the stack would
+    // only ever point at the middleware that correctly rejected it, and at
+    // volume it buries the faults that do matter. One real log held 116,154
+    // copies of a single recurring message for exactly this reason.
+    const expected = err.code === 'CORS_ORIGIN_REFUSED'
+        || err.code === 'BLOCKED_FILE_TYPE'
+        || err.code === 'LIMIT_FILE_SIZE'
+        || err.code === 'LIMIT_FILE_COUNT';
+
     const crashId = crashLogger.logError(err, {
-        type: "requestError",
+        type: expected ? "requestRejected" : "requestError",
+        expected,
         request: crashLogger.getRequestContext(req)
     });
 
-    console.error(`Request error logged: ${crashId}`, err);
+    if (expected) {
+        // One line, and it names the origin — which is the thing you actually
+        // need and the thing the old log never recorded.
+        console.warn(`Request refused (${err.code}): ${err.message}`
+            + `${err.origin ? ` origin=${err.origin}` : ''} ${req.method} ${req.originalUrl || req.url}`);
+    } else {
+        console.error(`Request error logged: ${crashId}`, err);
+    }
 
     if (res.headersSent) {
         return next(err);
+    }
+
+    // multer reports an oversized upload as LIMIT_FILE_SIZE with no status of
+    // its own; answering 500 made "the file is too big" look like a server
+    // fault. Say what the limit is instead.
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        const { MAX_UPLOAD_BYTES } = require('./utils/uploadGuards');
+        return res.status(413).json({
+            message: `File too large. The limit is ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB per file.`,
+            code: 'LIMIT_FILE_SIZE',
+        });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(413).json({ message: 'Too many files in one upload.', code: err.code });
+    }
+    if (expected) {
+        return res.status(err.status || 403).json({ message: err.message, code: err.code });
     }
 
     return res.status(err.status || 500).json({
