@@ -64,6 +64,43 @@ dbConnection.on('reconnected', () => {
 // failing obscurely).
 const GHOST_ENABLED = String(process.env.GHOST_ENABLED || '').toLowerCase() === 'true';
 
+// ── A dedicated ghost database (DB_CONNECT_GHOST) ────────────────────────────
+// A full connection string to ONE database made for ghost sessions, with
+// whatever host and credentials it needs. For when the main MongoDB user may not
+// create or write databases of its own (a scoped hosting user): the ghost
+// database gets its own user, and the main one is never asked to do more than it
+// does today. Ghost sessions then run there, one at a time.
+//
+// Refused outright, because a session EMPTIES this database: no database name
+// (MongoDB would silently use "test"), the live database's name, a system
+// database. Used only while GHOST_ENABLED is on.
+function openDedicatedGhost() {
+  const uri = String(process.env.DB_CONNECT_GHOST || '').trim();
+  if (!GHOST_ENABLED || !uri) return null;
+  const dbOf = (u) => {
+    const m = String(u || '').match(/^mongodb(?:\+srv)?:\/\/[^/]*\/([^?]*)/i);
+    if (!m || !m[1]) return '';
+    try { return decodeURIComponent(m[1]); } catch (_) { return m[1]; }
+  };
+  const name = dbOf(uri);
+  if (!name) {
+    console.error('DB_CONNECT_GHOST has no database name (mongodb://host/<database>) — ignored. Without one MongoDB would use "test".');
+    return null;
+  }
+  const lower = name.toLowerCase();
+  if (lower === dbOf(process.env.DB_CONNECT).toLowerCase() || ['admin', 'local', 'config'].includes(lower)) {
+    console.error(`DB_CONNECT_GHOST points at "${name}", the live or a system database — REFUSED. A ghost session empties its database.`);
+    return null;
+  }
+  const connection = mongoose.createConnection(uri);
+  connection.on('error', (err) => {
+    const crashId = crashLogger.logError(err, { type: 'ghostDatabaseConnectionError', dbName: name });
+    console.error(`Ghost database connection error logged: ${crashId}`, err.message);
+  });
+  return { name, connection };
+}
+const ghostDedicated = openDedicatedGhost();
+
 const ghostContext = new AsyncLocalStorage();
 
 /** Run `fn` with every DB access inside it routed to `ghostDbName`. */
@@ -79,6 +116,8 @@ function currentGhostDb() {
 
 function connectionFor(ghostDbName) {
   if (!ghostDbName) return dbConnection;
+  // The dedicated ghost database has its own connection (host, credentials).
+  if (ghostDedicated && ghostDbName === ghostDedicated.name) return ghostDedicated.connection;
   return dbConnection.useDb(ghostDbName, { useCache: true });
 }
 
@@ -175,6 +214,7 @@ if (!GHOST_ENABLED) {
   dbConnection.realConnection = dbConnection;
   dbConnection.currentGhostDb = () => null;
   dbConnection.connectionFor = () => dbConnection;
+  dbConnection.ghostDedicated = null;
   dbConnection.runInGhostContext = (_dbName, fn) => fn();
   dbConnection.ghostEnabled = false;
   module.exports = dbConnection;
@@ -192,6 +232,7 @@ module.exports = new Proxy(dbConnection, {
     if (prop === 'realConnection') return conn;
     if (prop === 'connectionFor') return connectionFor;
     if (prop === 'ghostEnabled') return true;
+    if (prop === 'ghostDedicated') return ghostDedicated;
     const value = Reflect.get(conn, prop, conn);
     return typeof value === 'function' ? value.bind(conn) : value;
   },

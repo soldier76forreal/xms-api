@@ -109,7 +109,23 @@ function parseGhostPool(raw) {
   return pool;
 }
 
-const GHOST_DB_POOL = parseGhostPool(process.env.GHOST_DB_NAMES);
+// DB_CONNECT_GHOST (see connections/xmsPr.js) is the same idea with its own
+// connection. It is listed first, and a name given both ways counts once.
+const DEDICATED = dbConnection.ghostDedicated || null;
+const GHOST_DB_POOL = [
+  ...(DEDICATED ? [DEDICATED.name] : []),
+  ...parseGhostPool(process.env.GHOST_DB_NAMES).filter((n) => !DEDICATED || n !== DEDICATED.name),
+];
+
+// The handle for a ghost database: the dedicated connection's, or a database on
+// the main connection (the only kind there was before).
+async function ghostDb(name) {
+  if (DEDICATED && name === DEDICATED.name) {
+    await DEDICATED.connection.asPromise();
+    return DEDICATED.connection.db;
+  }
+  return realConn.useDb(name, { useCache: true }).db;
+}
 const isPooledDb = (name) => GHOST_DB_POOL.includes(name) && !isLiveDatabase(name);
 
 // dbName is UNIQUE across every session ever recorded, so a reusable database
@@ -133,7 +149,7 @@ async function isOwner(userId) {
  */
 async function cloneDatabase(targetDbName) {
   const sourceDb = realConn.db;
-  const targetDb = realConn.useDb(targetDbName, { useCache: true }).db;
+  const targetDb = await ghostDb(targetDbName);
 
   const collections = await sourceDb.listCollections({ type: 'collection' }).toArray();
   let copiedDocs = 0;
@@ -185,7 +201,7 @@ async function emptyDatabase(dbName) {
   if (isLiveDatabase(dbName)) {
     throw new Error(`Refusing to empty the live or a system database: ${dbName}`);
   }
-  const db = realConn.useDb(dbName, { useCache: true }).db;
+  const db = await ghostDb(dbName);
   const collections = await db.listCollections({}, { nameOnly: true }).toArray();
   for (const info of collections) {
     if (info.name.startsWith('system.')) continue;
@@ -288,7 +304,9 @@ function describeStartError(err) {
       status: 500,
       message: 'Could not start ghost session',
       detail: err.message,
-      hint: GHOST_DB_POOL.length
+      hint: DEDICATED
+        ? `The user in DB_CONNECT_GHOST cannot write to "${DEDICATED.name}". Give that user readWrite on it.`
+        : GHOST_DB_POOL.length
         ? `The database user has no write access to ${GHOST_DB_POOL.join(', ')}. Grant it readWrite on those databases.`
         : 'The database user may not create databases. Create a database for ghost sessions, give the user readWrite on it, and set GHOST_DB_NAMES=<that database> in .env (see utils/ghost.js).',
     };
@@ -370,7 +388,7 @@ async function sweepGhostSessions(reason = 'expired') {
     for (const name of GHOST_DB_POOL) {
       try {
         if (await GhostSession.exists({ status: 'active', dbName: name })) continue;
-        const left = await realConn.useDb(name, { useCache: true }).db.listCollections({}, { nameOnly: true }).toArray();
+        const left = await (await ghostDb(name)).listCollections({}, { nameOnly: true }).toArray();
         if (left.some((c) => !c.name.startsWith('system.'))) {
           await emptyDatabase(name);
           poolWiped += 1;
@@ -409,6 +427,7 @@ module.exports = {
   OWNER_PHONE,
   GHOST_DB_PREFIX,
   GHOST_DB_POOL,
+  GHOST_DEDICATED_NAME: DEDICATED ? DEDICATED.name : null,
   describeStartError,
   SESSION_TTL_MS,
   isOwner,
