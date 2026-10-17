@@ -226,6 +226,8 @@ app.use('/inventory' , require('./routes/inventory/main') )
 app.use('/inventory/categories' , require('./routes/inventory/categories') )
 app.use('/inventory/tags' , require('./routes/inventory/tags') )
 app.use('/supply' , require('./routes/supply/main') )
+// Report & Info — bug reports and suggestions (info:view, feedback:view, feedback:ticket:create)
+app.use('/feedback' , require('./routes/feedback/main') )
 
 app.use('/uploadFiles' , require('./routes/fileManager/uploadFile') )
 

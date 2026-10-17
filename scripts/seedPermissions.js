@@ -154,6 +154,15 @@ const PERMISSIONS = [
   { key: 'supply:dealLetter:price:edit',      module: 'supply', description: 'Set/update per-variety price on a deal letter' },
   { key: 'supply:dealLetter:receive',         module: 'supply', description: 'Receive deal letter stock into real warehouse inventory' },
   { key: 'supply:dealLetter:followUp:create', module: 'supply', description: 'Log a follow-up entry (text/voice/media) on a deal letter' },
+
+  // Report & Info (2026-10-17). info:view is the section's door — the app version, the
+  // list of sections, what changed. The feedback keys are inside it. Ticket visibility is
+  // narrowed by the `feedback` data scope, whose DEFAULT is 'mine' (every other module's is
+  // 'all') — see utils/feedbackScope.js. Admin-panel keys (status, reply, delete) are not
+  // minted until that panel exists.
+  { key: 'info:view',              module: 'info',     description: 'Open Report & Info — app version, sections and recent changes' },
+  { key: 'feedback:view',          module: 'feedback', description: 'See bug reports and suggestions (own only, unless the role/group data scope is widened)' },
+  { key: 'feedback:ticket:create', module: 'feedback', description: 'Submit a bug report or suggestion (text, voice note, files)' },
 ];
 
 // ── Starter roles ─────────────────────────────────────────────────────────────

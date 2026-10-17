@@ -24,13 +24,13 @@ var fileSchema = new mongoose.Schema({
     deleteDate: { type: Date, default: null },
     scope: {
       type: String,
-      enum: ['file_manager', 'inventory', 'users', 'crm', 'mis', 'jobReport', 'projectManager', 'digitalMarketing', 'tutorials', 'supply'],
+      enum: ['file_manager', 'inventory', 'users', 'crm', 'mis', 'jobReport', 'projectManager', 'digitalMarketing', 'tutorials', 'supply', 'feedback'],
       default: 'file_manager',
     },
     attachedTo: {
       type: {
         type: String,
-        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'userJobReport', 'tutorial', 'linkPage', 'blogPost', 'supplyDealLetterActivity', 'websiteProduct'],
+        enum: ['inventoryProduct', 'inventoryVariant', 'user', 'customer', 'customerActivity', 'invoice', 'jobReport', 'rawContent', 'rawContentChat', 'readyToUpload', 'readyToUploadChat', 'userNote', 'userJobReport', 'tutorial', 'linkPage', 'blogPost', 'supplyDealLetterActivity', 'websiteProduct', 'feedbackTicket'],
       },
       id: { type: mongoose.Schema.Types.ObjectId },
     },
