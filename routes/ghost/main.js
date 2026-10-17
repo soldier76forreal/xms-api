@@ -8,7 +8,7 @@ const userAccessSchema = require('../../models/userAccessModel');
 const verify = require('../users/verifyToken');
 const {
   GhostSession, OWNER_PHONE, SESSION_TTL_MS,
-  isOwner, startGhostSession, endGhostSession, sweepGhostSessions,
+  isOwner, startGhostSession, endGhostSession, sweepGhostSessions, describeStartError,
 } = require('../../utils/ghost');
 
 // "Ghost in" — an authorised admin browses the app AS another user, against a
@@ -185,7 +185,8 @@ router.post('/start/:userId', verify, requireGhostCapability(), async (req, res)
       clonedDocuments: stats.copiedDocs,
     });
   } catch (err) {
-    return res.status(500).json({ message: 'Could not start ghost session', detail: err.message });
+    const { status, ...body } = describeStartError(err);
+    return res.status(status).json(body);
   }
 });
 
