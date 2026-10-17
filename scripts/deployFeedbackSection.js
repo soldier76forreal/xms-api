@@ -1,7 +1,7 @@
 /**
  * deployFeedbackSection.js — the database side of Report & Info.
  *
- * This feature mints THREE permission keys, and permissions are default-deny:
+ * This feature mints FIVE permission keys, and permissions are default-deny:
  * until a role holds them nobody can open the section. Nothing else needs
  * migrating — the collection, its indexes and the ticket-number sequence are
  * all created by the code on first use, and the File Manager enums are code.
@@ -9,6 +9,11 @@
  *   info:view               the section's door — app version, sections, changes
  *   feedback:view           see tickets (limited by the `feedback` data scope)
  *   feedback:ticket:create  submit a bug report or suggestion
+ *   feedback:ticket:edit    edit your OWN report while it is still open
+ *   feedback:ticket:delete  delete your OWN report
+ *
+ * The developers' dashboard has no key: it is gated by a phone allowlist
+ * (utils/developers.js, DEVELOPER_PHONES), not by anything this script grants.
  *
  * DATA SCOPE. The `feedback` scope defaults to 'mine' — own tickets only — and
  * NOT to 'all' like every other module (see utils/feedbackScope.js). A role
@@ -17,7 +22,7 @@
  * superAdmin always sees everything.
  *
  * So the steps a deploy actually needs are:
- *   1. seed the three keys into the permission catalog
+ *   1. seed the keys into the permission catalog
  *   2. give the Admin (superAdmin) role the keys, so the catalog and Admin agree
  *   3. choose which ROLES get them — the step that turns it on for anybody
  *   4. optionally widen who may READ other people's tickets
@@ -31,6 +36,8 @@
  *   node scripts/deployFeedbackSection.js --grant-all-roles --yes           # everyone may report
  *   node scripts/deployFeedbackSection.js --grant "SalesPerson,Viewer" --yes
  *   node scripts/deployFeedbackSection.js --grant "Support" --keys info:view,feedback:view --yes
+ *   (run it again after an update: it only adds what is missing, so --grant-all-roles
+ *    hands the two newer keys to roles that already hold the first three)
  *   node scripts/deployFeedbackSection.js --scope "Support=all,Team lead=group" --yes
  *   node scripts/deployFeedbackSection.js --db "mongodb://…"                # a database other than .env's
  */
@@ -63,6 +70,8 @@ const KEYS = [
   { key: 'info:view',              module: 'info',     description: 'Open Report & Info — app version, sections and recent changes' },
   { key: 'feedback:view',          module: 'feedback', description: 'See bug reports and suggestions (own only, unless the role/group data scope is widened)' },
   { key: 'feedback:ticket:create', module: 'feedback', description: 'Submit a bug report or suggestion (text, voice note, files)' },
+  { key: 'feedback:ticket:edit',   module: 'feedback', description: 'Edit your own bug report or suggestion while it is still open (title, text, files, voice)' },
+  { key: 'feedback:ticket:delete', module: 'feedback', description: 'Delete your own bug report or suggestion' },
 ];
 const KEY_NAMES = KEYS.map((k) => k.key);
 
@@ -125,7 +134,7 @@ const head = (s) => { line(); line(s); line('─'.repeat(s.length)); };
   for (const r of supers) {
     const lacking = KEY_NAMES.filter((k) => !(r.permissions || []).includes(k));
     if (!lacking.length) {
-      line(`  ${r.name}: already holds all three`);
+      line(`  ${r.name}: already holds all of them`);
     } else {
       line(`  ${r.name}: lacks ${lacking.join(', ')}`);
       changes.push(async () => {
@@ -148,13 +157,13 @@ const head = (s) => { line(); line(s); line('─'.repeat(s.length)); };
   const accesses = await db.collection('useraccesses').find({}).project({ roles: 1 }).toArray();
   const holders = (roleId) => accesses.filter((a) => (a.roles || []).some((x) => String(x) === String(roleId))).length;
 
-  line(`  ${'role'.padEnd(28)}${'door'.padEnd(6)}${'view'.padEnd(6)}${'create'.padEnd(8)}${'scope'.padEnd(17)}users`);
+  line(`  ${'role'.padEnd(28)}${'door'.padEnd(6)}${'view'.padEnd(6)}${'create'.padEnd(8)}${'edit'.padEnd(6)}${'delete'.padEnd(8)}${'scope'.padEnd(17)}users`);
   for (const r of roles) {
     const perms = new Set(r.permissions || []);
     const scopeNow = (r.dataScopes && r.dataScopes.feedback) || null;
     const mark = (k, w = 6) => (perms.has(k) ? 'yes' : '-').padEnd(w);
     const scopeLabel = r.isSuperAdmin ? 'all (admin)' : (scopeNow ? scopeNow : 'mine (default)');
-    line(`  ${r.name.padEnd(28)}${mark('info:view')}${mark('feedback:view')}${mark('feedback:ticket:create', 8)}${scopeLabel.padEnd(17)}${holders(r._id)}`);
+    line(`  ${r.name.padEnd(28)}${mark('info:view')}${mark('feedback:view')}${mark('feedback:ticket:create', 8)}${mark('feedback:ticket:edit')}${mark('feedback:ticket:delete', 8)}${scopeLabel.padEnd(17)}${holders(r._id)}`);
 
     if (toGrant.has(r.name)) {
       const lacking = GRANT_KEYS.filter((k) => !perms.has(k));
@@ -189,13 +198,19 @@ const head = (s) => { line(); line(s); line('─'.repeat(s.length)); };
     const door = effectiveHas(r, 'info:view');
     const view = effectiveHas(r, 'feedback:view');
     const create = effectiveHas(r, 'feedback:ticket:create');
-    if ((view || create) && !door) {
+    const edit = effectiveHas(r, 'feedback:ticket:edit');
+    const del = effectiveHas(r, 'feedback:ticket:delete');
+    if ((view || create || edit || del) && !door) {
       warned = true;
       line(`  ! ${r.name}: has a feedback key but not info:view — the section's door — so they cannot open it`);
     }
     if (create && !view) {
       warned = true;
       line(`  ! ${r.name}: can submit but not see tickets — they will not see their own ticket afterwards`);
+    }
+    if ((edit || del) && !view) {
+      warned = true;
+      line(`  ! ${r.name}: can edit or delete but not see tickets — there is nothing for them to open`);
     }
   }
   if (!warned) line('  none');

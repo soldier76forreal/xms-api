@@ -1,6 +1,6 @@
 {
   "name": "xms-api",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "xms api and database system",
   "main": "server.js",
   "scripts": {

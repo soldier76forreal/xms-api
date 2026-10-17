@@ -11,6 +11,12 @@ const TYPES = ['bug', 'suggestion'];
 const STATUSES = ['open', 'in_review', 'planned', 'in_progress', 'done', 'declined'];
 const DEFAULT_STATUS = 'open';
 
+// The statuses in which the person who filed a ticket may still change it. Once a
+// developer has moved it on, it is part of their workflow and the text stops moving
+// underneath them. (Deleting your own is allowed at any status.) Mirrored in
+// components/info/ticketMeta.js.
+const EDITABLE_STATUSES = ['open'];
+
 // Which part of the app a ticket is about. The keys of the app's sections plus
 // the few places that are not one.
 const AREAS = [
@@ -27,4 +33,4 @@ const LIMITS = {
   contextFieldMax: 300,
 };
 
-module.exports = { TYPES, STATUSES, DEFAULT_STATUS, AREAS, LIMITS };
+module.exports = { TYPES, STATUSES, DEFAULT_STATUS, EDITABLE_STATUSES, AREAS, LIMITS };

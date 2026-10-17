@@ -59,7 +59,12 @@ const feedbackTicketSchema = new mongoose.Schema({
 
   insertDate: { type: Date, default: Date.now },
   updateDate: { type: Date, default: null },
+  // Set when the OWNER changed the text after filing it (only possible while Open).
+  editedAt:   { type: Date, default: null },
+  // Soft delete — by the owner or by a developer. The record stays.
   deleteDate: { type: Date, default: null },
+  deletedBy:     { type: mongoose.Schema.Types.ObjectId },
+  deletedByName: { type: String },
 });
 
 feedbackTicketSchema.index({ owner: 1, insertDate: -1 });

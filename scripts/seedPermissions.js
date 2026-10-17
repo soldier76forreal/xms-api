@@ -158,11 +158,14 @@ const PERMISSIONS = [
   // Report & Info (2026-10-17). info:view is the section's door — the app version, the
   // list of sections, what changed. The feedback keys are inside it. Ticket visibility is
   // narrowed by the `feedback` data scope, whose DEFAULT is 'mine' (every other module's is
-  // 'all') — see utils/feedbackScope.js. Admin-panel keys (status, reply, delete) are not
-  // minted until that panel exists.
+  // 'all') — see utils/feedbackScope.js. Edit and delete are the REPORTER's own keys and
+  // only ever reach tickets they filed. The developers' dashboard (status, replies, every
+  // ticket) has no key: it is gated by utils/developers.js, a phone allowlist.
   { key: 'info:view',              module: 'info',     description: 'Open Report & Info — app version, sections and recent changes' },
   { key: 'feedback:view',          module: 'feedback', description: 'See bug reports and suggestions (own only, unless the role/group data scope is widened)' },
   { key: 'feedback:ticket:create', module: 'feedback', description: 'Submit a bug report or suggestion (text, voice note, files)' },
+  { key: 'feedback:ticket:edit',   module: 'feedback', description: 'Edit your own bug report or suggestion while it is still open (title, text, files, voice)' },
+  { key: 'feedback:ticket:delete', module: 'feedback', description: 'Delete your own bug report or suggestion' },
 ];
 
 // ── Starter roles ─────────────────────────────────────────────────────────────

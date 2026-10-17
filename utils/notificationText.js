@@ -20,7 +20,48 @@ const pickLang = (lang) => (SUPPORTED.includes(lang) ? lang : 'en');
 // app's short informal notification strings are phrased.
 const plural = (lang, count, singular, pluralForm) => (lang === 'en' && count === 1 ? singular : pluralForm);
 
+// Report & Info: the status names, as the recipient's language says them. Kept next
+// to the templates because the notification is rendered here, at send time.
+const FEEDBACK_STATUS = {
+  en: { open: 'Open', in_review: 'In review', planned: 'Planned', in_progress: 'In progress', done: 'Done', declined: 'Declined' },
+  fa: { open: 'باز', in_review: 'در حال بررسی', planned: 'برنامه‌ریزی‌شده', in_progress: 'در حال انجام', done: 'انجام شد', declined: 'رد شد' },
+  ar: { open: 'مفتوح', in_review: 'قيد المراجعة', planned: 'مخطّط له', in_progress: 'قيد التنفيذ', done: 'تم', declined: 'مرفوض' },
+};
+const feedbackStatusLabel = (lang, status) => (FEEDBACK_STATUS[lang] || FEEDBACK_STATUS.en)[status] || status;
+
 const TEMPLATES = {
+  // A bug report or suggestion was filed — sent to the developers.
+  feedbackNew: {
+    en: ({ code, title, kind, name }) => ({
+      title: `New ${kind === 'bug' ? 'bug report' : 'suggestion'} ${code}`,
+      body: `${name}: ${title}`,
+    }),
+    fa: ({ code, title, kind, name }) => ({
+      title: `${kind === 'bug' ? 'گزارش مشکل' : 'پیشنهاد'} جدید ${code}`,
+      body: `${name}: ${title}`,
+    }),
+    ar: ({ code, title, kind, name }) => ({
+      title: `${kind === 'bug' ? 'بلاغ عن مشكلة' : 'اقتراح'} جديد ${code}`,
+      body: `${name}: ${title}`,
+    }),
+  },
+
+  // A developer changed the status of YOUR report, or answered it.
+  feedbackStatus: {
+    en: ({ code, status, note }) => ({
+      title: `Update on your report ${code}`,
+      body: `${feedbackStatusLabel('en', status)}${note ? ` — ${note}` : ''}`,
+    }),
+    fa: ({ code, status, note }) => ({
+      title: `به‌روزرسانی گزارش شما ${code}`,
+      body: `${feedbackStatusLabel('fa', status)}${note ? ` — ${note}` : ''}`,
+    }),
+    ar: ({ code, status, note }) => ({
+      title: `تحديث على بلاغك ${code}`,
+      body: `${feedbackStatusLabel('ar', status)}${note ? ` — ${note}` : ''}`,
+    }),
+  },
+
   crmAssignmentUser: {
     en: ({ taskTitle, count }) => ({
       title: `New CRM assignment: ${taskTitle}`,

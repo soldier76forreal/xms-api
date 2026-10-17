@@ -97,6 +97,9 @@ function notifPath(entityType, entityId) {
     case 'user':          return '/users';
     case 'tutorial':      return id ? `/tutorials?open=${id}` : '/tutorials';
     case 'jobReport':     return id ? `/jobReports?open=${id}` : '/jobReports';
+    // Report & Info: the reporter's own tickets, and the developers' dashboard.
+    case 'feedbackTicket':    return id ? `/info?tab=reports&open=${id}`   : '/info?tab=reports';
+    case 'feedbackTicketDev': return id ? `/info?tab=dashboard&open=${id}` : '/info?tab=dashboard';
     default:              return '/';
   }
 }
