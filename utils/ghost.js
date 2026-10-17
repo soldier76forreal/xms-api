@@ -37,7 +37,14 @@ const SESSION_TTL_MS = Number(process.env.GHOST_TTL_MINUTES || 120) * 60 * 1000;
 //  - ghostsessions: the session ledger belongs to the real DB only.
 //  - pwasubscriptions: push endpoints are real devices; a ghost must never be
 //    able to trigger a push to someone's actual phone.
-const SKIP_COLLECTIONS = new Set(['ghostsessions', 'pwasubscriptions']);
+// A clone writes this collection FIRST, so a pre-made ghost database carries proof
+// that this code filled it. The app only ever deletes a database it can show it
+// filled: the boot tidy-up needs the marker, and a session refuses to start in a
+// database that holds anything else (see assertSafeToEmpty). Two real mistakes
+// led here — a test emptied a development database, and a restart emptied a
+// database somebody had made for ghost sessions without checking what was in it.
+const CLONE_MARKER = '_xms_ghost_clone';
+const SKIP_COLLECTIONS = new Set(['ghostsessions', 'pwasubscriptions', CLONE_MARKER]);
 
 // ── Pre-made ghost databases ─────────────────────────────────────────────────
 // By default every session gets a NEW database with a random name
@@ -150,6 +157,11 @@ async function isOwner(userId) {
 async function cloneDatabase(targetDbName) {
   const sourceDb = realConn.db;
   const targetDb = await ghostDb(targetDbName);
+  // Before anything else: from here on this database is demonstrably ours.
+  await targetDb.collection(CLONE_MARKER).insertOne({
+    startedAt: new Date(),
+    note: 'Written by the ghost-session code. Everything in this database is a throwaway copy.',
+  });
 
   const collections = await sourceDb.listCollections({ type: 'collection' }).toArray();
   let copiedDocs = 0;
@@ -222,6 +234,23 @@ async function dropGhostDatabase(dbName) {
   await realConn.useDb(dbName, { useCache: true }).dropDatabase();
 }
 
+// A pre-made database is emptied before and after every session. Only do that
+// to a database that is empty, or that carries our marker (a clone left behind).
+// Anything else is somebody's data and the session does not start — checked
+// BEFORE the session record exists, because a failed start cleans up by
+// emptying the database.
+async function assertSafeToEmpty(name) {
+  const present = (await (await ghostDb(name)).listCollections({}, { nameOnly: true }).toArray())
+    .map((c) => c.name).filter((n) => !n.startsWith('system.'));
+  if (!present.length || present.includes(CLONE_MARKER)) return;
+  const err = new Error(
+    `The ghost database "${name}" already holds data this app did not put there (${present.slice(0, 8).join(', ')}${present.length > 8 ? ', …' : ''}). `
+    + 'A ghost session empties its database, so it will not start in one it does not own. Empty it yourself, or point '
+    + 'DB_CONNECT_GHOST / GHOST_DB_NAMES at an empty database.');
+  err.code = 'GHOST_DB_NOT_EMPTY';
+  throw err;
+}
+
 function ghostBusyError(holders) {
   const who = holders
     .map((h) => `${h.adminName || 'another admin'} (since ${new Date(h.startedAt).toLocaleString()})`)
@@ -249,6 +278,7 @@ async function chooseGhostDatabase() {
 /** Create the session record and its cloned database. */
 async function startGhostSession({ adminId, adminName, targetUserId, targetUserName }) {
   const { dbName, pooled } = await chooseGhostDatabase();
+  if (pooled) await assertSafeToEmpty(dbName);
 
   let session;
   try {
@@ -297,7 +327,7 @@ async function startGhostSession({ adminId, adminName, targetUserId, targetUserN
  * failed, not what to do about it.
  */
 function describeStartError(err) {
-  if (err && err.code === 'GHOST_POOL_BUSY') return { status: 409, message: err.message };
+  if (err && (err.code === 'GHOST_POOL_BUSY' || err.code === 'GHOST_DB_NOT_EMPTY')) return { status: 409, message: err.message };
   const unauthorized = err && (err.code === 13 || err.codeName === 'Unauthorized' || /not authorized/i.test(err.message || ''));
   if (unauthorized) {
     return {
@@ -389,9 +419,13 @@ async function sweepGhostSessions(reason = 'expired') {
       try {
         if (await GhostSession.exists({ status: 'active', dbName: name })) continue;
         const left = await (await ghostDb(name)).listCollections({}, { nameOnly: true }).toArray();
-        if (left.some((c) => !c.name.startsWith('system.'))) {
-          await emptyDatabase(name);
+        const real = left.filter((c) => !c.name.startsWith('system.'));
+        if (real.some((c) => c.name === CLONE_MARKER)) {
+          await emptyDatabase(name);        // a clone this code left behind
           poolWiped += 1;
+        } else if (real.length) {
+          // Not ours. Never touched here; a session refuses to start in it.
+          console.warn(`Ghost database "${name}" holds data this app did not put there — left alone. A ghost session will not start in it until it is emptied.`);
         }
       } catch (err) {
         crashLogger.logError(err, { type: 'ghostPoolSweepFailed', dbName: name });
@@ -426,6 +460,7 @@ module.exports = {
   GhostSession,
   OWNER_PHONE,
   GHOST_DB_PREFIX,
+  CLONE_MARKER,
   GHOST_DB_POOL,
   GHOST_DEDICATED_NAME: DEDICATED ? DEDICATED.name : null,
   describeStartError,
