@@ -67,6 +67,15 @@ function parseIssueDate(raw) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// A value the schema cannot take (a piece count of "abc", a block that is not an object) is the CALLER's mistake:
+// it is answered with a 400 that says what, not with a server error.
+const isBadValue = (err) => Boolean(err) && (err.name === 'ValidationError' || err.name === 'CastError');
+function badValueMessage(err) {
+  const first = err && err.errors ? Object.values(err.errors)[0] : null;
+  const text = (first && first.message) || (err && err.message) || '';
+  return text ? `The packing list has an invalid value: ${text}` : 'The packing list has an invalid value.';
+}
+
 function computeTotals(pallets) {
   let totalSqm = 0, totalPcs = 0;
   for (const p of (pallets || [])) {
@@ -286,6 +295,14 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
       createdBy: userId,
     };
 
+    // Let the schema judge the payload BEFORE a number is taken: a list it refuses must not use one up.
+    try {
+      await new MisPackingList({ ...fields, docNumber: 1 }).validate();
+    } catch (err) {
+      if (isBadValue(err)) return res.status(400).json({ message: badValueMessage(err), code: 'INVALID_PACKING_LIST' });
+      throw err;
+    }
+
     let doc = null;
     for (let attempt = 0; attempt < (typed ? 1 : 5) && !doc; attempt += 1) {
       const docNumber = typed ? manualNumber : await packingNumbers.claimNext(req.branchId);
@@ -391,6 +408,7 @@ router.put('/packing-lists/:id', verify, requirePermission('mis:packingList:edit
       if (err.code === 11000 && numberChange) {
         return res.status(409).json({ message: packingNumbers.takenMessage(numberChange.to), code: 'DOC_NUMBER_TAKEN', docNumber: numberChange.to });
       }
+      if (isBadValue(err)) return res.status(400).json({ message: badValueMessage(err), code: 'INVALID_PACKING_LIST' });
       throw err;
     }
 
