@@ -46,6 +46,9 @@ const baseStyles = `
   .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 3px solid ${BRAND.blue}; padding-bottom: 6px; margin-bottom: 6px; }
   .logo { height: 26mm; width: auto; flex-shrink: 0; }
   .co-name { font-size: 13px; font-weight: 700; color: ${BRAND.blue}; }
+  /* The packing list's own number - what the paper is referred to by - stands out from the date line. */
+  .pl-no { font-size: 11px; color: #333; margin: 3px 0 1px; }
+  .pl-no b { font-size: 17px; color: ${BRAND.blue}; letter-spacing: 0.3px; }
   .doc-title { text-align: center; flex: 1; }
   .title-main { font-size: 14px; font-weight: 700; color: ${BRAND.blueDark}; }
   .title-sub { font-size: 9px; color: #777; }
@@ -207,7 +210,8 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
       </div>
       <div class="${langKey === 'en' ? 'ltr' : 'rtl'}" style="width:30%;">
         <div class="co-name">${esc(coName)}</div>
-        <div class="muted">${esc(L.docNumber)} <b>${esc(doc.docNumber)}</b> · ${esc(L.date)} <b class="ltr-inline">${dateStr(doc.issueDate || doc.insertDate, doc, langKey)}</b></div>
+        <div class="pl-no">${esc(L.plNumber)} <b class="ltr-inline">${esc(doc.docNumber)}</b></div>
+        <div class="muted">${esc(L.date)} <b class="ltr-inline">${dateStr(doc.issueDate || doc.insertDate, doc, langKey)}</b></div>
       </div>
     </div>
 

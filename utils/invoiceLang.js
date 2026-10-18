@@ -25,6 +25,7 @@ const LANG = {
     fromBranch: 'الفرع الطالب', toBranch: 'الفرع المورد',
     // Session 72 (Phase 3) — standalone packing list + pallet label
     plConsolidatedTitle: 'قائمة تعبئة تجميعية وبيان شحن', plConsolidatedTitleSub: 'CONSOLIDATED PACKING LIST & SHIPPING VOUCHER',
+    plNumber: 'رقم قائمة التعبئة',
     totalPallets: 'إجمالي عدد الطبليات', totalArea: 'إجمالي المساحة (م²)', totalItems: 'إجمالي القطع',
     driverFullName: 'اسم السائق الكامل', driverNationalId: 'الرقم الوطني للسائق', driverSmartNumber: 'الرقم الذكي للسائق',
     driverPhone: 'هاتف السائق', driverIban: 'آيبان السائق البنكي',
@@ -60,6 +61,7 @@ const LANG = {
     fromBranch: 'Requesting branch', toBranch: 'Fulfilling branch',
     // Session 72 (Phase 3) — standalone packing list + pallet label
     plConsolidatedTitle: 'Consolidated Packing List & Shipping Voucher', plConsolidatedTitleSub: 'قائمة تعبئة تجميعية وبيان شحن',
+    plNumber: 'Packing List No.',
     totalPallets: 'Total pallets', totalArea: 'Total area (m²)', totalItems: 'Total pieces',
     driverFullName: 'Driver full name', driverNationalId: 'Driver national ID', driverSmartNumber: 'Driver smart number',
     driverPhone: 'Driver phone', driverIban: 'Driver bank IBAN',
@@ -95,6 +97,7 @@ const LANG = {
     fromBranch: 'شعبه درخواست‌دهنده', toBranch: 'شعبه تأمین‌کننده',
     // Session 72 (Phase 3) — standalone packing list + pallet label
     plConsolidatedTitle: 'پکینگ لیست تجمیعی و بیانیه بارگیری', plConsolidatedTitleSub: 'CONSOLIDATED PACKING LIST & SHIPPING VOUCHER',
+    plNumber: 'شماره پکینگ لیست',
     totalPallets: 'تعداد کل پالت‌ها', totalArea: 'متراژ کل (متر مربع)', totalItems: 'تعداد کل قطعات',
     driverFullName: 'نام و نام خانوادگی راننده', driverNationalId: 'کد ملی راننده', driverSmartNumber: 'شماره هوشمند راننده',
     driverPhone: 'شماره تماس راننده', driverIban: 'شماره شبای بانکی راننده',

@@ -6,7 +6,6 @@ const misPackingListSchema         = require('../../models/misPackingListModel')
 const misPackingListActivitySchema = require('../../models/misPackingListActivityModel');
 const misInvoiceSchema        = require('../../models/misInvoiceModel');
 const supplyRecordSchema      = require('../../models/supplyRecordModel');
-const invoiceCounterSchema    = require('../../models/invoiceCounterModel');
 const userSchema              = require('../../models/userModel');
 
 const verify = require('../users/verifyToken');
@@ -18,6 +17,7 @@ const { sendPdf } = require('../../utils/sendPdf');
 const { renderPackingListHtml, renderPalletLabelHtml, labelPageSize, LABEL_KINDS } = require('../../utils/packingListTemplate');
 const { today, normalizeDateSystem } = require('../../utils/calendars');
 const { branchDefaultsOf, readDocSettings } = require('../../utils/misDefaults');
+const packingNumbers = require('../../utils/packingListNumbers');
 
 // ?kind= picks the label: 'slab' (the per-pallet slab label, default) or
 // 'short' (the short-pallet strip label). Anything else falls back to slab.
@@ -36,7 +36,6 @@ async function resolveSupplyRecordId(rawId, branchId) {
   if (!rec || String(rec.branchId) !== String(branchId)) return null;
   return rec._id;
 }
-const InvoiceCounter = dbConnection.models.invoiceCounter || dbConnection.model('invoiceCounter', invoiceCounterSchema);
 const User = dbConnection.models.user || dbConnection.model('user', userSchema);
 
 const router = express.Router();
@@ -196,6 +195,17 @@ router.get('/packing-lists', verify, requirePermission('mis:view'), requireBranc
   }
 });
 
+// The number a NEW list would get right now - the form shows it as the suggestion. It is looked at, not taken:
+// if the person leaves it alone the server takes the next free one when the list is saved. Defined before
+// /packing-lists/:id so "next-number" is not read as an id.
+router.get('/packing-lists/next-number', verify, requirePermission('mis:view'), requireBranch(), async (req, res) => {
+  try {
+    return res.status(200).json({ next: await packingNumbers.peekNext(req.branchId) });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/packing-lists/:id', verify, requirePermission('mis:view'), loadPackingList, async (req, res) => {
   try {
     const activity = await MisPackingListActivity.find({ packingListId: req.packingList._id })
@@ -234,21 +244,27 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
       }
     }
 
-    const counter = await InvoiceCounter.findOneAndUpdate(
-      { branchId: req.branchId, docType: 'packing_list' },
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
-
     // The date and the calendar it is written in: what the form chose, else this
     // branch's own default (a list has no money, so only the calendar applies).
     const branchDoc = await Branch.findById(req.branchId).select('defaultCurrency defaultDateSystem').lean();
     const settings = readDocSettings({ dateSystem: req.body.dateSystem }, branchDefaultsOf(branchDoc));
     if (settings.error) return res.status(400).json({ message: settings.error });
 
-    const doc = await MisPackingList.create({
+    // The number: typed by the person (then it must be free in this branch) or else the branch's next
+    // automatic one. It is settled LAST, after every check above, so a refused list never uses one up.
+    const typed = !packingNumbers.isBlank(req.body.docNumber);
+    let manualNumber = null;
+    if (typed) {
+      const parsed = packingNumbers.parseDocNumber(req.body.docNumber);
+      if (parsed.error) return res.status(400).json({ message: parsed.error, code: 'DOC_NUMBER_INVALID' });
+      if (await packingNumbers.isTaken(req.branchId, parsed.value)) {
+        return res.status(409).json({ message: packingNumbers.takenMessage(parsed.value), code: 'DOC_NUMBER_TAKEN', docNumber: parsed.value });
+      }
+      manualNumber = parsed.value;
+    }
+
+    const fields = {
       branchId: req.branchId,
-      docNumber: counter.seq,
       issueDate: parseIssueDate(req.body.issueDate) || today(),
       dateSystem: settings.dateSystem,
       type,
@@ -268,7 +284,24 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
       status: req.body.status === 'final' ? 'final' : 'draft',
       notes: req.body.notes || '',
       createdBy: userId,
-    });
+    };
+
+    let doc = null;
+    for (let attempt = 0; attempt < (typed ? 1 : 5) && !doc; attempt += 1) {
+      const docNumber = typed ? manualNumber : await packingNumbers.claimNext(req.branchId);
+      try {
+        doc = await MisPackingList.create({ ...fields, docNumber });
+      } catch (err) {
+        if (err.code !== 11000) throw err;
+        // typed: somebody took that number a moment ago. automatic: somebody typed that very number - take the next one.
+        if (typed) {
+          return res.status(409).json({ message: packingNumbers.takenMessage(manualNumber), code: 'DOC_NUMBER_TAKEN', docNumber: manualNumber });
+        }
+      }
+    }
+    if (!doc) return res.status(409).json({ message: 'Could not allocate a packing list number - please try again.' });
+    // a hand-typed number moves the counter up to it, so the automatic numbers carry on AFTER it
+    if (typed) await packingNumbers.carryOnAfter(req.branchId, manualNumber);
 
     const actorName = await getActorName(userId);
     await logActivity(doc._id, 'created', { newValue: doc.docNumber }, userId, actorName);
@@ -280,7 +313,7 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
 
     return res.status(201).json(doc);
   } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate document number — please retry' });
+    if (err.code === 11000) return res.status(409).json({ message: 'Duplicate document number - please try again', code: 'DOC_NUMBER_TAKEN' });
     return res.status(500).json({ message: 'Server error' });
   }
 });
@@ -336,10 +369,37 @@ router.put('/packing-lists/:id', verify, requirePermission('mis:packingList:edit
     if (req.body.status === 'draft' || req.body.status === 'final') update.status = req.body.status;
     if (req.body.notes !== undefined) update.notes = req.body.notes;
 
-    const updated = await MisPackingList.findOneAndUpdate({ _id: doc._id }, { $set: update }, { new: true }).lean();
+    // The number can be changed: a whole number that no other list of this branch is using. Sending the
+    // number it already has, or none at all, changes nothing.
+    let numberChange = null;
+    if (!packingNumbers.isBlank(req.body.docNumber)) {
+      const parsed = packingNumbers.parseDocNumber(req.body.docNumber);
+      if (parsed.error) return res.status(400).json({ message: parsed.error, code: 'DOC_NUMBER_INVALID' });
+      if (parsed.value !== doc.docNumber) {
+        if (await packingNumbers.isTaken(doc.branchId, parsed.value, doc._id)) {
+          return res.status(409).json({ message: packingNumbers.takenMessage(parsed.value), code: 'DOC_NUMBER_TAKEN', docNumber: parsed.value });
+        }
+        update.docNumber = parsed.value;
+        numberChange = { from: doc.docNumber, to: parsed.value };
+      }
+    }
+
+    let updated;
+    try {
+      updated = await MisPackingList.findOneAndUpdate({ _id: doc._id }, { $set: update }, { new: true }).lean();
+    } catch (err) {
+      if (err.code === 11000 && numberChange) {
+        return res.status(409).json({ message: packingNumbers.takenMessage(numberChange.to), code: 'DOC_NUMBER_TAKEN', docNumber: numberChange.to });
+      }
+      throw err;
+    }
 
     const actorName = await getActorName(userId);
     await logActivity(doc._id, 'updated', {}, userId, actorName);
+    if (numberChange) {
+      await packingNumbers.carryOnAfter(doc.branchId, numberChange.to);
+      await logActivity(doc._id, 'updated', { field: 'docNumber', oldValue: numberChange.from, newValue: numberChange.to }, userId, actorName);
+    }
 
     return res.status(200).json(updated);
   } catch (err) {
