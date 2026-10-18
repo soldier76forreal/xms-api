@@ -1,10 +1,12 @@
 // Phase 6 — MIS / Invoices. Arabic amount-in-words (المبلغ بالحروف).
 // Custom util (no package — per the "no new packages unasked" rule; puppeteer
 // was the one approved install). Spells the GRAND TOTAL (decision 2026-07-03),
-// AED: درهم (dirham) + فلس (fils), invoice boilerplate style:
+// Currency-aware (utils/currencies.js); the default, AED: درهم (dirham) + فلس (fils), invoice boilerplate style:
 //   "فقط ثلاثة آلاف وأربعة وثمانون درهماً وثمانية وأربعون فلساً لا غير"
 // Pragmatic classical construction (units-before-tens, common scale agreement);
 // wording tweaks are cosmetic and safe to adjust later.
+
+const { DEFAULT_CURRENCY, currencyInfo } = require('./currencies');
 
 const ONES = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة',
   'عشرة', 'أحد عشر', 'اثنا عشر', 'ثلاثة عشر', 'أربعة عشر', 'خمسة عشر', 'ستة عشر',
@@ -73,25 +75,29 @@ function currencyWord(n, forms) {
   return forms.many;
 }
 
-const AED_DIRHAM = { one: 'درهم واحد', two: 'درهمان', few: 'دراهم', many: 'درهماً' };
-const AED_FILS   = { one: 'فلس واحد',  two: 'فلسان',  few: 'فلوس',  many: 'فلساً' };
-
 // amount (e.g. 3084.48) → "فقط ثلاثة آلاف وأربعة وثمانون درهماً وثمانية وأربعون فلساً لا غير"
-function amountToArabicWords(amount, { prefix = 'فقط', suffix = 'لا غير' } = {}) {
-  const abs      = Math.abs(Number(amount) || 0);
-  const dirhams  = Math.floor(abs);
-  const fils     = Math.round((abs - dirhams) * 100);
+// The currency's unit and small unit come from utils/currencies.js, each in the
+// right grammatical number. Left at the default it is the same AED sentence it
+// always was.
+function amountToArabicWords(amount, { prefix = 'فقط', suffix = 'لا غير', currency = DEFAULT_CURRENCY } = {}) {
+  const { words: cw } = currencyInfo(currency);
+  const abs   = Math.abs(Number(amount) || 0);
+  let whole   = Math.floor(abs);
+  let small   = cw.sub ? Math.round((abs - whole) * cw.subPerUnit) : 0;
+  if (cw.sub && small >= cw.subPerUnit) { whole += 1; small = 0; }   // 0.999 → one whole unit, not "100 fils"
+  // A currency with no small unit (the rial) rounds a stray fraction instead of spelling it.
+  if (!cw.sub && abs - whole >= 0.5) whole += 1;
 
   const parts = [];
-  if (dirhams > 0) {
-    const w = numberToArabicWords(dirhams);
-    parts.push(dirhams <= 2 ? currencyWord(dirhams, AED_DIRHAM) : `${w} ${currencyWord(dirhams, AED_DIRHAM)}`);
+  if (whole > 0) {
+    const w = numberToArabicWords(whole);
+    parts.push(whole <= 2 ? currencyWord(whole, cw.unit) : `${w} ${currencyWord(whole, cw.unit)}`);
   }
-  if (fils > 0) {
-    const w = numberToArabicWords(fils);
-    parts.push(fils <= 2 ? currencyWord(fils, AED_FILS) : `${w} ${currencyWord(fils, AED_FILS)}`);
+  if (small > 0) {
+    const w = numberToArabicWords(small);
+    parts.push(small <= 2 ? currencyWord(small, cw.sub) : `${w} ${currencyWord(small, cw.sub)}`);
   }
-  if (!parts.length) parts.push('صفر درهم');
+  if (!parts.length) parts.push(cw.zero);
 
   return [prefix, parts.join(' و'), suffix].filter(Boolean).join(' ');
 }

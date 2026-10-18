@@ -22,6 +22,9 @@ const { sendPdf } = require('../../utils/sendPdf');
 const { recomputeVariantSupplyRollup, recomputeProductSupplyRollup } = require('../../utils/supplyRollup');
 const { canSeeForecast, stripVariantForecast } = require('../../utils/forecastAccess');
 const { amountToArabicWords } = require('../../utils/arabicWords');
+const { roundMoney, normalizeCurrency, DEFAULT_CURRENCY } = require('../../utils/currencies');
+const { normalizeDateSystem } = require('../../utils/calendars');
+const { branchDefaultsOf, readDocSettings } = require('../../utils/misDefaults');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
 // Phase 6 — MIS / Invoices (Sessions 41–42).
@@ -61,7 +64,6 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-const round2 = (n) => Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 100;
 
 // Valid status sets per docType (spec lifecycles — light, append later if needed)
 const STATUS_SETS = {
@@ -147,7 +149,11 @@ async function getActorName(userId) {
 //   lineTotal = base − discountAmount + vatAmount
 // Rollups: subtotal = Σ base · discountTotal = Σ discountAmount · vatTotal = Σ vat
 //   grandTotal (المطلوب) = subtotal − discountTotal + vatTotal + shipping
-function computeTotals(lineItems, shipping) {
+// "2dp" is the dirham's: every amount is rounded to the DOCUMENT's currency
+// (utils/currencies.js — a rial has no fils, so an Iranian document rounds to
+// whole rials). The default is dirhams, which is what every caller got before.
+function computeTotals(lineItems, shipping, currency = DEFAULT_CURRENCY) {
+  const round2 = (n) => roundMoney(n, currency);
   let subtotal = 0, discountTotal = 0, vatTotal = 0;
   const lines = (lineItems || []).map((li) => {
     const qty       = Number(li.quantity)  || 0;
@@ -635,7 +641,7 @@ async function grantedCrossBranchIds(userId, requestingBranchId = null) {
   const branches = await Branch.find({
     status: 'active', deleteDate: null,
     crossBranchAccess: { $in: ownBranchIds.map((id) => new mongoose.Types.ObjectId(id)) },
-  }).select('_id name country').lean();
+  }).select('_id name country defaultCurrency defaultDateSystem').lean();
   return { ownBranchIds, branches: branches.filter((b) => !ownBranchIds.includes(String(b._id))) };
 }
 
@@ -1064,6 +1070,13 @@ router.post('/invoices', verify, requireDocTypePermission('create'), async (req,
     if (!Array.isArray(req.body.lineItems) || req.body.lineItems.length === 0) {
       return res.status(400).json({ message: 'At least one line item is required' });
     }
+    // The document's currency and the calendar its dates are written in: what the
+    // form chose, else this branch's own default (the branch that owns the document
+    // — for an inter-branch one, the branch that was asked).
+    const docBranch = await Branch.findOne({ _id: branchId, deleteDate: null }).select('defaultCurrency defaultDateSystem').lean();
+    const settings = readDocSettings(req.body, branchDefaultsOf(docBranch));
+    if (settings.error) return res.status(400).json({ message: settings.error });
+
     const overages = await findStockOverages(req.body.lineItems);
     if (overages.length) {
       return res.status(400).json({
@@ -1091,7 +1104,7 @@ router.post('/invoices', verify, requireDocTypePermission('create'), async (req,
 
     // server-side money math — never trust client totals
     const shipping = docType === 'invoice' ? req.body.shipping : 0;
-    const totals = computeTotals(req.body.lineItems, shipping);
+    const totals = computeTotals(req.body.lineItems, shipping, settings.currency);
 
     // default quote validity from companyProfile when not provided — per-branch
     // override, falls back to global (Session 72)
@@ -1116,14 +1129,15 @@ router.post('/invoices', verify, requireDocTypePermission('create'), async (req,
       // a null here is what later broke conversion by failing to cast.
       customerSnapshot: customerSnapshot || undefined,
       lineItems: totals.lines,
-      currency: 'AED',
+      currency: settings.currency,
+      dateSystem: settings.dateSystem,
       subtotal:      totals.subtotal,
       discountTotal: totals.discountTotal,
       vatTotal:      totals.vatTotal,
       shipping:      totals.shipping,
       grandTotal:    totals.grandTotal,
       // invoice-only blocks (payment figures maintained via PUT /:id/payment)
-      amountInWords: docType === 'invoice' ? amountToArabicWords(totals.grandTotal) : undefined,
+      amountInWords: docType === 'invoice' ? amountToArabicWords(totals.grandTotal, { currency: settings.currency }) : undefined,
       salesRepId:   docType === 'invoice' ? req.body.salesRepId   : undefined,
       salesRepName: docType === 'invoice' ? req.body.salesRepName : undefined,
       // packingList is intentionally NOT written here any more (Session 72,
@@ -1182,6 +1196,27 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     const update = {};
     const actorName = await getActorName(userId);
 
+    // Currency and calendar can be changed on a document. A new currency re-rounds
+    // every total, so it takes the same recompute path as a changed line below —
+    // and it cannot change once money has been recorded against the document:
+    // those figures were taken in the old currency and would silently change meaning.
+    const settings = readDocSettings(req.body, {
+      currency: normalizeCurrency(doc.currency), dateSystem: normalizeDateSystem(doc.dateSystem),
+    });
+    if (settings.error) return res.status(400).json({ message: settings.error });
+    const currencyChanged = settings.currency !== normalizeCurrency(doc.currency);
+    if (currencyChanged) {
+      const p = doc.payment || {};
+      if ((Number(p.cash) || 0) + (Number(p.chequeBank) || 0) + (Number(p.card) || 0) > 0) {
+        return res.status(409).json({
+          message: `Payments are already recorded in ${normalizeCurrency(doc.currency)}, so this document's currency can no longer change.`,
+          code: 'CURRENCY_LOCKED',
+        });
+      }
+      update.currency = settings.currency;
+    }
+    if (settings.dateSystem !== normalizeDateSystem(doc.dateSystem)) update.dateSystem = settings.dateSystem;
+
     // An inter-branch doc has no CRM customer — the buyer is the requesting
     // branch. Ignore any customer fields a form sends along with it.
     if (doc.tradeMode === 'interBranch') {
@@ -1193,7 +1228,7 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
     // looking at on their dashboard - its items and prices don't change behind
     // their back. Withdraw it (Requests > Customer-branch requests) and send a new one.
     if (doc.priceRequestId && doc.docType === 'pre_invoice' && doc.status === 'sent'
-        && doc.validUntil && doc.validUntil > new Date() && req.body.lineItems !== undefined) {
+        && doc.validUntil && doc.validUntil > new Date() && (req.body.lineItems !== undefined || currencyChanged)) {
       return res.status(409).json({
         message: 'This offer is live on the website - withdraw it and send a new one to change its items or prices',
       });
@@ -1295,13 +1330,17 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
       update.customerSnapshot = { ...doc.customerSnapshot, ...req.body.customerSnapshot };
     }
 
-    // lines / shipping changed → recompute all totals server-side
-    if (req.body.lineItems !== undefined || req.body.shipping !== undefined) {
-      const lineItems = req.body.lineItems !== undefined ? req.body.lineItems : doc.lineItems;
+    // lines / shipping / currency changed → recompute all totals server-side
+    if (req.body.lineItems !== undefined || req.body.shipping !== undefined || currencyChanged) {
+      const lineItems = req.body.lineItems !== undefined ? req.body.lineItems : doc.toObject().lineItems;
       if (!Array.isArray(lineItems) || lineItems.length === 0) {
         return res.status(400).json({ message: 'At least one line item is required' });
       }
-      const overages = await findStockOverages(lineItems);
+      // Only a change to the items themselves can over-sell; re-rounding the same
+      // lines in another currency must not trip over stock an issued document
+      // already took out.
+      const overages = (req.body.lineItems !== undefined || req.body.shipping !== undefined)
+        ? await findStockOverages(lineItems) : [];
       if (overages.length) {
         return res.status(400).json({
           message: 'Requested quantity exceeds available stock',
@@ -1311,14 +1350,14 @@ router.put('/invoices/:id', verify, loadInvoice, requireDocTypePermission('edit'
       const shipping = doc.docType === 'invoice'
         ? (req.body.shipping !== undefined ? req.body.shipping : doc.shipping)
         : 0;
-      const totals = computeTotals(lineItems, shipping);
+      const totals = computeTotals(lineItems, shipping, settings.currency);
       update.lineItems     = totals.lines;
       update.subtotal      = totals.subtotal;
       update.discountTotal = totals.discountTotal;
       update.vatTotal      = totals.vatTotal;
       update.shipping      = totals.shipping;
       update.grandTotal    = totals.grandTotal;
-      if (doc.docType === 'invoice') update.amountInWords = amountToArabicWords(totals.grandTotal);
+      if (doc.docType === 'invoice') update.amountInWords = amountToArabicWords(totals.grandTotal, { currency: settings.currency });
     }
 
     // simple pass-through fields
@@ -1490,6 +1529,12 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
     //  • without one (legacy callers): the quotation is copied as-is.
     const draft = req.body && Array.isArray(req.body.lineItems) && req.body.lineItems.length ? req.body : null;
     const isInterBranch = pre.tradeMode === 'interBranch';
+    // The invoice keeps the quotation's currency and calendar unless the form
+    // that converts it picked others.
+    const settings = readDocSettings(draft || {}, {
+      currency: normalizeCurrency(pre.currency), dateSystem: normalizeDateSystem(pre.dateSystem),
+    });
+    if (settings.error) return res.status(400).json({ message: settings.error });
     let lineSource;
     let shipping = 0;
     let customerId = pre.customerId;
@@ -1554,7 +1599,7 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
     }
 
     // recompute totals as an invoice
-    const totals = computeTotals(lineSource, shipping);
+    const totals = computeTotals(lineSource, shipping, settings.currency);
 
     const invoice = await MisInvoice.create({
       branchId: pre.branchId,                              // converted invoice stays in the pre-invoice's branch
@@ -1569,13 +1614,14 @@ router.post('/invoices/:id/convert', verify, loadInvoice, requirePermission('mis
       customerId: isInterBranch ? undefined : customerId,
       ...(!isInterBranch && customerSnapshot ? { customerSnapshot } : {}),
       lineItems: totals.lines,
-      currency: 'AED',
+      currency: settings.currency,
+      dateSystem: settings.dateSystem,
       subtotal:      totals.subtotal,
       discountTotal: totals.discountTotal,
       vatTotal:      totals.vatTotal,
       shipping:      totals.shipping,
       grandTotal:    totals.grandTotal,
-      amountInWords: amountToArabicWords(totals.grandTotal),
+      amountInWords: amountToArabicWords(totals.grandTotal, { currency: settings.currency }),
       salesRepId,
       salesRepName,
       convertedFromPreInvoiceId: pre._id,
@@ -1637,15 +1683,17 @@ router.put('/invoices/:id/payment', verify, loadInvoice, requirePermission('mis:
     const userId    = req.user.id;
     const actorName = await getActorName(userId);
 
-    const cash       = round2(req.body.cash       !== undefined ? req.body.cash       : doc.payment.cash);
-    const chequeBank = round2(req.body.chequeBank !== undefined ? req.body.chequeBank : doc.payment.chequeBank);
-    const card       = round2(req.body.card       !== undefined ? req.body.card       : doc.payment.card);
-    const paidSum    = round2(cash + chequeBank + card);
-    const remaining  = round2(doc.grandTotal - paidSum);   // الباقي — server-computed
+    // Amounts are rounded to the DOCUMENT's currency (a rial has no fils).
+    const money = (n) => roundMoney(n, doc.currency);
+    const cash       = money(req.body.cash       !== undefined ? req.body.cash       : doc.payment.cash);
+    const chequeBank = money(req.body.chequeBank !== undefined ? req.body.chequeBank : doc.payment.chequeBank);
+    const card       = money(req.body.card       !== undefined ? req.body.card       : doc.payment.card);
+    const paidSum    = money(cash + chequeBank + card);
+    const remaining  = money(doc.grandTotal - paidSum);   // الباقي — server-computed
 
     const payment = {
       cash, chequeBank, card, remaining,
-      currentBalance: req.body.currentBalance !== undefined ? round2(req.body.currentBalance) : doc.payment.currentBalance,
+      currentBalance: req.body.currentBalance !== undefined ? money(req.body.currentBalance) : doc.payment.currentBalance,
       balanceSign:    req.body.balanceSign === 'credit' ? 'credit' : (req.body.balanceSign === 'debit' ? 'debit' : doc.payment.balanceSign),
     };
 

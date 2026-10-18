@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const jalaliMoment = require('jalali-moment');
 const { amountToPersianWords } = require('./persianWords');
+const { documentFontCss } = require('./documentFonts');
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -262,7 +263,7 @@ function renderClassicDealLetterHtml(dealLetter, record, branch, profile) {
   table.sign td { border: 1px solid ${BRAND.rule}; height: 92px; }
 
   .d { color: #9AA0AC; letter-spacing: 0.5px; }
-  .v { font-weight: 600; }
+  .v { font-weight: 600; }${documentFontCss('fa')}
 </style>
 </head>
 <body>

@@ -8,17 +8,17 @@ const fs = require('fs');
 const path = require('path');
 const { LANG, resolveLang } = require('./invoiceLang');
 const { parseStoneCode } = require('./stoneCodeParser');
+const { formatDate } = require('./calendars');
+const { documentFontCss } = require('./documentFonts');
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const num = (n) => (n == null || n === '' ? '' : Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }));
 
-const dateStr = (d) => {
-  if (!d) return '';
-  const dt = new Date(d);
-  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
-};
+// The list's date, written in the calendar it was entered in (Gregorian, Jalali
+// or Hijri — utils/calendars.js). Gregorian stays dd/mm/yyyy, as it always was.
+const dateStr = (d, doc, lang) => (d ? formatDate(d, doc && doc.dateSystem, { lang }) : '');
 
 let LOGO_DATA_URI = '';
 try {
@@ -194,7 +194,7 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
      so it declares its own paper size. */
   @page { size: A4; margin: 10mm; }
   body { direction: ${L.dir}; }
-  .page { width: 190mm; margin: 0 auto; padding: 4mm 0; }
+  .page { width: 190mm; margin: 0 auto; padding: 4mm 0; }${documentFontCss(langKey)}
 </style>
 </head>
 <body>
@@ -207,7 +207,7 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
       </div>
       <div class="${langKey === 'en' ? 'ltr' : 'rtl'}" style="width:30%;">
         <div class="co-name">${esc(coName)}</div>
-        <div class="muted">${esc(L.docNumber)} <b>${esc(doc.docNumber)}</b> · ${esc(L.date)} <b>${dateStr(doc.insertDate)}</b></div>
+        <div class="muted">${esc(L.docNumber)} <b>${esc(doc.docNumber)}</b> · ${esc(L.date)} <b class="ltr-inline">${dateStr(doc.issueDate || doc.insertDate, doc, langKey)}</b></div>
       </div>
     </div>
 

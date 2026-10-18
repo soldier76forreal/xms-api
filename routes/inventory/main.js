@@ -943,7 +943,7 @@ router.get('/products/:id/invoices', verify, requirePermission('inventory:view')
 
     const [rows, total] = await Promise.all([
       MisInvoice.find(query)
-        .select('docType docNumber status issueDate grandTotal currency customerSnapshot.name lineItems.productId lineItems.variantId lineItems.code')
+        .select('docType docNumber status issueDate dateSystem grandTotal currency customerSnapshot.name lineItems.productId lineItems.variantId lineItems.code')
         .sort({ issueDate: sortDir, _id: sortDir })
         .limit(100)
         .lean(),

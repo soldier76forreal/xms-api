@@ -819,7 +819,7 @@ router.get('/customers/:id/requests', verify, requirePermission('crm:view'), asy
 
     const [rows, total, priceRequests] = await Promise.all([
       MisInvoice.find(query)
-        .select('docType docNumber status issueDate grandTotal currency customerSnapshot.name lineItems.code')
+        .select('docType docNumber status issueDate dateSystem grandTotal currency customerSnapshot.name lineItems.code')
         .sort({ issueDate: sortDir, _id: sortDir })
         .limit(100)
         .lean(),

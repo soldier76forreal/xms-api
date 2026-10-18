@@ -76,6 +76,12 @@ const misPackingListSchema = new mongoose.Schema({
     totalPcs:     { type: Number, default: 0 },
   },
 
+  // The document's date and the calendar it is entered and printed in — the same
+  // pair every MIS document carries (see utils/calendars.js). issueDate is one
+  // absolute day; older lists have none and read as their insertDate.
+  issueDate:  { type: Date },
+  dateSystem: { type: String, default: 'gregorian' },
+
   status: { type: String, enum: ['draft', 'final'], default: 'draft' },
   notes:  { type: String, trim: true },
 

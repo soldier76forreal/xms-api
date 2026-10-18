@@ -12,29 +12,44 @@ const fs = require('fs');
 const path = require('path');
 const { amountToArabicWords } = require('./arabicWords');
 const { LANG, resolveLang } = require('./invoiceLang');
+const { formatMoney, normalizeCurrency } = require('./currencies');
+const { formatDate, normalizeDateSystem, today } = require('./calendars');
+const { documentFontCss } = require('./documentFonts');
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-const money = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Quantities, dimensions and areas: two decimals, whatever the currency.
+const num = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Money: as many decimals as the document's currency has (a dirham two, a rial none).
+const amt = (n, doc) => formatMoney(n, doc && doc.currency);
 
-const dateStr = (d) => {
-  if (!d) return '';
-  const dt = new Date(d);
-  return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
-};
+// A date as this document prints it — in its own calendar (Gregorian, Jalali or
+// Hijri) with the calendar's mark after a non-Gregorian one. Gregorian stays
+// "dd/mm/yyyy", exactly as every document was always printed.
+const dateStr = (d, doc, lang) => (d ? formatDate(d, doc && doc.dateSystem, { lang }) : '');
 
 // An absolute expiry (a website offer) in the clock of the branch that made it —
 // "07 Oct 2026, 17:30 GMT+4" — never the server's. en-GB for every language so
-// the digits and month names stay unambiguous on a printed page.
-const zonedWhen = (d, tz) => {
+// the digits and month names stay unambiguous on a printed page. In another
+// calendar the day is written in that calendar and the time and zone follow it.
+const zonedWhen = (d, tz, doc, lang) => {
+  const zone = tz || 'Asia/Dubai';
   try {
-    return new Intl.DateTimeFormat('en-GB', {
-      timeZone: tz || 'Asia/Dubai', day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
-    }).format(new Date(d));
+    const system = normalizeDateSystem(doc && doc.dateSystem);
+    if (system === 'gregorian') {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: zone, day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
+      }).format(new Date(d));
+    }
+    const when = new Date(d);
+    // The calendar day IN THE BRANCH'S ZONE, then written in the document's calendar.
+    const day = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(when));
+    const clock = new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' }).format(when);
+    return `${formatDate(day, system, { lang })}, ${clock}`;
   } catch (_) {
-    return dateStr(d);
+    return dateStr(d, doc, lang);
   }
 };
 
@@ -78,13 +93,13 @@ function headerBlock(profile, doc, L) {
   </div>`;
 }
 
-function metaBlock(doc, L) {
+function metaBlock(doc, L, lang) {
   return `
   <table class="meta">
     <tr>
       <td>${esc(L.docNumber)} <b>${esc(doc.docNumber)}</b></td>
-      <td>${esc(L.date)} <b>${dateStr(doc.issueDate)}</b>${doc.issueTime ? ' ' + esc(doc.issueTime) : ''}</td>
-      <td>${esc(L.printDate)} <b>${dateStr(new Date())}</b></td>
+      <td>${esc(L.date)} <b class="ltr-inline">${dateStr(doc.issueDate, doc, lang)}</b>${doc.issueTime ? ' ' + esc(doc.issueTime) : ''}</td>
+      <td>${esc(L.printDate)} <b class="ltr-inline">${dateStr(today(), doc, lang)}</b></td>
     </tr>
   </table>`;
 }
@@ -127,11 +142,11 @@ function linesTable(doc, L) {
       <td class="ltr-inline">${esc(li.code)}</td>
       <td class="right">${esc(li.name)}</td>
       <td>${esc(li.unit)}</td>
-      <td>${money(li.quantity)}</td>
-      <td>${money(li.unitPrice)}</td>
-      <td>${isPre && li.discountType === 'percent' ? money(li.discount) + '%' : money(li.discountType === 'percent' ? 0 : li.discount)}</td>
-      <td>${money(li.vatAmount)}</td>
-      <td>${money(li.lineTotal)}</td>
+      <td>${num(li.quantity)}</td>
+      <td>${amt(li.unitPrice, doc)}</td>
+      <td>${isPre && li.discountType === 'percent' ? num(li.discount) + '%' : amt(li.discountType === 'percent' ? 0 : li.discount, doc)}</td>
+      <td>${amt(li.vatAmount, doc)}</td>
+      <td>${amt(li.lineTotal, doc)}</td>
     </tr>`).join('');
   return `
   <table class="lines">
@@ -156,11 +171,11 @@ function totalsBlock(doc, L) {
   const isInvoice = doc.docType === 'invoice';
   return `
   <table class="totals">
-    <tr><td>${esc(L.subtotal)}</td><td class="num">${money(doc.subtotal)}</td></tr>
-    ${doc.discountTotal ? `<tr><td>${esc(L.discount)}</td><td class="num">${money(doc.discountTotal)}</td></tr>` : ''}
-    <tr><td>${esc(L.vat)}</td><td class="num">${money(doc.vatTotal)}</td></tr>
-    ${isInvoice && doc.shipping ? `<tr><td>${esc(L.shipping)}</td><td class="num">${money(doc.shipping)}</td></tr>` : ''}
-    <tr class="grand"><td>${esc(L.grandTotal)} (${esc(doc.currency || 'AED')})</td><td class="num">${money(doc.grandTotal)}</td></tr>
+    <tr><td>${esc(L.subtotal)}</td><td class="num">${amt(doc.subtotal, doc)}</td></tr>
+    ${doc.discountTotal ? `<tr><td>${esc(L.discount)}</td><td class="num">${amt(doc.discountTotal, doc)}</td></tr>` : ''}
+    <tr><td>${esc(L.vat)}</td><td class="num">${amt(doc.vatTotal, doc)}</td></tr>
+    ${isInvoice && doc.shipping ? `<tr><td>${esc(L.shipping)}</td><td class="num">${amt(doc.shipping, doc)}</td></tr>` : ''}
+    <tr class="grand"><td>${esc(L.grandTotal)} (${esc(normalizeCurrency(doc.currency))})</td><td class="num">${amt(doc.grandTotal, doc)}</td></tr>
   </table>`;
 }
 
@@ -169,11 +184,11 @@ function paymentBlock(doc, L) {
   return `
   <table class="meta payment">
     <tr>
-      <td>${esc(L.cash)} <b>${money(p.cash)}</b></td>
-      <td>${esc(L.chequeBank)} <b>${money(p.chequeBank)}</b></td>
-      <td>${esc(L.card)} <b>${money(p.card)}</b></td>
-      <td>${esc(L.remaining)} <b>${money(p.remaining)}</b></td>
-      <td>${esc(L.currentBalance)} <b>${money(p.currentBalance)} ${p.balanceSign === 'credit' ? esc(L.credit) : esc(L.debit)}</b></td>
+      <td>${esc(L.cash)} <b>${amt(p.cash, doc)}</b></td>
+      <td>${esc(L.chequeBank)} <b>${amt(p.chequeBank, doc)}</b></td>
+      <td>${esc(L.card)} <b>${amt(p.card, doc)}</b></td>
+      <td>${esc(L.remaining)} <b>${amt(p.remaining, doc)}</b></td>
+      <td>${esc(L.currentBalance)} <b>${amt(p.currentBalance, doc)} ${p.balanceSign === 'credit' ? esc(L.credit) : esc(L.debit)}</b></td>
     </tr>
   </table>`;
 }
@@ -195,11 +210,11 @@ function packingListPage(doc, profile, L) {
       <td>${r.no != null ? esc(r.no) : i + 1}</td>
       <td>${esc(r.pallet)}</td>
       <td class="right">${esc(r.productName)}</td>
-      <td>${r.length != null ? money(r.length) : ''}</td>
-      <td>${r.width != null ? money(r.width) : ''}</td>
+      <td>${r.length != null ? num(r.length) : ''}</td>
+      <td>${r.width != null ? num(r.width) : ''}</td>
       <td>${r.pcs != null ? esc(r.pcs) : ''}</td>
-      <td>${r.thickness != null ? money(r.thickness) : ''}</td>
-      <td>${r.sqm != null ? money(r.sqm) : ''}</td>
+      <td>${r.thickness != null ? num(r.thickness) : ''}</td>
+      <td>${r.sqm != null ? num(r.sqm) : ''}</td>
       <td class="right">${esc(r.notes)}</td>
     </tr>`).join('');
   return `
@@ -222,7 +237,7 @@ function packingListPage(doc, profile, L) {
           <td colspan="5">${esc(L.total)}</td>
           <td>${pl.totalPcs != null ? esc(pl.totalPcs) : ''}</td>
           <td></td>
-          <td>${pl.totalSqm != null ? money(pl.totalSqm) : ''}</td>
+          <td>${pl.totalSqm != null ? num(pl.totalSqm) : ''}</td>
           <td></td>
         </tr>
       </tfoot>
@@ -253,12 +268,12 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
   const isInterBranch = doc.tradeMode === 'interBranch';
   // Amount-in-words stays Arabic regardless of template language — it's the
   // tax-invoice's legally-worded Arabic phrase, not a translatable UI label.
-  const words = doc.amountInWords || amountToArabicWords(doc.grandTotal);
+  const words = doc.amountInWords || amountToArabicWords(doc.grandTotal, { currency: doc.currency });
 
   const page1 = `
   <div class="page">
     ${headerBlock(profile, doc, L)}
-    ${metaBlock(doc, L)}
+    ${metaBlock(doc, L, langKey)}
     ${isInterBranch ? interBranchPartiesBlock(doc, L) : customerBlock(doc, L)}
     ${linesTable(doc, L)}
     <div class="bottom-row">
@@ -267,7 +282,7 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
         ${isInvoice ? paymentBlock(doc, L) : ''}
         ${isInvoice && doc.salesRepName ? `<div class="muted">${esc(L.salesRep)}: <b>${esc(doc.salesRepName)}</b></div>` : ''}
         ${!isInvoice && doc.validUntil
-          ? `<div class="validity">${esc(L.validUntil(zonedWhen(doc.validUntil, doc.validUntilTz)))}</div>`
+          ? `<div class="validity">${esc(L.validUntil(zonedWhen(doc.validUntil, doc.validUntilTz, doc, langKey)))}</div>`
           : (!isInvoice && doc.validityDays ? `<div class="validity">${esc(L.validity(doc.validityDays))}</div>` : '')}
         ${doc.notes ? `<div class="muted notes">${esc(doc.notes)}</div>` : ''}
       </div>
@@ -339,7 +354,7 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
   table.lines tr.grand td { color: #111; }
 
   .bank { margin-top: 8px; font-size: 10px; border-top: 1px solid ${BRAND.blueTint2}; padding-top: 4px; }
-  .thanks { margin-top: 6px; text-align: center; font-size: 11px; color: ${BRAND.blue}; }
+  .thanks { margin-top: 6px; text-align: center; font-size: 11px; color: ${BRAND.blue}; }${documentFontCss(langKey)}
 </style>
 </head>
 <body>

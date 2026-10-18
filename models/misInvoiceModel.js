@@ -92,6 +92,12 @@ const misInvoiceSchema = new mongoose.Schema({
     index: true,
   },
   issueDate: { type: Date, required: true, default: Date.now },
+  // The calendar this document is ENTERED and PRINTED in: 'gregorian' | 'jalali'
+  // | 'hijri'. issueDate above is always one absolute day — this only chooses how
+  // it is written (see utils/calendars.js). Plain string, validated by the routes
+  // against that registry; a document from before the field existed reads as
+  // 'gregorian', which is how it was always printed.
+  dateSystem: { type: String, default: 'gregorian' },
   issueTime: { type: String },                           // optional HH:mm as printed
   printDate: { type: Date },
 
@@ -109,6 +115,9 @@ const misInvoiceSchema = new mongoose.Schema({
 
   lineItems: [lineItemSchema],
 
+  // ISO code from utils/currencies.js, chosen per document (a branch's
+  // defaultCurrency is only the starting point). Decides how many decimals the
+  // totals have and which currency the Arabic amount-in-words names.
   currency:      { type: String, default: 'AED' },
   // Totals computed SERVER-SIDE and stored, so list + PDF never recompute divergently. 2dp (fils).
   subtotal:      { type: Number, default: 0 },           // الاجمالي

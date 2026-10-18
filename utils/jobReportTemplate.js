@@ -19,6 +19,7 @@
 'use strict';
 
 const { resolveJobReportTemplate, pickLabel, channelByValue } = require('./jobReportTemplates');
+const { documentFontCss } = require('./documentFonts');
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -271,7 +272,7 @@ function renderJobReportHtml(report, options = {}) {
   .thread.reply { border-color: #B26A00; }
 
   .signatures { display: flex; gap: 24px; margin-top: 10px; break-inside: avoid; }
-  .sig { flex: 1; border-top: 1px solid #999; padding-top: 3px; font-size: 9px; color: #555; text-align: center; }
+  .sig { flex: 1; border-top: 1px solid #999; padding-top: 3px; font-size: 9px; color: #555; text-align: center; }${documentFontCss(lang)}
 </style>
 </head>
 <body>

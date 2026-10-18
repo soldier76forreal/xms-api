@@ -16,6 +16,7 @@ const dbConnection = require('../../connections/xmsPr');
 const verify = require('../users/verifyToken');
 const { requirePermission, getEffectivePermissions } = require('../../utils/rbac');
 const { AnalyticsEvent, rangeToDates, dayKey } = require('../../utils/websiteAnalytics');
+const { normalizeCurrency } = require('../../utils/currencies');
 
 const priceRequestSchema   = require('../../models/priceRequestModel');
 const misInvoiceSchema     = require('../../models/misInvoiceModel');
@@ -77,12 +78,24 @@ router.get('/overview', verify, requirePermission('digitalMarketing:view'), asyn
       PriceRequest.find(reqWindow).select('status insertDate country branchId items source language').lean(),
       PriceRequest.countDocuments({ insertDate: { $gte: prevFrom, $lt: from } }),
       MisInvoice.find({ priceRequestId: { $ne: null }, deleteDate: null, insertDate: { $gte: from, $lte: to } })
-        .select('docType status grandTotal customerAcceptedAt insertDate').lean(),
+        .select('docType status grandTotal currency customerAcceptedAt insertDate').lean(),
       Customer.countDocuments({ insertDate: { $gte: from, $lte: to }, 'interestedProducts.source': 'website' }),
     ]);
     const offers = offerDocs.filter((d) => d.docType === 'pre_invoice');
     const acceptedOffers = offers.filter((d) => d.customerAcceptedAt || ['accepted', 'converted'].includes(d.status));
     const offerInvoices = offerDocs.filter((d) => d.docType === 'invoice');
+
+    // Money is never added across currencies. The offers of a window can be in
+    // several (each branch quotes in its own), so the value figures are summed in
+    // the ONE currency most of them are written in, and say which, and whether any
+    // others were left out.
+    const countByCurrency = {};
+    for (const d of offerDocs) {
+      const c = normalizeCurrency(d.currency);
+      countByCurrency[c] = (countByCurrency[c] || 0) + 1;
+    }
+    const valueCurrency = Object.keys(countByCurrency).sort((a, b) => countByCurrency[b] - countByCurrency[a] || a.localeCompare(b))[0] || 'AED';
+    const inValueCurrency = (docs) => docs.filter((d) => normalizeCurrency(d.currency) === valueCurrency);
 
     // ── the funnel, end to end ─────────────────────────────────────────────
     const funnel = [
@@ -125,9 +138,11 @@ router.get('/overview', verify, requirePermission('digitalMarketing:view'), asyn
         requestToOfferHours: avg(answered),
         offerToAcceptHours: avg(acceptHours),
         ...(showMoney ? {
-          offeredValue: round2(offers.reduce((a, o) => a + (Number(o.grandTotal) || 0), 0)),
-          acceptedValue: round2(acceptedOffers.reduce((a, o) => a + (Number(o.grandTotal) || 0), 0)),
-          invoicedValue: round2(offerInvoices.reduce((a, o) => a + (Number(o.grandTotal) || 0), 0)),
+          offeredValue: round2(inValueCurrency(offers).reduce((a, o) => a + (Number(o.grandTotal) || 0), 0)),
+          acceptedValue: round2(inValueCurrency(acceptedOffers).reduce((a, o) => a + (Number(o.grandTotal) || 0), 0)),
+          invoicedValue: round2(inValueCurrency(offerInvoices).reduce((a, o) => a + (Number(o.grandTotal) || 0), 0)),
+          valueCurrency,
+          valueExcludesOtherCurrencies: Object.keys(countByCurrency).length > 1,
         } : {}),
       },
       funnel,

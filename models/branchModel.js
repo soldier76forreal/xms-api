@@ -57,6 +57,15 @@ const branchSchema = new mongoose.Schema({
     label:       { type: String, default: 'classic' },
     dealLetter:  { type: String, default: 'classic' },   // Supply's قرارداد فروش سنگ
   },
+  // What a NEW MIS document of this branch starts with — the person can change
+  // either one on the document itself. Empty (every branch from before these
+  // existed) reads as the old behaviour: dirhams, Gregorian dates.
+  //   defaultDateSystem: 'gregorian' | 'jalali' | 'hijri'   (utils/calendars.js)
+  //   defaultCurrency:   an ISO code from utils/currencies.js
+  // Plain strings, validated by the branch routes against those registries —
+  // adding a currency is a registry entry, not a schema change.
+  defaultDateSystem: { type: String, default: '' },
+  defaultCurrency:   { type: String, default: '' },
   insertDate:  { type: Date, default: Date.now },
   updateDate:  { type: Date, default: null },
   deleteDate:  { type: Date, default: null },

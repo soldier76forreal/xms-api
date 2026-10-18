@@ -8,6 +8,8 @@ const verify = require('../users/verifyToken');
 const { getEffectivePermissions, requirePermission, requireBranch, assertBranchAccess } = require('../../utils/rbac');
 const { sendMail } = require('../../utils/mailer');
 const inventoryVariantSchema = require('../../models/inventoryVariantModel');
+const branchSchema = require('../../models/branchModel');
+const { branchDefaultsOf } = require('../../utils/misDefaults');
 const {
   createOffer, withdrawOffer, offersByRequest, toStaffOffer, startOfferExpirySweep,
   OfferError, DEFAULT_VALID_HOURS,
@@ -16,6 +18,7 @@ const {
 const PriceRequest = dbConnection.models.priceRequest || dbConnection.model('priceRequest', priceRequestSchema);
 const User = dbConnection.models.user || dbConnection.model('user', userSchema);
 const InvVariant = dbConnection.models.inventoryVariant || dbConnection.model('inventoryVariant', inventoryVariantSchema);
+const Branch = dbConnection.models.branch || dbConnection.model('branch', branchSchema);
 
 // Keeps the MIS side of website offers honest: an offer whose time ran out is
 // flipped to 'expired' (and its sender told) once a minute.
@@ -177,11 +180,17 @@ router.get('/:id', verify, requirePermission('mis:view'), async (req, res) => {
     const { loadProfile } = require('../mis/invoices');
     const profile = await loadProfile(branchId);
     const offers = await offersByRequest([pr._id]);
+    // The branch's own currency and calendar are what an offer starts with (the associate may change them).
+    const branch = await Branch.findOne({ _id: branchId, deleteDate: null }).select('defaultCurrency defaultDateSystem').lean();
+    const docDefaults = branchDefaultsOf(branch);
     return res.status(200).json({
       data: {
         ...pr, items,
         offer: toStaffOffer(offers.get(String(pr._id)), new Date()),
-        defaults: { vatRate: (profile && profile.vatRate) ?? 5, validForHours: DEFAULT_VALID_HOURS },
+        defaults: {
+          vatRate: (profile && profile.vatRate) ?? 5, validForHours: DEFAULT_VALID_HOURS,
+          currency: docDefaults.currency, dateSystem: docDefaults.dateSystem,
+        },
       },
     });
   } catch (err) {

@@ -1347,6 +1347,20 @@ function generateLinkPageCode() {
   return crypto.randomBytes(6).toString('base64url');
 }
 
+// Every link carries a TITLE (its `label`) - the words a visitor reads on the public page, written by
+// whoever builds the page in whatever language they like ("Contact us", "تواصل معنا"). Trimmed and capped
+// so it cannot be used as a billboard; an entry that is not an object is dropped instead of failing the save.
+const LINK_TITLE_MAX = 120;
+function normalizeLinks(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((l) => l && typeof l === 'object')
+    .map((l) => ({
+      type: l.type,
+      label: typeof l.label === 'string' ? l.label.trim().slice(0, LINK_TITLE_MAX) : '',
+      value: typeof l.value === 'string' ? l.value.trim() : l.value,
+    }));
+}
+
 async function loadLinkPage(req, res, next) {
   try {
     const doc = await ExternalLinkPage.findOne({ _id: req.params.id, deleteDate: null });
@@ -1417,7 +1431,7 @@ router.post('/link-pages', verify, requirePermission('digitalMarketing:linkPage:
   try {
     const userId = req.user.id;
     const { companyName, restrictToOwner, status, language } = req.body;
-    const links = parseJsonArray(req.body.links, []);
+    const links = normalizeLinks(parseJsonArray(req.body.links, []));
 
     if (!companyName || !companyName.trim()) return res.status(400).json({ message: 'companyName is required' });
 
@@ -1459,7 +1473,7 @@ router.put('/link-pages/:id', verify, requirePermission('digitalMarketing:linkPa
     const doc = req.linkPage;
 
     if (req.body.companyName !== undefined) doc.companyName = req.body.companyName.trim();
-    if (req.body.links !== undefined) doc.links = parseJsonArray(req.body.links, doc.links);
+    if (req.body.links !== undefined) doc.links = normalizeLinks(parseJsonArray(req.body.links, doc.links));
     if (req.body.language !== undefined && ['en', 'fa', 'ar'].includes(req.body.language)) doc.language = req.body.language;
     if (req.body.status !== undefined) doc.status = req.body.status === 'inactive' ? 'inactive' : 'active';
     if (req.body.restrictToOwner !== undefined) doc.restrictToOwner = req.body.restrictToOwner === 'true' || req.body.restrictToOwner === true;

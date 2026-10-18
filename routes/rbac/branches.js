@@ -8,6 +8,26 @@ const { mkdir, writeFile } = require('fs/promises');
 const verify   = require('../users/verifyToken');
 const { requireSuperAdmin, isSuperAdmin, getUserBranches, assertBranchAccess, Branch, UserAccess } = require('../../utils/rbac');
 const { websiteBranchSlug, validWebsiteBranchSlug } = require('../../utils/websiteBranchSlug');
+const { CURRENCY_CODES } = require('../../utils/currencies');
+const { SYSTEMS } = require('../../utils/calendars');
+
+// A branch's default currency and date system: '' (not set — dirhams and Gregorian
+// dates, as before) or a value from the registries. Anything else is refused, never
+// stored: a typo here would silently start every new document of the branch wrong.
+const readBranchDefaults = (body) => {
+  const out = {};
+  if (body.defaultCurrency !== undefined) {
+    const c = String(body.defaultCurrency || '').trim().toUpperCase();
+    if (c && !CURRENCY_CODES.includes(c)) return { error: `Unknown currency "${body.defaultCurrency}". Use one of: ${CURRENCY_CODES.join(', ')}.` };
+    out.defaultCurrency = c;
+  }
+  if (body.defaultDateSystem !== undefined) {
+    const d = String(body.defaultDateSystem || '').trim();
+    if (d && !SYSTEMS.includes(d)) return { error: `Unknown date system "${body.defaultDateSystem}". Use one of: ${SYSTEMS.join(', ')}.` };
+    out.defaultDateSystem = d;
+  }
+  return out;
+};
 
 const dbConnection = require('../../connections/xmsPr');
 const inventoryProductSchema = require('../../models/inventoryProductModel');
@@ -168,8 +188,11 @@ router.post('/', verify, requireSuperAdmin(), async (req, res) => {
     if (!validWebsiteBranchSlug(websiteSlug) || await slugConflict(websiteSlug)) {
       return res.status(400).json({ message: 'Choose a unique website path using lowercase letters, numbers and hyphens.' });
     }
+    const defaults = readBranchDefaults(req.body);
+    if (defaults.error) return res.status(400).json({ message: defaults.error });
     const branch = await Branch.create({
       name: req.body.name,
+      ...defaults,
       websiteSlug,
       description: req.body.description || '',
       country: req.body.country || null,
@@ -228,6 +251,12 @@ router.put('/:id', verify, requireSuperAdmin(), async (req, res) => {
         .filter((id) => mongoose.Types.ObjectId.isValid(id))
         .map(String))];
     }
+    // What a new MIS document of this branch starts with (currency and date
+    // system). Only touched when the caller sends it — a plain name/status edit
+    // must not reset them.
+    const defaults = readBranchDefaults(req.body);
+    if (defaults.error) return res.status(400).json({ message: defaults.error });
+    Object.assign(updates, defaults);
     // Session 72 — per-branch MIS PDF template selection. Same conditional-touch
     // pattern as priceRequestNotifyUsers above: only written when the caller
     // actually sends it, so a plain name/status edit never wipes it.

@@ -16,6 +16,8 @@ const { resolveBranchLogoDataUri } = require('../../utils/resolveBranchLogo');
 const { renderPdfBuffer } = require('../../utils/pdfRenderer');
 const { sendPdf } = require('../../utils/sendPdf');
 const { renderPackingListHtml, renderPalletLabelHtml, labelPageSize, LABEL_KINDS } = require('../../utils/packingListTemplate');
+const { today, normalizeDateSystem } = require('../../utils/calendars');
+const { branchDefaultsOf, readDocSettings } = require('../../utils/misDefaults');
 
 // ?kind= picks the label: 'slab' (the per-pallet slab label, default) or
 // 'short' (the short-pallet strip label). Anything else falls back to slab.
@@ -56,6 +58,14 @@ async function logActivity(packingListId, type, fields, actorId, actorName) {
       packingListId, type, ...fields, actorId, actorName, date: new Date(), createdAt: new Date(),
     });
   } catch (_) {}
+}
+
+// The list's own date, as sent by the form ('YYYY-MM-DD'). Anything unreadable is
+// ignored rather than stored — the list then reads as its creation date.
+function parseIssueDate(raw) {
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function computeTotals(pallets) {
@@ -230,9 +240,17 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
+    // The date and the calendar it is written in: what the form chose, else this
+    // branch's own default (a list has no money, so only the calendar applies).
+    const branchDoc = await Branch.findById(req.branchId).select('defaultCurrency defaultDateSystem').lean();
+    const settings = readDocSettings({ dateSystem: req.body.dateSystem }, branchDefaultsOf(branchDoc));
+    if (settings.error) return res.status(400).json({ message: settings.error });
+
     const doc = await MisPackingList.create({
       branchId: req.branchId,
       docNumber: counter.seq,
+      issueDate: parseIssueDate(req.body.issueDate) || today(),
+      dateSystem: settings.dateSystem,
       type,
       invoiceIds: type === 'linked' ? validInvoiceIds : [],
       productId: req.body.productId && mongoose.Types.ObjectId.isValid(req.body.productId) ? req.body.productId : null,
@@ -272,6 +290,15 @@ router.put('/packing-lists/:id', verify, requirePermission('mis:packingList:edit
     const userId = req.user.id;
     const doc = req.packingList;
     const update = { updateDate: new Date(), updatedBy: userId };
+
+    // Date and calendar can be changed on an existing list.
+    const settings = readDocSettings({ dateSystem: req.body.dateSystem }, { currency: 'AED', dateSystem: normalizeDateSystem(doc.dateSystem) });
+    if (settings.error) return res.status(400).json({ message: settings.error });
+    if (req.body.dateSystem !== undefined) update.dateSystem = settings.dateSystem;
+    if (req.body.issueDate !== undefined) {
+      const issue = parseIssueDate(req.body.issueDate);
+      if (issue) update.issueDate = issue;
+    }
 
     const nextType = req.body.type === 'linked' || req.body.type === 'free' ? req.body.type : doc.type;
     const nextInvoiceIds = req.body.invoiceIds !== undefined ? req.body.invoiceIds : doc.invoiceIds;

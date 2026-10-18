@@ -28,6 +28,9 @@ const customerActivitySchema = require('../models/customerActivityModel');
 const userSchema = require('../models/userModel');
 const { Branch, assertBranchAccess } = require('./rbac');
 const { amountToArabicWords } = require('./arabicWords');
+const { formatMoney, normalizeCurrency, DEFAULT_CURRENCY } = require('./currencies');
+const { normalizeDateSystem } = require('./calendars');
+const { branchDefaultsOf, readDocSettings } = require('./misDefaults');
 const { renderInvoiceHtml } = require('./invoiceTemplate');
 const { sendMail } = require('./mailer');
 const { websiteBranchSlug } = require('./websiteBranchSlug');
@@ -58,7 +61,6 @@ class OfferError extends Error {
 // ── small helpers ─────────────────────────────────────────────────────────────
 
 const round2 = (n) => Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 100;
-const money = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -215,14 +217,14 @@ function buildOfferEmail({ lang, pr, doc, branch, hours }) {
         <td style="${cell}font-family:monospace;font-size:12px;">${esc(li.code || '')}</td>
         <td style="${cell}">${esc(li.name)}</td>
         <td style="${cell}white-space:nowrap;">${esc(li.quantity)} ${esc(li.unit || '')}</td>
-        <td style="${cell}white-space:nowrap;">${money(li.unitPrice)}</td>
-        <td style="${cell}white-space:nowrap;font-weight:700;">${money(li.lineTotal)}</td>
+        <td style="${cell}white-space:nowrap;">${formatMoney(li.unitPrice, doc.currency)}</td>
+        <td style="${cell}white-space:nowrap;font-weight:700;">${formatMoney(li.lineTotal, doc.currency)}</td>
       </tr>`).join('');
 
   const totalRow = (label, value, strong) => `
       <tr>
         <td colspan="4" style="padding:6px 10px;text-align:${L.align};${strong ? 'font-weight:700;font-size:15px;color:#1a3a78;' : 'color:#555;'}">${esc(label)}</td>
-        <td style="padding:6px 10px;white-space:nowrap;text-align:${L.align};${strong ? 'font-weight:700;font-size:15px;color:#1a3a78;' : ''}">${money(value)} ${esc(doc.currency || 'AED')}</td>
+        <td style="padding:6px 10px;white-space:nowrap;text-align:${L.align};${strong ? 'font-weight:700;font-size:15px;color:#1a3a78;' : ''}">${formatMoney(value, doc.currency)} ${esc(normalizeCurrency(doc.currency))}</td>
       </tr>`;
 
   const html = `<!doctype html>
@@ -259,10 +261,10 @@ function buildOfferEmail({ lang, pr, doc, branch, hours }) {
 </body>
 </html>`;
 
-  const lines = (doc.lineItems || []).map((li) => `- ${li.code ? li.code + ' ' : ''}${li.name}: ${li.quantity} ${li.unit || ''} x ${money(li.unitPrice)} = ${money(li.lineTotal)}`);
+  const lines = (doc.lineItems || []).map((li) => `- ${li.code ? li.code + ' ' : ''}${li.name}: ${li.quantity} ${li.unit || ''} x ${formatMoney(li.unitPrice, doc.currency)} = ${formatMoney(li.lineTotal, doc.currency)}`);
   const text = [
     L.hello(pr.name), '', L.intro(branch && branch.name), '', ...lines, '',
-    `${L.grand}: ${money(doc.grandTotal)} ${doc.currency || 'AED'}`,
+    `${L.grand}: ${formatMoney(doc.grandTotal, doc.currency)} ${normalizeCurrency(doc.currency)}`,
     doc.notes ? `\n${L.note}: ${doc.notes}` : '',
     '', L.valid(duration, when), L.after, '', `${L.button}: ${link}`, L.hint,
   ].join('\n');
@@ -289,7 +291,12 @@ async function createOffer({ priceRequestId, actor, input = {} }) {
   }
 
   const profile = await loadProfile(branchId);
-  const branch = await Branch.findById(branchId).select('name country websiteSlug misTemplates phone').lean();
+  const branch = await Branch.findById(branchId).select('name country websiteSlug misTemplates phone defaultCurrency defaultDateSystem').lean();
+
+  // Currency and calendar: what the associate picked for this offer, else the
+  // branch's own default (a Saudi branch quotes in riyals, an Iranian one in rials).
+  const settings = readDocSettings(input, branchDefaultsOf(branch));
+  if (settings.error) throw new OfferError(400, settings.error);
 
   // VAT: the branch's own rate unless the associate set one for this offer.
   const vatRate = input.vatRate === undefined || input.vatRate === null || input.vatRate === ''
@@ -359,7 +366,7 @@ async function createOffer({ priceRequestId, actor, input = {} }) {
   if (!customerSnapshot) throw new OfferError(404, 'Customer not found');
 
   const note = String(input.note || '').trim().slice(0, 2000);
-  const totals = computeTotals(lineItems, 0);
+  const totals = computeTotals(lineItems, 0, settings.currency);
   const now = new Date();
   const validUntil = new Date(now.getTime() + Math.round(hours * 3600 * 1000));
 
@@ -373,7 +380,8 @@ async function createOffer({ priceRequestId, actor, input = {} }) {
     customerId: pr.customerId,
     customerSnapshot,
     lineItems: totals.lines,
-    currency: 'AED',
+    currency: settings.currency,
+    dateSystem: settings.dateSystem,
     subtotal: totals.subtotal,
     discountTotal: totals.discountTotal,
     vatTotal: totals.vatTotal,
@@ -413,7 +421,7 @@ async function createOffer({ priceRequestId, actor, input = {} }) {
 
   await CustomerActivity.create({
     customerId: pr.customerId, type: 'price_request', actorId: actor.id, actorName,
-    body: `Price offer #${doc.docNumber} sent — ${money(totals.grandTotal)} AED, valid until ${formatWhen(validUntil, branch)}`,
+    body: `Price offer #${doc.docNumber} sent — ${formatMoney(totals.grandTotal, settings.currency)} ${settings.currency}, valid until ${formatWhen(validUntil, branch)}`,
     date: now,
   }).catch(() => {});
 
@@ -493,7 +501,8 @@ async function acceptOffer({ offerId, customerId }) {
     await issueStockDecrement(preObj, null, customerLabel, `Quotation #${pre.docNumber} accepted by the customer`);
     reserved = true;
 
-    const totals = computeTotals(preObj.lineItems, 0);
+    const currency = normalizeCurrency(pre.currency, DEFAULT_CURRENCY);
+    const totals = computeTotals(preObj.lineItems, 0, currency);
     invoice = await MisInvoice.create({
       branchId: pre.branchId,
       docType: 'invoice',
@@ -504,13 +513,14 @@ async function acceptOffer({ offerId, customerId }) {
       customerId: pre.customerId,
       customerSnapshot: preObj.customerSnapshot,
       lineItems: totals.lines,
-      currency: pre.currency || 'AED',
+      currency,
+      dateSystem: normalizeDateSystem(pre.dateSystem),
       subtotal: totals.subtotal,
       discountTotal: totals.discountTotal,
       vatTotal: totals.vatTotal,
       shipping: totals.shipping,
       grandTotal: totals.grandTotal,
-      amountInWords: amountToArabicWords(totals.grandTotal),
+      amountInWords: amountToArabicWords(totals.grandTotal, { currency }),
       salesRepId: pre.createdBy,
       salesRepName: await nameOf(pre.createdBy),
       convertedFromPreInvoiceId: pre._id,
@@ -547,7 +557,7 @@ async function acceptOffer({ offerId, customerId }) {
   await PriceRequest.updateOne({ _id: pre.priceRequestId }, { $set: { status: 'closed', updateDate: now } }).catch(() => {});
   await CustomerActivity.create({
     customerId: pre.customerId, type: 'price_request', actorId: null, actorName: customerLabel,
-    body: `Accepted offer #${pre.docNumber} — invoice #${invoice.docNumber} (${money(invoice.grandTotal)} AED)`,
+    body: `Accepted offer #${pre.docNumber} — invoice #${invoice.docNumber} (${formatMoney(invoice.grandTotal, invoice.currency)} ${normalizeCurrency(invoice.currency)})`,
     date: now,
   }).catch(() => {});
 
