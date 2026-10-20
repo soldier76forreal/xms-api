@@ -9,7 +9,7 @@ const path = require('path');
 const { LANG, resolveLang } = require('./invoiceLang');
 const { parseStoneCode } = require('./stoneCodeParser');
 const { formatDate } = require('./calendars');
-const { documentFontCss } = require('./documentFonts');
+const { documentFontCss, fontFaceCss, fontStack } = require('./documentFonts');
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -37,7 +37,9 @@ const baseStyles = `
   @page { margin: 10mm; }
   :root { color-scheme: only light; }
   html, body { background: #ffffff; }
-  * { box-sizing: border-box; }
+  /* The browser prints these too, and its print dialog leaves "Background graphics" OFF by default - which
+     would drop every fill (white header text on a blue band would vanish). Ask for the fills explicitly. */
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 11px; color: #111; }
   .ltr { direction: ltr; text-align: left; }
   .rtl { direction: rtl; text-align: right; }
@@ -58,6 +60,10 @@ const baseStyles = `
   table.lines th { border: 1px solid ${BRAND.blue}; background: ${BRAND.blue}; color: #fff; padding: 4px 3px; font-size: 9.5px; }
   table.lines td { border: 1px solid ${BRAND.blueTint2}; padding: 3px 5px; text-align: center; font-size: 10px; }
   table.lines tr.grand td { font-weight: 700; background: ${BRAND.blueTint}; }
+  /* Notes: the person's own words - kept whole on one page, line breaks kept, each line in its own direction. */
+  table.notes { margin-top: 8px; break-inside: avoid; }
+  table.notes td { padding: 6px 8px; }
+  .note-text { margin-top: 3px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; unicode-bidi: plaintext; text-align: start; }
 `;
 
 // ── Packing list — A4, consolidated multi-pallet document ──────────────────
@@ -158,6 +164,20 @@ function packingListTable2(doc, L) {
   </table>`;
 }
 
+// The list's free-text notes, printed as written (line breaks kept) between the tables and the signatures.
+// Nothing at all when there are none, so a list without notes prints exactly as it always did.
+function packingListNotes(doc, L) {
+  const notes = String(doc.notes || '').trim();
+  if (!notes) return '';
+  return `
+  <table class="meta notes">
+    <tr><td>
+      <div class="muted">${esc(L.pl_notes)}</div>
+      <div class="note-text">${esc(notes)}</div>
+    </td></tr>
+  </table>`;
+}
+
 function packingListSignatures(doc, L) {
   const officer = doc.loadingOfficer || {};
   return `
@@ -226,32 +246,199 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
     </table>
 
     ${packingListTable1(doc, L)}
-    ${packingListTable2(doc, L)}
+    ${packingListTable2(doc, L)}${packingListNotes(doc, L)}
     ${packingListSignatures(doc, L)}
   </div>
 </body>
 </html>`;
 }
 
-// ── Pallet label — compact, single pallet, not A4 ───────────────────────────
+// ── Pallet label (slab) — A5 portrait, built from the real sample label ─────
+//
+// The sample ("llablesss.pdf") is an A5 portrait page, 148 × 210 mm: one bordered table that fills it —
+// a header (the logo and the two addresses, the pallet id over its reference), the columns
+// # · Code · L · W · H · PCS · m², every cut in a tall bold row, a grey Total row and the website.
+// This template follows it. An earlier version was drawn on an inferred 100 × 150 mm page; on real paper
+// that came out small, with type too fine to read — which is what this page size and layout replace.
+//
+// Everything is placed in millimetres and sized from the number of rows, so the label does not depend on
+// how a browser or a printer happens to lay a table out. With a few cuts the rows are tall and the type
+// large (up to 20 pt, as on the sample); with many they get shorter and the type steps down so the whole
+// pallet still fits ONE page. Past SLAB.rowsPerPageMax rows the pallet continues on a second identical
+// page (balanced, so no page holds a lone row) rather than shrinking into something nobody can read.
+
+const SLAB = (() => {
+  const s = {
+    pageW: 148, pageH: 210,   // A5 portrait
+    pad: 6,                   // clear of the unprintable edge every printer has
+    headRowH: 17,             // the header is two of these: the pallet id, then its reference
+    theadH: 10, totalH: 10, footH: 10,
+    maxRowH: 16,              // about the sample's own row height
+    minRowH: 6.5,             // below this the type is too small to read from a pallet
+  };
+  s.boxW = s.pageW - 2 * s.pad;
+  s.boxH = s.pageH - 2 * s.pad;
+  s.rowsH = s.boxH - 2 * s.headRowH - s.theadH - s.totalH - s.footH;
+  s.rowsPerPageMax = Math.floor(s.rowsH / s.minRowH);
+  return s;
+})();
+
+const SLAB_SERIF = "Cambria, 'Times New Roman', Times, serif";
+const SLAB_WEBSITE = 'WWW.LAZULITEMARBLE.COM';
+const SLAB_COLS = ['no', 'code', 'l', 'w', 'h', 'pcs', 'sqm'];
+// How the width left over is shared out once every column has what its widest entry needs.
+const SLAB_WEIGHTS = [1, 2.2, 2, 2, 1.4, 1.6, 2.2];
+const SLAB_HEAD_PT = 12.5;
+const SLAB_CELL_PAD_MM = 3;      // left + right padding of a cell, together
+const SLAB_LOGO_MM = 24;
+
+const MM_PER_PT = 25.4 / 72;
+// Average advance of a bold serif digit or capital as a share of its font size - measured, then rounded
+// UP, so a value that "fits" on paper really does.
+const GLYPH_EM = 0.6;
+const slabChars = (s) => [...String(s == null ? '' : s)].length;
+const slabTextMm = (chars, pt) => chars * pt * GLYPH_EM * MM_PER_PT;
+const sumOf = (list) => list.reduce((a, b) => a + b, 0);
+const fixed2 = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// The column captions: the sample's own for English, the translated ones otherwise.
+function slabHeads(langKey, L) {
+  if (langKey === 'en') return { no: '#', code: 'Code', l: 'L', w: 'W', h: 'H', pcs: 'PCS', sqm: 'm²', total: 'Total' };
+  return { no: '#', code: L.col_code, l: L.pl_length, w: L.pl_width, h: L.pl_thickness, pcs: L.pl_pcs, sqm: L.pl_sqm, total: L.total };
+}
+
+// Row height, type size and column widths for a label with this many rows of this content.
+function slabLayout(table, heads, totals) {
+  const count = Math.max(1, table.length);
+  const pages = Math.ceil(count / SLAB.rowsPerPageMax);
+  const perPage = Math.ceil(count / pages);
+  const rowH = Math.min(SLAB.maxRowH, SLAB.rowsH / perPage);
+
+  // the longest thing in each column: its values, its caption and - for the last two - the totals
+  const widest = SLAB_COLS.map((key, c) => {
+    let w = key === 'no' ? Math.max(2, slabChars(count)) : 0;
+    for (const row of table) w = Math.max(w, slabChars(row[c]));
+    if (key === 'pcs') w = Math.max(w, slabChars(totals.pcs));
+    if (key === 'sqm') w = Math.max(w, slabChars(totals.sqm));
+    return w;
+  });
+  const headChars = SLAB_COLS.map((key) => slabChars(heads[key]));
+
+  // Start from the biggest type the row height allows and step it down until every column fits the box.
+  let pt = Math.max(9, Math.min(20, rowH * 1.4));
+  let needs;
+  for (;;) {
+    const headPt = Math.min(SLAB_HEAD_PT, pt);
+    needs = widest.map((w, c) => Math.max(slabTextMm(w, pt), slabTextMm(headChars[c], headPt)) + SLAB_CELL_PAD_MM);
+    if (sumOf(needs) <= SLAB.boxW || pt <= 6) break;
+    pt = Math.max(6, pt * 0.95);
+  }
+
+  const spare = SLAB.boxW - sumOf(needs);
+  const weightSum = sumOf(SLAB_WEIGHTS);
+  const widths = spare >= 0
+    ? needs.map((n, c) => n + (spare * SLAB_WEIGHTS[c]) / weightSum)
+    : needs.map((n) => (n * SLAB.boxW) / sumOf(needs));   // even 6 pt would not fit: squeeze, the cells clip
+  return { pages, perPage, rowH, pt, headPt: Math.min(SLAB_HEAD_PT, pt), widths };
+}
+
+// The biggest type (13 pt down to 7) at which the header's text still fits beside the logo.
+function slabAddressPt(paragraphs, widthMm, heightMm) {
+  for (const pt of [13, 12, 11, 10, 9, 8]) {
+    // 0.9: a line breaks at a space, so it never quite reaches the full width
+    const perLine = Math.max(1, Math.floor((widthMm * 0.9) / (pt * 0.52 * MM_PER_PT)));
+    let lines = 0;
+    for (const p of paragraphs) {
+      for (const segment of String(p).split('\n')) lines += Math.max(1, Math.ceil(slabChars(segment) / perLine));
+    }
+    if (lines * pt * 1.25 * MM_PER_PT + (paragraphs.length - 1) * 1.5 <= heightMm) return pt;
+  }
+  return 7;
+}
+
+// A single value (the pallet id, its reference) set as large as its cell allows.
+function slabFitPt(text, widthMm, maxPt, minPt) {
+  const chars = Math.max(1, slabChars(text));
+  const pt = (widthMm - SLAB_CELL_PAD_MM) / (chars * GLYPH_EM * MM_PER_PT);
+  return Math.round(Math.max(minPt, Math.min(maxPt, pt)) * 10) / 10;
+}
 
 function renderClassicPalletLabelHtml(doc, pallet, branch, profile = {}, lang) {
   const langKey = resolveLang(lang);
   const L = LANG[langKey];
+  const heads = slabHeads(langKey, L);
   const logo = logoFor(profile);
-  const rows = (pallet.items || []).map((it, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td class="ltr-inline">${esc(it.code)}</td>
-      <td>${it.lengthCm != null ? num(it.lengthCm) : ''}</td>
-      <td>${it.widthCm != null ? num(it.widthCm) : ''}</td>
-      <td>${it.thicknessCm != null ? num(it.thicknessCm) : ''}</td>
-      <td>${it.pcs != null ? esc(it.pcs) : ''}</td>
-      <td>${it.sqm != null ? num(it.sqm) : ''}</td>
-    </tr>`).join('');
-  const totalPcs = (pallet.items || []).reduce((a, it) => a + (Number(it.pcs) || 0), 0);
-  const totalSqm = (pallet.items || []).reduce((a, it) => a + (Number(it.sqm) || 0), 0);
-  const address = branch?.address || '';
+  const items = pallet.items || [];
+
+  // [#, code, L, W, H, PCS, m²] as text - the row number is filled in when a page is drawn
+  const table = items.map((it) => [
+    '', it.code || '',
+    it.lengthCm != null ? num(it.lengthCm) : '', it.widthCm != null ? num(it.widthCm) : '',
+    it.thicknessCm != null ? num(it.thicknessCm) : '',
+    it.pcs != null ? String(it.pcs) : '', it.sqm != null ? fixed2(it.sqm) : '',
+  ]);
+  const totalPcs = items.reduce((a, it) => a + (Number(it.pcs) || 0), 0);
+  const totalSqm = items.reduce((a, it) => a + (Number(it.sqm) || 0), 0);
+  const totals = {
+    pcs: totalPcs ? String(totalPcs) : '',
+    sqm: items.some((it) => it.sqm != null) ? fixed2(totalSqm) : '',
+  };
+
+  const layout = slabLayout(table, heads, totals);
+  const { widths, rowH, pt, headPt, pages } = layout;
+  const leftW = sumOf(widths.slice(0, 6));   // the header's left block spans # .. PCS ...
+  const rightW = widths[6];                  // ... and the pallet id sits over the m² column, as on the sample
+
+  // The header: the origin and destination addresses as the sample has them (the issuing company when a
+  // list carries neither), the pallet id big, its reference under it.
+  const company = langKey === 'en' ? (profile.nameEn || branch?.name) : (profile.nameAr || branch?.name);
+  let paragraphs = [doc.originAddress, doc.destinationAddress].map((s) => String(s || '').trim()).filter(Boolean);
+  if (!paragraphs.length) paragraphs = [company, branch?.address].map((s) => String(s || '').trim()).filter(Boolean);
+  const textW = leftW - (logo ? SLAB_LOGO_MM + 9 : 6);
+  const addressPt = slabAddressPt(paragraphs, textW, SLAB.headRowH * 2 - 4);
+  const idPt = slabFitPt(pallet.palletId, rightW, 28, 10);
+  const refPt = slabFitPt(pallet.reference, rightW, 22, 9);
+
+  const blank = ['', '', '', '', '', '', ''];
+  const source = table.length ? table : [blank];
+  const slices = [];
+  for (let i = 0; i < source.length; i += layout.perPage) slices.push(source.slice(i, i + layout.perPage));
+
+  const pageHtml = (slice, offset, pageNo) => {
+    const rows = slice.map((r, i) => `
+      <tr class="row">
+        <td>${table.length ? offset + i + 1 : ''}</td>
+        <td class="ltr">${esc(r[1])}</td>
+        <td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${esc(r[4])}</td><td>${esc(r[5])}</td><td>${esc(r[6])}</td>
+      </tr>`).join('');
+    const last = pageNo === pages;
+    const arrow = L.dir === 'rtl' ? '←' : '→';
+    const totalRow = last
+      ? `<tr class="tot"><td class="tl" colspan="5">${esc(heads.total)}</td><td>${esc(totals.pcs)}</td><td>${esc(totals.sqm)}</td></tr>`
+      : `<tr class="tot"><td colspan="7">${pageNo} / ${pages} ${arrow}</td></tr>`;
+    return `
+  <section class="sheet">
+    <table class="lbl">
+      <colgroup>${widths.map((w) => `<col style="width:${w.toFixed(3)}mm"/>`).join('')}</colgroup>
+      <tr class="hd">
+        <td class="idc" colspan="6" rowspan="2">
+          <div class="idw">
+            ${logo ? `<div class="lg"><img src="${logo}" alt="LMC"/></div>` : ''}
+            <div class="ad" style="font-size:${addressPt}pt">${paragraphs.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+          </div>
+        </td>
+        <td class="pid" style="font-size:${idPt}pt">${esc(pallet.palletId)}</td>
+      </tr>
+      <tr class="hd"><td class="pref" style="font-size:${refPt}pt">${esc(pallet.reference)}</td></tr>
+      <tr class="th" style="font-size:${headPt}pt">
+        ${SLAB_COLS.map((key) => `<th>${esc(heads[key])}</th>`).join('')}
+      </tr>
+      ${rows}
+      ${totalRow}
+      <tr class="ft"><td colspan="7"><span class="web">${SLAB_WEBSITE}</span>${pages > 1 ? `<span class="pg">${pageNo} / ${pages}</span>` : ''}</td></tr>
+    </table>
+  </section>`;
+  };
 
   return `<!doctype html>
 <html dir="${L.dir}" lang="${langKey}">
@@ -259,42 +446,46 @@ function renderClassicPalletLabelHtml(doc, pallet, branch, profile = {}, lang) {
 <meta charset="utf-8"/>
 <meta name="color-scheme" content="only light"/>
 <title>${esc(L.labelPalletId)} ${esc(pallet.palletId)}</title>
-<style>${baseStyles}
-  /* Same size labelPageSize('slab') hands the server renderer; declared here so
-     a browser print uses it too instead of A4/Letter. */
-  @page { size: 100mm 150mm; margin: 0; }
-  body { direction: ${L.dir}; }
-  .page { width: 90mm; margin: 0 auto; padding: 4mm; }
-  .pallet-head { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0; }
-  .pallet-id { font-size: 20px; font-weight: 700; color: ${BRAND.blueDark}; }
-  .pallet-ref { font-size: 12px; color: #555; }
-  .footer { margin-top: 8px; text-align: center; font-size: 9px; color: #777; border-top: 1px solid ${BRAND.blueTint2}; padding-top: 4px; }
+<style>
+  /* The size labelPageSize('slab') hands the server renderer; declared here as well so a browser print
+     uses it instead of A4 / Letter. */
+  @page { size: ${SLAB.pageW}mm ${SLAB.pageH}mm; margin: 0; }
+  :root { color-scheme: only light; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; background: #ffffff; }
+  body { direction: ${L.dir}; font-family: ${SLAB_SERIF}; color: #111; }
+  /* One A5 sheet per page. A hair under the page height, because a sheet exactly as tall as its page can
+     spill a sliver onto a blank page of its own. A label with few rows sits in the middle of its sheet, as
+     the sample does, instead of leaving the whole lower half blank. */
+  .sheet { width: ${SLAB.pageW}mm; height: ${SLAB.pageH - 0.5}mm; padding: ${SLAB.pad}mm; overflow: hidden;
+           display: flex; flex-direction: column; justify-content: center;
+           break-inside: avoid; page-break-after: always; }
+  .sheet:last-child { page-break-after: auto; }
+  table.lbl { width: ${SLAB.boxW}mm; table-layout: fixed; border-collapse: collapse; border: 0.6mm solid #111; }
+  table.lbl td, table.lbl th { border: 0.35mm solid #111; padding: 0 1.5mm; text-align: center; vertical-align: middle;
+           font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; }
+  tr.hd { height: ${SLAB.headRowH}mm; }
+  tr.th { height: ${SLAB.theadH}mm; }
+  tr.th th { background: #d0d0d0; }
+  tr.row { height: ${rowH.toFixed(3)}mm; font-size: ${pt.toFixed(2)}pt; }
+  tr.tot { height: ${SLAB.totalH}mm; font-size: ${pt.toFixed(2)}pt; }
+  tr.tot td { background: #c0c0c0; }
+  tr.tot td.tl { text-align: end; padding-inline-end: 4mm; }
+  tr.ft { height: ${SLAB.footH}mm; }
+  tr.ft td { position: relative; font-size: 12pt; }
+  .web { color: #0563c1; text-decoration: underline; }
+  .pg { position: absolute; inset-inline-end: 3mm; top: 50%; transform: translateY(-50%); font-size: 10pt; font-weight: 400; }
+  .ltr { direction: ltr; unicode-bidi: embed; }
+  td.idc { padding: 0; }
+  .idw { display: flex; align-items: center; gap: 3mm; height: ${SLAB.headRowH * 2 - 1}mm; padding: 0 3mm; }
+  .lg { flex: 0 0 ${SLAB_LOGO_MM}mm; text-align: center; }
+  .lg img { display: block; margin: 0 auto; max-width: ${SLAB_LOGO_MM}mm; max-height: ${SLAB.headRowH * 2 - 5}mm; }
+  .ad { flex: 1; min-width: 0; line-height: 1.25; white-space: normal; unicode-bidi: plaintext; }
+  .ad p { margin: 0 0 1.5mm; white-space: pre-line; text-wrap: balance; }
+  .ad p:last-child { margin-bottom: 0; }${fontFaceCss(langKey) ? `\n  ${fontFaceCss(langKey)}\n  body { font-family: ${fontStack(langKey, SLAB_SERIF)}; }` : ''}
 </style>
 </head>
-<body>
-  <div class="page">
-    <div class="header" style="border-bottom-width: 2px;">
-      ${logo ? `<img class="logo" src="${logo}" style="height:16mm;" alt="LMC"/>` : ''}
-    </div>
-    <div class="pallet-head">
-      <div><div class="muted">${esc(L.labelPalletId)}</div><div class="pallet-id">${esc(pallet.palletId)}</div></div>
-      <div style="text-align:right;"><div class="muted">${esc(L.labelReference)}</div><div class="pallet-ref">${esc(pallet.reference)}</div></div>
-    </div>
-    <table class="lines">
-      <thead><tr>
-        <th>${esc(L.col_no)}</th><th>${esc(L.col_code)}</th>
-        <th>${esc(L.pl_length)}</th><th>${esc(L.pl_width)}</th><th>${esc(L.pl_thickness)}</th>
-        <th>${esc(L.pl_pcs)}</th><th>${esc(L.pl_sqm)}</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr class="grand">
-        <td colspan="5">${esc(L.total)}</td><td>${totalPcs || ''}</td><td>${num(totalSqm)}</td>
-      </tr></tfoot>
-    </table>
-    <div class="footer">
-      ${address ? esc(address) + ' · ' : ''}WWW.LAZULITEMARBLE.COM
-    </div>
-  </div>
+<body>${slices.map((slice, i) => pageHtml(slice, i * layout.perPage, i + 1)).join('')}
 </body>
 </html>`;
 }
@@ -417,7 +608,8 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
 }
 
 // PDF page size per label kind, so a label prints at its real size.
-//   slab  — the original 100 × 150 mm portrait label
+//   slab  — A5 portrait, 148 × 210 mm: the size of the label sample (it was 100 × 150 mm until 2026-10-20,
+//           a size inferred rather than measured, which printed small and unclear)
 //   short — a strip as wide as the sample (pallet number + 160 mm box) and as
 //           tall as its rows
 function labelPageSize(kind, pallet) {
@@ -425,7 +617,7 @@ function labelPageSize(kind, pallet) {
     const n = shortLabelRows(pallet).length;
     return { width: '182mm', height: `${SHORT_ROW_MM * (n + 2) + 8}mm` };
   }
-  return { width: '100mm', height: '150mm' };
+  return { width: `${SLAB.pageW}mm`, height: `${SLAB.pageH}mm` };
 }
 
 // ── template registries + dispatchers (Session 72 — same pattern as

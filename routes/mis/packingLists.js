@@ -76,6 +76,51 @@ function badValueMessage(err) {
   return text ? `The packing list has an invalid value: ${text}` : 'The packing list has an invalid value.';
 }
 
+// A pallet is found by its ID (the label route looks it up by it) and told apart on the load by its
+// reference, so inside ONE packing list each must be its own: two pallets with the same reference cannot be
+// told apart, and with the same ID the second one's label can never be reached. Case, spaces around a value
+// and repeated inner spaces do not make two values different ("a 1" = "A  1"); an empty reference is "not
+// given", not a duplicate of another empty one.
+const palletKey = (v) => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** [{ field: 'palletId' | 'reference', value, indexes: [rows that share it], palletIds: [their IDs] }] - empty = fine. */
+function findPalletDuplicates(pallets) {
+  const found = [];
+  if (!Array.isArray(pallets)) return found;
+  for (const field of ['palletId', 'reference']) {
+    const groups = new Map();
+    pallets.forEach((p, index) => {
+      const key = palletKey(p && p[field]);
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(index);
+    });
+    for (const indexes of groups.values()) {
+      if (indexes.length < 2) continue;
+      found.push({
+        field,
+        value: String(pallets[indexes[0]][field]).trim(),
+        indexes,
+        palletIds: indexes.map((i) => String((pallets[i] && pallets[i].palletId) || '').trim()),
+      });
+    }
+  }
+  return found;
+}
+
+function duplicatePalletsMessage(duplicates) {
+  return duplicates.map((d) => (d.field === 'reference'
+    ? `Pallets ${d.palletIds.join(', ')} share the reference "${d.value}". Every pallet needs its own reference.`
+    : `More than one pallet is called "${d.value}". Every pallet needs its own ID.`)).join(' ');
+}
+
+const refuseDuplicatePallets = (res, pallets) => {
+  const duplicates = findPalletDuplicates(pallets);
+  if (!duplicates.length) return false;
+  res.status(400).json({ message: duplicatePalletsMessage(duplicates), code: 'DUPLICATE_PALLET', duplicates });
+  return true;
+};
+
 function computeTotals(pallets) {
   let totalSqm = 0, totalPcs = 0;
   for (const p of (pallets || [])) {
@@ -215,6 +260,23 @@ router.get('/packing-lists/next-number', verify, requirePermission('mis:view'), 
   }
 });
 
+// Is this number free in this branch? The form asks as the person types, so a taken number is flagged at once
+// instead of after the whole list is filled in. `excludeId` is the list being edited (its own number is free to
+// it). The save still re-checks: this answer can be out of date a moment later. Before /:id for the same reason.
+router.get('/packing-lists/number-available', verify, requirePermission('mis:view'), requireBranch(), async (req, res) => {
+  try {
+    const parsed = packingNumbers.parseDocNumber(req.query.number);
+    if (parsed.error) return res.status(200).json({ valid: false, available: false, message: parsed.error });
+    const excludeId = mongoose.Types.ObjectId.isValid(req.query.excludeId) ? req.query.excludeId : null;
+    const taken = await packingNumbers.isTaken(req.branchId, parsed.value, excludeId);
+    return res.status(200).json({
+      valid: true, available: !taken, number: parsed.value, message: taken ? packingNumbers.takenMessage(parsed.value) : '',
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/packing-lists/:id', verify, requirePermission('mis:view'), loadPackingList, async (req, res) => {
   try {
     const activity = await MisPackingListActivity.find({ packingListId: req.packingList._id })
@@ -234,6 +296,7 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
     if (type !== 'linked' && type !== 'free') {
       return res.status(400).json({ message: "type must be 'linked' or 'free'" });
     }
+    if (refuseDuplicatePallets(res, pallets)) return;
 
     let validInvoiceIds = [];
     if (type === 'linked') {
@@ -353,6 +416,7 @@ router.put('/packing-lists/:id', verify, requirePermission('mis:packingList:edit
     const nextType = req.body.type === 'linked' || req.body.type === 'free' ? req.body.type : doc.type;
     const nextInvoiceIds = req.body.invoiceIds !== undefined ? req.body.invoiceIds : doc.invoiceIds;
     const nextPallets = req.body.pallets !== undefined ? req.body.pallets : doc.pallets;
+    if (req.body.pallets !== undefined && refuseDuplicatePallets(res, nextPallets)) return;
 
     let validInvoiceIds = [];
     if (nextType === 'linked') {
