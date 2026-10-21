@@ -24,6 +24,16 @@ const packingListPalletSchema = new mongoose.Schema({
   items: [packingListItemSchema],
 }, { _id: false });
 
+// A stone name on the list: picked from Inventory (then it carries that product's id, code and its names in the
+// three document languages, snapshotted when the list is saved) or typed by the person (just `name`).
+const packingListStoneSchema = new mongoose.Schema({
+  name:      { type: String, trim: true },
+  nameAr:    { type: String, trim: true },
+  nameFa:    { type: String, trim: true },
+  code:      { type: String, trim: true },
+  productId: { type: mongoose.Schema.Types.ObjectId, default: null },
+}, { _id: false });
+
 const misPackingListSchema = new mongoose.Schema({
   branchId:  { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   docNumber: { type: Number, required: true },   // own per-branch sequence, docType:'packing_list' on invoiceCounterModel
@@ -65,6 +75,9 @@ const misPackingListSchema = new mongoose.Schema({
   destinationAddress:  { type: String, trim: true },
   shippingDestination: { type: String, trim: true },
   standardThicknessCm: { type: Number },
+
+  // The stone name(s) the shipment is of - one or more, each picked from Inventory or typed. Printed on the list.
+  stoneNames: [packingListStoneSchema],
 
   pallets: [packingListPalletSchema],
 

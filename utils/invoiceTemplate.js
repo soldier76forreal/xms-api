@@ -69,6 +69,22 @@ const BRAND = {
   blueTint2: '#E2E7F4',
 };
 
+// Print type. A document is read on PAPER - often a photocopy of the printout - so it is sized and inked for that:
+// text is black (labels dark grey, never the #555-#777 greys of the screen layout), nothing is under 11 px, borders
+// are a mid blue-grey that survives a photocopy, and a header cell is DARK text on a light fill: white-on-blue
+// disappears when the print dialog leaves "Background graphics" off. (The fills are asked for explicitly as well.)
+const INK = { border: '#8693b8', borderStrong: '#5c6b99', head: '#d9e0f2', headText: '#0b1f4d', zebra: '#f5f7fc', total: '#e3e9f7' };
+
+// A page is a table whose THEAD is the page header: a browser prints a table's header again at the top of every page
+// the table spills onto, so a long document keeps its logo and title (and, below, its column headings) on every sheet.
+const frame = (head, body) => `
+    <table class="frame">
+      <thead><tr><td>${head}
+      </td></tr></thead>
+      <tbody><tr><td>${body}
+      </td></tr></tbody>
+    </table>`;
+
 // ── page fragments ────────────────────────────────────────────────────────────
 
 function headerBlock(profile, doc, L) {
@@ -218,8 +234,7 @@ function packingListPage(doc, profile, L) {
       <td class="right">${esc(r.notes)}</td>
     </tr>`).join('');
   return `
-  <div class="page">
-    ${headerBlock(profile, doc, L)}
+  <div class="page">${frame(headerBlock(profile, doc, L), `
     <div class="doc-title-inline">${esc(L.packingList)} <span class="en">${esc(L.packingListSub)}</span> — ${esc(L.forDoc)} ${esc(doc.docNumber)}</div>
     ${doc.tradeMode === 'interBranch' ? interBranchPartiesBlock(doc, L) : customerBlock(doc, L)}
     <table class="lines">
@@ -231,8 +246,7 @@ function packingListPage(doc, profile, L) {
           <th>${esc(L.pl_sqm)}</th><th>${esc(L.pl_notes)}</th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
+      <tbody>${rows}
         <tr class="grand">
           <td colspan="5">${esc(L.total)}</td>
           <td>${pl.totalPcs != null ? esc(pl.totalPcs) : ''}</td>
@@ -240,7 +254,7 @@ function packingListPage(doc, profile, L) {
           <td>${pl.totalSqm != null ? num(pl.totalSqm) : ''}</td>
           <td></td>
         </tr>
-      </tfoot>
+      </tbody>
     </table>
     <table class="meta logistics">
       <tr>
@@ -248,7 +262,7 @@ function packingListPage(doc, profile, L) {
         <td>${esc(L.driverName)} <b>${esc(pl.driverName)}</b></td>
         <td>${esc(L.driverMobile)} <b class="ltr-inline">${esc(pl.driverMobile)}</b></td>
       </tr>
-    </table>
+    </table>`)}
   </div>`;
 }
 
@@ -271,8 +285,7 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
   const words = doc.amountInWords || amountToArabicWords(doc.grandTotal, { currency: doc.currency });
 
   const page1 = `
-  <div class="page">
-    ${headerBlock(profile, doc, L)}
+  <div class="page">${frame(headerBlock(profile, doc, L), `
     ${metaBlock(doc, L, langKey)}
     ${isInterBranch ? interBranchPartiesBlock(doc, L) : customerBlock(doc, L)}
     ${linesTable(doc, L)}
@@ -289,14 +302,16 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
       ${totalsBlock(doc, L)}
     </div>
     ${isInvoice ? bankBlock(profile, L) : ''}
-    ${profile.thankYouNoteAr ? `<div class="thanks">${esc(profile.thankYouNoteAr)}</div>` : ''}
+    ${profile.thankYouNoteAr ? `<div class="thanks">${esc(profile.thankYouNoteAr)}</div>` : ''}`)}
   </div>`;
 
   // Session 72 (Phase 3) — packing lists are now their own standalone MIS
   // resource; new invoices never populate doc.packingList.rows again, so this
   // page naturally stops appearing for them. A PRE-Session-72 invoice that
-  // still carries real rows keeps rendering its page 2 exactly as before —
-  // historical PDFs must stay byte-identical to what was actually issued.
+  // still carries real rows keeps its page 2 with exactly the same CONTENT as
+  // before: nothing is added, dropped or recomputed (tplRegress.cjs compares the
+  // text of old and new output). Since 2026-10-21 it is set like page 1 - larger
+  // type, and a long list continues on the next page under the repeated header.
   const page2 = (isInvoice && doc.packingList && doc.packingList.rows && doc.packingList.rows.length)
     ? packingListPage(doc, profile, L) : '';
 
@@ -311,50 +326,60 @@ function renderClassicInvoiceHtml(doc, profile = {}, lang) {
   /* force light — blocks Chrome auto-dark from inverting the print colors */
   :root { color-scheme: only light; }
   html, body { background: #ffffff; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 11px; color: #111; direction: ${L.dir}; }
+  /* The print dialog leaves "Background graphics" OFF by default, which drops every fill: ask for them explicitly. */
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 12.5px; line-height: 1.35; color: #000; direction: ${L.dir}; }
   .page { width: 190mm; margin: 0 auto; page-break-after: always; padding: 4mm 0; }
   .page:last-child { page-break-after: auto; }
   .ltr { direction: ltr; text-align: left; }
   .rtl { direction: rtl; text-align: right; }
   .ltr-inline { direction: ltr; unicode-bidi: embed; }
-  .muted { color: #555; font-size: 10px; }
+  .muted { color: #222; font-size: 11.5px; }
   .right { text-align: right; }
-  .en { font-size: 8.5px; color: #777; font-weight: 400; }
+  .en { font-size: 11px; color: #333; font-weight: 400; }
 
-  .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 3px solid ${BRAND.blue}; padding-bottom: 6px; margin-bottom: 6px; }
-  .logo { height: 34mm; width: auto; flex-shrink: 0; }
+  /* The page header is the THEAD of this table, so it is printed again on every page a long document spills onto. */
+  table.frame { width: 100%; border-collapse: collapse; }
+  table.frame > thead > tr > td, table.frame > tbody > tr > td { padding: 0; border: 0; }
+
+  .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 3px solid ${BRAND.blue}; padding-bottom: 6px; margin-bottom: 8px; }
+  .logo { height: 26mm; width: auto; flex-shrink: 0; }
   .header-side { width: 30%; }
-  .co-name-ar { font-size: 15px; font-weight: 700; color: ${BRAND.blue}; }
-  .co-name-en { font-size: 13px; font-weight: 700; color: ${BRAND.blue}; }
+  .co-name-ar { font-size: 16px; font-weight: 700; color: ${BRAND.blue}; }
+  .co-name-en { font-size: 14px; font-weight: 700; color: ${BRAND.blue}; }
   .doc-title { text-align: center; flex: 1; }
-  .title-main { font-size: 16px; font-weight: 700; color: ${BRAND.blueDark}; }
-  .title-sub { font-size: 10px; }
-  .doc-title-inline { text-align: center; font-size: 14px; font-weight: 700; margin: 6px 0; color: ${BRAND.blueDark}; }
+  .title-main { font-size: 17px; font-weight: 700; color: ${BRAND.blueDark}; }
+  .title-sub { font-size: 11px; }
+  .doc-title-inline { text-align: center; font-size: 15px; font-weight: 700; margin: 6px 0; color: ${BRAND.blueDark}; }
 
-  table.meta { width: 100%; border-collapse: collapse; margin: 4px 0; }
-  table.meta td { border: 1px solid ${BRAND.blueTint2}; padding: 4px 6px; }
+  table.meta { width: 100%; border-collapse: collapse; margin: 5px 0; break-inside: avoid; }
+  table.meta td { border: 1px solid ${INK.border}; padding: 5px 7px; font-size: 12px; }
   table.customer td, table.payment td, table.logistics td { background: ${BRAND.blueTint}; }
 
-  table.lines { width: 100%; border-collapse: collapse; margin: 6px 0; }
-  table.lines th { border: 1px solid ${BRAND.blue}; background: ${BRAND.blue}; color: #fff; padding: 4px 3px; font-size: 10px; }
-  table.lines td { border: 1px solid ${BRAND.blueTint2}; padding: 4px 5px; text-align: center; }
+  table.lines { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  table.lines th { border: 1px solid ${INK.borderStrong}; border-bottom: 2px solid ${BRAND.blue}; background: ${INK.head}; color: ${INK.headText}; padding: 5px 3px; font-size: 11.5px; font-weight: 800; }
+  table.lines td { border: 1px solid ${INK.border}; padding: 5px 5px; text-align: center; font-size: 12px; }
   table.lines td.right { text-align: right; }
+  /* A row is never cut across two pages: what does not fit moves to the next page whole. */
+  table.lines tr { break-inside: avoid; }
+  table.lines tbody tr:nth-child(even) td { background: ${INK.zebra}; }
 
-  .bottom-row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  /* The blocks under the lines stay whole: they move to the next page together rather than being sliced. */
+  .bottom-row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; break-inside: avoid; }
   .bottom-left { flex: 1; }
-  .words { margin: 4px 0; font-size: 11px; }
-  .validity { margin: 6px 0; font-weight: 600; }
+  .words { margin: 4px 0; font-size: 12.5px; }
+  .validity { margin: 6px 0; font-weight: 700; font-size: 12.5px; }
   .notes { margin-top: 4px; white-space: pre-wrap; }
 
-  table.totals { width: 62mm; border-collapse: collapse; margin-right: auto; }
-  table.totals td { border: 1px solid ${BRAND.blueTint2}; padding: 4px 6px; }
-  table.totals td.num { text-align: left; direction: ltr; width: 26mm; }
-  table.totals tr.grand td, table.lines tr.grand td { font-weight: 700; background: ${BRAND.blueTint}; }
-  table.lines tr.grand td { color: #111; }
+  table.totals { width: 68mm; border-collapse: collapse; margin-right: auto; break-inside: avoid; }
+  table.totals td { border: 1px solid ${INK.border}; padding: 5px 7px; font-size: 12.5px; }
+  table.totals td.num { text-align: left; direction: ltr; width: 28mm; }
+  table.totals tr.grand td, table.lines tbody tr.grand td { font-weight: 700; background: ${INK.total}; }
+  table.totals tr.grand td { font-size: 13.5px; }
+  table.lines tbody tr.grand td { color: #000; border-top: 2px solid ${BRAND.blue}; font-size: 12.5px; }
 
-  .bank { margin-top: 8px; font-size: 10px; border-top: 1px solid ${BRAND.blueTint2}; padding-top: 4px; }
-  .thanks { margin-top: 6px; text-align: center; font-size: 11px; color: ${BRAND.blue}; }${documentFontCss(langKey)}
+  .bank { margin-top: 8px; font-size: 11.5px; border-top: 1px solid ${INK.border}; padding-top: 5px; break-inside: avoid; }
+  .thanks { margin-top: 6px; text-align: center; font-size: 12.5px; color: ${BRAND.blue}; break-inside: avoid; }${documentFontCss(langKey)}
 </style>
 </head>
 <body>

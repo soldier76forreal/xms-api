@@ -585,8 +585,9 @@ router.get('/products-lookup', verify, requirePermission('mis:view'), requireBra
       const re = new RegExp(escapeRegex(search.trim()), 'i');
       query.$or = [{ name: re }, { code: re }];
     }
+    // nameAr / nameFa ride along (additive): the packing list's stone-name picker prints a stone in the document's language
     const products = await InvProduct.find(query)
-      .select('_id code name stoneType quarryCode defaultUnit')
+      .select('_id code name nameAr nameFa stoneType quarryCode defaultUnit')
       .sort('name')
       .limit(30)
       .lean();

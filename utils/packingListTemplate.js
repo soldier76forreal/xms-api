@@ -33,43 +33,83 @@ const BRAND = { blue: '#1A3A78', blueDark: '#102A6E', blueTint: '#EEF1F8', blueT
 // file DB-free, matching invoiceTemplate.js's architecture.
 const logoFor = (profile) => (profile && profile.logoDataUri) || LOGO_DATA_URI;
 
+// ── Print type ───────────────────────────────────────────────────────────────
+// These documents are read on PAPER - often a photocopy of the printout, in a warehouse or at a border post. Type that
+// is comfortable on a monitor (a 10 px table, pale grey notes, light-blue borders) comes out at 7 pt in washed-out ink.
+// So, for print:
+//   · body 12.5 px (9.4 pt), table cells 12 px, headers 11.5 px bold, nothing under 11 px;
+//   · text is black (labels dark grey) - never the #555-#777 greys the screen layout used;
+//   · borders are a mid blue-grey, strong enough to survive a photocopy;
+//   · header cells are DARK text on a light fill. White-on-blue vanishes when the print dialog leaves "Background
+//     graphics" off, so legibility never depends on a fill (the fills are still asked for, see print-color-adjust).
+const INK = { border: '#8693b8', borderStrong: '#5c6b99', head: '#d9e0f2', headText: '#0b1f4d', zebra: '#f5f7fc', total: '#e3e9f7' };
+
 const baseStyles = `
   @page { margin: 10mm; }
   :root { color-scheme: only light; }
   html, body { background: #ffffff; }
   /* The browser prints these too, and its print dialog leaves "Background graphics" OFF by default - which
-     would drop every fill (white header text on a blue band would vanish). Ask for the fills explicitly. */
+     would drop every fill. Ask for the fills explicitly. */
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { margin: 0; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 11px; color: #111; }
+  body { margin: 0; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; font-size: 12.5px; line-height: 1.35; color: #000; }
   .ltr { direction: ltr; text-align: left; }
   .rtl { direction: rtl; text-align: right; }
   .ltr-inline { direction: ltr; unicode-bidi: embed; }
-  .muted { color: #555; font-size: 10px; }
-  .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 3px solid ${BRAND.blue}; padding-bottom: 6px; margin-bottom: 6px; }
-  .logo { height: 26mm; width: auto; flex-shrink: 0; }
-  .co-name { font-size: 13px; font-weight: 700; color: ${BRAND.blue}; }
+  .muted { color: #222; font-size: 11.5px; }
+
+  /* The page is a table whose THEAD is the page header: a browser prints a table's header again at the top of every
+     page the table spills onto, so a long list keeps its logo, title and number (and its column headings, below) on
+     every sheet. Nothing but the header goes in the thead. */
+  table.frame { width: 100%; border-collapse: collapse; }
+  table.frame > thead > tr > td, table.frame > tbody > tr > td { padding: 0; border: 0; }
+
+  .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-bottom: 3px solid ${BRAND.blue}; padding-bottom: 6px; margin-bottom: 8px; }
+  .logo { height: 22mm; width: auto; flex-shrink: 0; }
+  .co-name { font-size: 15px; font-weight: 700; color: ${BRAND.blue}; }
   /* The packing list's own number - what the paper is referred to by - stands out from the date line. */
-  .pl-no { font-size: 11px; color: #333; margin: 3px 0 1px; }
-  .pl-no b { font-size: 17px; color: ${BRAND.blue}; letter-spacing: 0.3px; }
+  .pl-no { font-size: 12.5px; color: #000; margin: 3px 0 1px; }
+  .pl-no b { font-size: 19px; color: ${BRAND.blue}; letter-spacing: 0.3px; }
   .doc-title { text-align: center; flex: 1; }
-  .title-main { font-size: 14px; font-weight: 700; color: ${BRAND.blueDark}; }
-  .title-sub { font-size: 9px; color: #777; }
-  table.meta { width: 100%; border-collapse: collapse; margin: 4px 0; }
-  table.meta td { border: 1px solid ${BRAND.blueTint2}; padding: 4px 6px; background: ${BRAND.blueTint}; font-size: 10px; }
-  table.lines { width: 100%; border-collapse: collapse; margin: 6px 0; }
-  table.lines th { border: 1px solid ${BRAND.blue}; background: ${BRAND.blue}; color: #fff; padding: 4px 3px; font-size: 9.5px; }
-  table.lines td { border: 1px solid ${BRAND.blueTint2}; padding: 3px 5px; text-align: center; font-size: 10px; }
-  table.lines tr.grand td { font-weight: 700; background: ${BRAND.blueTint}; }
+  .title-main { font-size: 17px; font-weight: 700; color: ${BRAND.blueDark}; }
+  .title-sub { font-size: 11px; color: #333; }
+
+  table.meta { width: 100%; border-collapse: collapse; margin: 5px 0; break-inside: avoid; }
+  table.meta td { border: 1px solid ${INK.border}; padding: 5px 7px; background: ${BRAND.blueTint}; font-size: 12px; color: #000; }
+  table.meta td b { font-weight: 700; }
+
+  table.lines { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  table.lines th { border: 1px solid ${INK.borderStrong}; border-bottom: 2px solid ${BRAND.blue}; background: ${INK.head}; color: ${INK.headText}; padding: 5px 4px; font-size: 11.5px; font-weight: 800; }
+  table.lines td { border: 1px solid ${INK.border}; padding: 4px 5px; text-align: center; font-size: 12px; color: #000; }
+  /* A row is never cut across two pages: what does not fit moves to the next page whole. */
+  table.lines tr { break-inside: avoid; }
+  table.lines tbody tr:nth-child(even) td { background: ${INK.zebra}; }
+  table.lines tbody tr.last { break-after: avoid; }
+  table.lines tbody tr.grand td { font-weight: 700; font-size: 12.5px; background: ${INK.total}; border-top: 2px solid ${BRAND.blue}; }
   /* Notes: the person's own words - kept whole on one page, line breaks kept, each line in its own direction. */
-  table.notes { margin-top: 8px; break-inside: avoid; }
-  table.notes td { padding: 6px 8px; }
-  .note-text { margin-top: 3px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; unicode-bidi: plaintext; text-align: start; }
+  table.notes { margin-top: 10px; break-inside: avoid; }
+  table.notes td { padding: 7px 9px; }
+  .note-text { margin-top: 3px; font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; unicode-bidi: plaintext; text-align: start; }
+  table.sign { margin-top: 12px; }
+  table.sign .muted { color: #222; font-size: 11.5px; }
 `;
 
 // ── Packing list — A4, consolidated multi-pallet document ──────────────────
 
-function packingListMetaBlock(doc, L) {
+// The stone names a list was made for, in the language of the document: a name picked from Inventory carries its
+// Arabic / Persian spelling when it has one, a typed name is printed as typed.
+function stoneNamesFor(doc, langKey) {
+  const names = [];
+  for (const s of (doc.stoneNames || [])) {
+    const localized = langKey === 'ar' ? s.nameAr : langKey === 'fa' ? s.nameFa : '';
+    const text = String(localized || s.name || s.code || '').trim();
+    if (text && !names.includes(text)) names.push(text);
+  }
+  return names;
+}
+
+function packingListMetaBlock(doc, L, langKey) {
   const d = doc.driverInfo || {}, v = doc.vehicleInfo || {}, c = doc.customsAgent || {};
+  const stones = stoneNamesFor(doc, langKey);
   return `
   <table class="meta">
     <tr>
@@ -95,41 +135,13 @@ function packingListMetaBlock(doc, L) {
       <td>${esc(L.standardThickness)} <b>${doc.standardThicknessCm != null ? esc(doc.standardThicknessCm) : ''}</b></td>
     </tr>
     ${doc.shippingDestination ? `<tr><td colspan="3">${esc(L.shippingDestination)} <b>${esc(doc.shippingDestination)}</b></td></tr>` : ''}
+    ${stones.length ? `<tr><td colspan="3">${esc(stones.length === 1 ? L.stoneName : L.stoneNames)} <b>${stones.map(esc).join(' · ')}</b></td></tr>` : ''}
   </table>`;
 }
 
-function packingListTable1(doc, L) {
-  const rows = (doc.pallets || []).map((p, i) => {
-    const pcs = (p.items || []).reduce((a, it) => a + (Number(it.pcs) || 0), 0);
-    const sqm = (p.items || []).reduce((a, it) => a + (Number(it.sqm) || 0), 0);
-    return `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${esc(p.palletId)}</td>
-      <td>${esc(p.reference)}</td>
-      <td>${esc(p.productCode)}</td>
-      <td>${pcs || ''}</td>
-      <td>${num(sqm)}</td>
-      <td>${esc(p.processingType)}</td>
-    </tr>`;
-  }).join('');
-  return `
-  <table class="lines">
-    <thead><tr>
-      <th>${esc(L.col_no)}</th><th>${esc(L.palletId)}</th><th>${esc(L.reference)}</th>
-      <th>${esc(L.col_code)}</th><th>${esc(L.pl_pcs)}</th><th>${esc(L.pl_sqm)}</th><th>${esc(L.processingType)}</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-    <tfoot><tr class="grand">
-      <td colspan="4">${esc(L.total)}</td>
-      <td>${doc.totals?.totalPcs != null ? esc(doc.totals.totalPcs) : ''}</td>
-      <td>${doc.totals?.totalSqm != null ? num(doc.totals.totalSqm) : ''}</td>
-      <td>${doc.totals?.totalPallets != null ? esc(doc.totals.totalPallets) : ''}</td>
-    </tr></tfoot>
-  </table>`;
-}
-
-function packingListTable2(doc, L) {
+// One row per cut on a pallet, in the order the pallets are listed. (The per-pallet summary table that used to
+// precede this one was dropped from the print on request - the data it summarised is all still in the list.)
+function packingListItemsTable(doc, L) {
   const rows = [];
   let i = 0;
   for (const p of (doc.pallets || [])) {
@@ -148,6 +160,10 @@ function packingListTable2(doc, L) {
       </tr>`);
     }
   }
+  // the last cut keeps company with the total row: a page never ends on the cut and starts on the total alone
+  if (rows.length) rows[rows.length - 1] = rows[rows.length - 1].replace('<tr>', '<tr class="last">');
+  // The total is a body row, not a tfoot: a browser prints a table's footer again at the bottom of EVERY page,
+  // which would show a grand total under each page of a long list.
   return `
   <table class="lines">
     <thead><tr>
@@ -155,12 +171,12 @@ function packingListTable2(doc, L) {
       <th>${esc(L.pl_length)}</th><th>${esc(L.pl_width)}</th><th>${esc(L.pl_thickness)}</th>
       <th>${esc(L.pl_pcs)}</th><th>${esc(L.pl_sqm)}</th>
     </tr></thead>
-    <tbody>${rows.join('')}</tbody>
-    <tfoot><tr class="grand">
+    <tbody>${rows.join('')}
+    <tr class="grand">
       <td colspan="6">${esc(L.total)}</td>
       <td>${doc.totals?.totalPcs != null ? esc(doc.totals.totalPcs) : ''}</td>
       <td>${doc.totals?.totalSqm != null ? num(doc.totals.totalSqm) : ''}</td>
-    </tr></tfoot>
+    </tr></tbody>
   </table>`;
 }
 
@@ -181,7 +197,7 @@ function packingListNotes(doc, L) {
 function packingListSignatures(doc, L) {
   const officer = doc.loadingOfficer || {};
   return `
-  <table class="meta" style="margin-top:10px;">
+  <table class="meta sign">
     <tr>
       <td style="text-align:center;">
         <div class="muted">${esc(L.sigCustoms)}</div>
@@ -206,22 +222,7 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
   const logo = logoFor(profile);
   const coName = langKey === 'en' ? (profile.nameEn || branch?.name) : (profile.nameAr || branch?.name);
 
-  return `<!doctype html>
-<html dir="${L.dir}" lang="${langKey}">
-<head>
-<meta charset="utf-8"/>
-<meta name="color-scheme" content="only light"/>
-<title>${esc(L.plConsolidatedTitle)} ${esc(doc.docNumber)}</title>
-<style>${baseStyles}
-  /* The browser prints this document too (Save as PDF), not only the server —
-     so it declares its own paper size. */
-  @page { size: A4; margin: 10mm; }
-  body { direction: ${L.dir}; }
-  .page { width: 190mm; margin: 0 auto; padding: 4mm 0; }${documentFontCss(langKey)}
-</style>
-</head>
-<body>
-  <div class="page">
+  const pageHeader = `
     <div class="header">
       ${logo ? `<img class="logo" src="${logo}" alt="LMC"/>` : ''}
       <div class="doc-title">
@@ -233,9 +234,29 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
         <div class="pl-no">${esc(L.plNumber)} <b class="ltr-inline">${esc(doc.docNumber)}</b></div>
         <div class="muted">${esc(L.date)} <b class="ltr-inline">${dateStr(doc.issueDate || doc.insertDate, doc, langKey)}</b></div>
       </div>
-    </div>
+    </div>`;
 
-    ${packingListMetaBlock(doc, L)}
+  return `<!doctype html>
+<html dir="${L.dir}" lang="${langKey}">
+<head>
+<meta charset="utf-8"/>
+<meta name="color-scheme" content="only light"/>
+<title>${esc(L.plConsolidatedTitle)} ${esc(doc.docNumber)}</title>
+<style>${baseStyles}
+  /* The browser prints this document too (Save as PDF), not only the server —
+     so it declares its own paper size. */
+  @page { size: A4; margin: 10mm 10mm 12mm 10mm; }
+  body { direction: ${L.dir}; }
+  .page { width: 190mm; margin: 0 auto; padding: 4mm 0; }${documentFontCss(langKey)}
+</style>
+</head>
+<body>
+  <div class="page">
+    <table class="frame">
+      <thead><tr><td>${pageHeader}
+      </td></tr></thead>
+      <tbody><tr><td>
+    ${packingListMetaBlock(doc, L, langKey)}
 
     <table class="meta">
       <tr>
@@ -245,9 +266,10 @@ function renderClassicPackingListHtml(doc, branch, profile = {}, lang) {
       </tr>
     </table>
 
-    ${packingListTable1(doc, L)}
-    ${packingListTable2(doc, L)}${packingListNotes(doc, L)}
+    ${packingListItemsTable(doc, L)}${packingListNotes(doc, L)}
     ${packingListSignatures(doc, L)}
+      </td></tr></tbody>
+    </table>
   </div>
 </body>
 </html>`;
@@ -502,6 +524,9 @@ function renderClassicPalletLabelHtml(doc, pallet, branch, profile = {}, lang) {
 // A short pallet normally carries one size; items that share code + size are
 // merged (their pieces summed), and if a pallet really does carry several
 // sizes each gets its own row — the page grows to fit (see labelPageSize).
+//
+// The strip is drawn by ONE function (shortStrip) that two documents use: a page of its own for a single pallet
+// (renderShortPalletLabelHtml) and an A4 sheet holding up to five of them (renderShortLabelSheetHtml).
 
 const SHORT_ROW_MM = 12;   // every table row, header and "Made By" included
 
@@ -525,8 +550,28 @@ function shortLabelRows(pallet) {
   return rows;
 }
 
-function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
-  const logo = logoFor(profile);
+// The strip's style. What depends on the pallet - the strip's own height, the logo's height, the quality letter's
+// size - is set inline on its element by shortStrip(), so the same rules serve a page of one and a sheet of five.
+const SHORT_STRIP_CSS = `
+  * { box-sizing: border-box; }
+  body { font-family: Cambria, Georgia, 'Times New Roman', serif; color: #111; }
+  .strip { display: flex; align-items: center; gap: 3mm; padding: 4mm 4mm; }
+  .num { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 15pt;
+         min-width: 9mm; text-align: center; }
+  table.lbl { border-collapse: collapse; width: 160mm; table-layout: fixed; }
+  table.lbl td, table.lbl th { border: 0.35mm solid #111; text-align: center; vertical-align: middle;
+         height: ${SHORT_ROW_MM}mm; padding: 0 1mm; overflow: hidden; }
+  table.lbl th { font-weight: 700; font-size: 11pt; }
+  table.lbl tr.val td { font-weight: 700; font-size: 16pt; }
+  table.lbl tr.val td.code { font-size: 12.5pt; }
+  td.logo { width: 29mm; padding: 1mm; }
+  td.logo img { max-width: 100%; display: block; margin: 0 auto; }
+  td.q { width: 28mm; font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-weight: 300; line-height: 1; }
+  td.made { font-weight: 700; font-size: 14pt; }
+`;
+
+// One pallet's strip: its markup and its height in mm (rows x 12 mm for the header, the cuts and "Made By", + 8 mm).
+function shortStrip(pallet, logo) {
   const rows = shortLabelRows(pallet);
   const grades = [...new Set(rows.map((r) => r.grade).filter(Boolean))];
   const quality = grades.join('/');
@@ -557,6 +602,26 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
         ${i === 0 ? `<td rowspan="${n}" ${fit(pallet.reference || '')}>${esc(pallet.reference || '')}</td>` : ''}
       </tr>`).join('');
 
+  const heightMm = SHORT_ROW_MM * (n + 2) + 8;
+  const html = `
+  <div class="strip" style="height:${heightMm}mm">
+    <div class="num">${esc(pallet.palletId)}</div>
+    <table class="lbl">
+      <tr>
+        <td class="logo" rowspan="${n + 2}">${logo ? `<img src="${logo}" alt="LMC" style="max-height:${SHORT_ROW_MM * (n + 2) - 3}mm"/>` : ''}</td>
+        <th>Code</th><th>L</th><th>W</th><th>H</th><th>PCS</th><th>Pallet</th>
+        <td class="q" rowspan="${n + 2}" style="font-size:${qualityPt}pt">${esc(quality)}</td>
+      </tr>
+      ${valueRows}
+      <tr><td class="made" colspan="6">Made By LMC</td></tr>
+    </table>
+  </div>`;
+  return { html, heightMm };
+}
+
+function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
+  const { html: strip } = shortStrip(pallet, logoFor(profile));
+  const size = labelPageSize('short', pallet);
   return `<!doctype html>
 <html dir="ltr" lang="en">
 <head>
@@ -565,44 +630,69 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
 <title>Short pallet ${esc(pallet.palletId)}</title>
 <style>
   /* Same size labelPageSize('short', pallet) hands the server renderer. */
-  @page { size: ${labelPageSize('short', pallet).width} ${labelPageSize('short', pallet).height}; margin: 0; }
+  @page { size: ${size.width} ${size.height}; margin: 0; }
   :root { color-scheme: only light; }
   /* The page is exactly rows x 12 mm + 8 mm tall, but the table's 0.35 mm
      collapsed borders make its content a hair taller — enough to spill a sliver
      onto a SECOND page (a blank label from the printer). Pin everything to the
      page height and clip: any overflow lands in the strip's own padding. */
-  html, body { background: #ffffff; margin: 0; height: ${labelPageSize('short', pallet).height}; overflow: hidden; }
-  * { box-sizing: border-box; }
-  body { font-family: Cambria, Georgia, 'Times New Roman', serif; color: #111; }
-  .strip { display: flex; align-items: center; gap: 3mm; padding: 4mm 4mm; height: ${labelPageSize('short', pallet).height}; }
-  .num { font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-weight: 700; font-size: 15pt;
-         min-width: 9mm; text-align: center; }
-  table.lbl { border-collapse: collapse; width: 160mm; table-layout: fixed; }
-  table.lbl td, table.lbl th { border: 0.35mm solid #111; text-align: center; vertical-align: middle;
-         height: ${SHORT_ROW_MM}mm; padding: 0 1mm; overflow: hidden; }
-  table.lbl th { font-weight: 700; font-size: 11pt; }
-  table.lbl tr.val td { font-weight: 700; font-size: 16pt; }
-  table.lbl tr.val td.code { font-size: 12.5pt; }
-  td.logo { width: 29mm; padding: 1mm; }
-  td.logo img { max-width: 100%; max-height: ${SHORT_ROW_MM * (n + 2) - 3}mm; display: block; margin: 0 auto; }
-  td.q { width: 28mm; font-family: Calibri, 'Segoe UI', Arial, sans-serif; font-weight: 300;
-         font-size: ${qualityPt}pt; line-height: 1; }
-  td.made { font-weight: 700; font-size: 14pt; }
+  html, body { background: #ffffff; margin: 0; height: ${size.height}; overflow: hidden; }${SHORT_STRIP_CSS}
 </style>
 </head>
-<body>
-  <div class="strip">
-    <div class="num">${esc(pallet.palletId)}</div>
-    <table class="lbl">
-      <tr>
-        <td class="logo" rowspan="${n + 2}">${logo ? `<img src="${logo}" alt="LMC"/>` : ''}</td>
-        <th>Code</th><th>L</th><th>W</th><th>H</th><th>PCS</th><th>Pallet</th>
-        <td class="q" rowspan="${n + 2}">${esc(quality)}</td>
-      </tr>
-      ${valueRows}
-      <tr><td class="made" colspan="6">Made By LMC</td></tr>
-    </table>
-  </div>
+<body>${strip}
+</body>
+</html>`;
+}
+
+// ── Short-pallet labels on an A4 sheet ───────────────────────────────────────
+// Up to five strips go on one sheet of A4, one under the other, each with a dashed cut line under it, so a whole
+// shipment's labels come out of the printer together instead of one page at a time. A pallet with several sizes has a
+// taller strip; when the next strip does not fit under the ones already on the sheet it starts a new sheet.
+//
+// "Back to back": with `duplex` every sheet is followed by an identical page, so a printer set to print on both sides
+// puts the same labels on the front and the back of each strip. The strips are centred side to side, so the back
+// page's strips sit exactly behind the front page's (a sheet turned over on its long edge keeps the top at the top).
+const SHEET = { w: 210, h: 297, padX: 14, padY: 8 };
+const SHORT_LABELS_PER_SHEET = 5;
+
+function renderShortLabelSheetHtml(doc, pallets, branch, profile = {}, { duplex = true } = {}) {
+  const logo = logoFor(profile);
+  const strips = (pallets || []).slice(0, SHORT_LABELS_PER_SHEET).map((p) => shortStrip(p, logo));
+  const usable = SHEET.h - 2 * SHEET.padY - 1;
+  const sheets = [];
+  let current = [], used = 0;
+  for (const s of strips) {
+    if (current.length && used + s.heightMm > usable) { sheets.push(current); current = []; used = 0; }
+    current.push(s); used += s.heightMm;
+  }
+  if (current.length) sheets.push(current);
+
+  const sheetHtml = (list, back) => `
+  <section class="sheet${back ? ' back' : ''}">${list.map((s, i) => `
+    <div class="cell${i < list.length - 1 ? ' cut' : ''}">${s.html}</div>`).join('')}
+  </section>`;
+  const pages = sheets.map((list) => (duplex ? sheetHtml(list, false) + sheetHtml(list, true) : sheetHtml(list, false))).join('');
+
+  return `<!doctype html>
+<html dir="ltr" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="color-scheme" content="only light"/>
+<title>Short pallet labels ${esc(doc && doc.docNumber)}</title>
+<style>
+  @page { size: ${SHEET.w}mm ${SHEET.h}mm; margin: 0; }
+  :root { color-scheme: only light; }
+  html, body { background: #ffffff; margin: 0; }${SHORT_STRIP_CSS}
+  /* One A4 sheet per page. A hair under the page height: a sheet exactly as tall as its page can spill a sliver onto
+     a blank page of its own. */
+  .sheet { width: ${SHEET.w}mm; height: ${SHEET.h - 0.5}mm; padding: ${SHEET.padY}mm ${SHEET.padX}mm; overflow: hidden;
+           break-after: page; page-break-after: always; }
+  .sheet:last-child { break-after: auto; page-break-after: auto; }
+  .cell { width: ${SHEET.w - 2 * SHEET.padX}mm; }
+  .cell.cut { border-bottom: 0.3mm dashed #555; }
+</style>
+</head>
+<body>${pages}
 </body>
 </html>`;
 }
@@ -612,11 +702,13 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
 //           a size inferred rather than measured, which printed small and unclear)
 //   short — a strip as wide as the sample (pallet number + 160 mm box) and as
 //           tall as its rows
+//   sheet — A4 portrait: up to five short strips on one page
 function labelPageSize(kind, pallet) {
   if (kind === 'short') {
     const n = shortLabelRows(pallet).length;
     return { width: '182mm', height: `${SHORT_ROW_MM * (n + 2) + 8}mm` };
   }
+  if (kind === 'sheet') return { width: `${SHEET.w}mm`, height: `${SHEET.h}mm` };
   return { width: `${SLAB.pageW}mm`, height: `${SLAB.pageH}mm` };
 }
 
@@ -642,4 +734,4 @@ function renderPalletLabelHtml(doc, pallet, branch, profile, lang, templateVaria
 
 const LABEL_KINDS = ['slab', 'short'];
 
-module.exports = { renderPackingListHtml, renderPalletLabelHtml, labelPageSize, LABEL_KINDS };
+module.exports = { renderPackingListHtml, renderPalletLabelHtml, renderShortLabelSheetHtml, labelPageSize, LABEL_KINDS, SHORT_LABELS_PER_SHEET };

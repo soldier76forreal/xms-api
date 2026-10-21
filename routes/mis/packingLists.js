@@ -7,6 +7,7 @@ const misPackingListActivitySchema = require('../../models/misPackingListActivit
 const misInvoiceSchema        = require('../../models/misInvoiceModel');
 const supplyRecordSchema      = require('../../models/supplyRecordModel');
 const userSchema              = require('../../models/userModel');
+const inventoryProductSchema  = require('../../models/inventoryProductModel');
 
 const verify = require('../users/verifyToken');
 const { requirePermission, requireBranch, assertBranchAccess, getEffectiveScopes, Group, Branch } = require('../../utils/rbac');
@@ -14,7 +15,9 @@ const { loadCompanyProfile } = require('../../utils/loadCompanyProfile');
 const { resolveBranchLogoDataUri } = require('../../utils/resolveBranchLogo');
 const { renderPdfBuffer } = require('../../utils/pdfRenderer');
 const { sendPdf } = require('../../utils/sendPdf');
-const { renderPackingListHtml, renderPalletLabelHtml, labelPageSize, LABEL_KINDS } = require('../../utils/packingListTemplate');
+const {
+  renderPackingListHtml, renderPalletLabelHtml, renderShortLabelSheetHtml, labelPageSize, LABEL_KINDS, SHORT_LABELS_PER_SHEET,
+} = require('../../utils/packingListTemplate');
 const { today, normalizeDateSystem } = require('../../utils/calendars');
 const { branchDefaultsOf, readDocSettings } = require('../../utils/misDefaults');
 const packingNumbers = require('../../utils/packingListNumbers');
@@ -27,6 +30,7 @@ const MisPackingList         = dbConnection.models.misPackingList         || dbC
 const MisPackingListActivity = dbConnection.models.misPackingListActivity || dbConnection.model('misPackingListActivity', misPackingListActivitySchema);
 const MisInvoice     = dbConnection.models.misInvoice     || dbConnection.model('misInvoice', misInvoiceSchema);
 const SupplyRecord   = dbConnection.models.supplyRecord   || dbConnection.model('supplyRecord', supplyRecordSchema);
+const InvProduct     = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
 
 // A client-sent supply record id is only kept when that record exists and
 // belongs to the packing list's own branch — same rule as an invoice's link.
@@ -57,6 +61,45 @@ async function logActivity(packingListId, type, fields, actorId, actorName) {
       packingListId, type, ...fields, actorId, actorName, date: new Date(), createdAt: new Date(),
     });
   } catch (_) {}
+}
+
+// The stone name(s) of a list: each one picked from Inventory or typed. A typed name is kept as typed (whitespace
+// tidied, 120 characters at most). A picked one is never trusted as sent: the product is re-read and keeps its link
+// only when it is a live product of THIS list's own branch, and then its code and its names in all three languages
+// are the database's, not the client's - the same snapshot discipline as a line item. A reference that does not
+// check out is not an error: the name that came with it stays, as plain text. At most 20, no repeats (case ignored).
+const MAX_STONE_NAMES = 20;
+const MAX_STONE_NAME_LENGTH = 120;
+async function resolveStoneNames(raw, branchId) {
+  if (!Array.isArray(raw)) return [];
+  const wanted = [];
+  for (const item of raw) {
+    const entry = typeof item === 'string' ? { name: item } : (item && typeof item === 'object' ? item : null);
+    if (!entry) continue;
+    const name = String(entry.name == null ? '' : entry.name).replace(/\s+/g, ' ').trim().slice(0, MAX_STONE_NAME_LENGTH);
+    const productId = entry.productId && mongoose.Types.ObjectId.isValid(entry.productId) ? String(entry.productId) : null;
+    if (!name && !productId) continue;
+    wanted.push({ name, productId });
+    if (wanted.length >= MAX_STONE_NAMES) break;
+  }
+  const ids = wanted.map((w) => w.productId).filter(Boolean);
+  const products = ids.length
+    ? await InvProduct.find({ _id: { $in: ids }, branchId, deleteDate: null }).select('code name nameAr nameFa').lean()
+    : [];
+  const byId = new Map(products.map((p) => [String(p._id), p]));
+  const out = [];
+  const seen = new Set();
+  for (const w of wanted) {
+    const p = w.productId ? byId.get(w.productId) : null;
+    const stone = p
+      ? { productId: p._id, code: p.code || '', name: p.name || w.name || p.code || '', nameAr: p.nameAr || '', nameFa: p.nameFa || '' }
+      : { name: w.name };
+    const key = String(stone.name || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(stone);
+  }
+  return out;
 }
 
 // The list's own date, as sent by the form ('YYYY-MM-DD'). Anything unreadable is
@@ -230,6 +273,7 @@ router.get('/packing-lists', verify, requirePermission('mis:view'), requireBranc
         { 'pallets.palletId': re },
         { 'pallets.reference': re },
         { 'pallets.items.code': re },
+        { 'stoneNames.name': re },
         { shippingDestination: re },
         { destinationAddress: re },
       ];
@@ -351,6 +395,7 @@ router.post('/packing-lists', verify, requirePermission('mis:packingList:create'
       destinationAddress: req.body.destinationAddress || '',
       shippingDestination: req.body.shippingDestination || '',
       standardThicknessCm: req.body.standardThicknessCm,
+      stoneNames: await resolveStoneNames(req.body.stoneNames, req.branchId),
       pallets,
       totals: computeTotals(pallets),
       status: req.body.status === 'final' ? 'final' : 'draft',
@@ -447,6 +492,8 @@ router.put('/packing-lists/:id', verify, requirePermission('mis:packingList:edit
     if (req.body.destinationAddress !== undefined) update.destinationAddress = req.body.destinationAddress;
     if (req.body.shippingDestination !== undefined) update.shippingDestination = req.body.shippingDestination;
     if (req.body.standardThicknessCm !== undefined) update.standardThicknessCm = req.body.standardThicknessCm;
+    // only touched when the caller sends it: a plain edit of anything else never wipes the stone names
+    if (req.body.stoneNames !== undefined) update.stoneNames = await resolveStoneNames(req.body.stoneNames, doc.branchId);
     if (req.body.status === 'draft' || req.body.status === 'final') update.status = req.body.status;
     if (req.body.notes !== undefined) update.notes = req.body.notes;
 
@@ -585,6 +632,85 @@ router.get('/packing-lists/:id/pallets/:palletId/label/pdf', verify, requirePerm
     return sendPdf(req, res, pdf, `label-${kind === 'short' ? 'short-' : ''}${doc.docNumber}-${pallet.palletId}.pdf`);
   } catch (err) {
     console.error('GET /mis/packing-lists/:id/pallets/:palletId/label/pdf failed:', err);
+    return res.status(500).json({ message: 'Failed to generate label PDF' });
+  }
+});
+
+// ── up to five short-pallet labels on one A4 sheet ────────────────────────────
+// ?palletId=P1&palletId=P2 ... (repeated, in the order wanted - a pallet ID may contain a comma, so it is not a
+// comma list) and &duplex=1 for the same sheet again on the back ("back to back"). Strips go top to bottom in the
+// order given. At most SHORT_LABELS_PER_SHEET pallets: the sheet is five strips tall.
+
+function requestedPalletIds(query) {
+  const raw = query.palletId;
+  const list = Array.isArray(raw) ? raw : (raw == null ? [] : [raw]);
+  const seen = new Set();
+  const out = [];
+  for (const value of list) {
+    const id = String(value).trim();
+    if (id && !seen.has(id)) { seen.add(id); out.push(id); }
+  }
+  return out;
+}
+
+const wantsDuplex = (query) => ['1', 'true', 'yes'].includes(String(query.duplex || '').toLowerCase());
+
+/** -> { pallets } on success, { status, body } for the refusal to send. */
+function pickSheetPallets(doc, query) {
+  const ids = requestedPalletIds(query);
+  if (!ids.length) return { status: 400, body: { message: 'Choose at least one pallet.', code: 'NO_PALLETS' } };
+  if (ids.length > SHORT_LABELS_PER_SHEET) {
+    return { status: 400, body: { message: `A sheet holds at most ${SHORT_LABELS_PER_SHEET} labels.`, code: 'TOO_MANY_PALLETS' } };
+  }
+  const pallets = [];
+  for (const id of ids) {
+    const pallet = doc.pallets.find((p) => p.palletId === id);
+    if (!pallet) return { status: 404, body: { message: `Pallet not found on this packing list: ${id}`, code: 'PALLET_NOT_FOUND' } };
+    pallets.push(pallet.toObject ? pallet.toObject() : pallet);
+  }
+  return { pallets };
+}
+
+async function renderShortSheet(req) {
+  const doc = req.packingList;
+  const picked = pickSheetPallets(doc, req.query);
+  if (!picked.pallets) return { refusal: picked };
+  const [branch, profile] = await Promise.all([
+    Branch.findById(doc.branchId).lean(),
+    loadCompanyProfileWithLogo(doc.branchId),
+  ]);
+  const duplex = wantsDuplex(req.query);
+  const html = renderShortLabelSheetHtml(doc.toObject(), picked.pallets, branch, profile, { duplex });
+  return { html, pallets: picked.pallets, duplex };
+}
+
+router.get('/packing-lists/:id/labels/short/html', verify, requirePermission('mis:view'), loadPackingList, async (req, res) => {
+  try {
+    const sheet = await renderShortSheet(req);
+    if (sheet.refusal) return res.status(sheet.refusal.status).json(sheet.refusal.body);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(200).send(sheet.html);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/packing-lists/:id/labels/short/pdf', verify, requirePermission('mis:packingList:pdf'), loadPackingList, async (req, res) => {
+  try {
+    const sheet = await renderShortSheet(req);
+    if (sheet.refusal) return res.status(sheet.refusal.status).json(sheet.refusal.body);
+    const pdf = await renderPdfBuffer(sheet.html, { ...labelPageSize('sheet'), printBackground: true });
+
+    const doc = req.packingList;
+    const userId = req.user.id;
+    const actorName = await getActorName(userId);
+    await logActivity(doc._id, 'label_generated', {
+      body: `Short labels on A4${sheet.duplex ? ' (both sides)' : ''}: ${sheet.pallets.map((p) => p.palletId).join(', ')}`,
+    }, userId, actorName);
+
+    return sendPdf(req, res, pdf, `labels-short-${doc.docNumber}.pdf`);
+  } catch (err) {
+    console.error('GET /mis/packing-lists/:id/labels/short/pdf failed:', err);
     return res.status(500).json({ message: 'Failed to generate label PDF' });
   }
 });
