@@ -19,6 +19,7 @@ const fileSchema             = require('../../models/fileModel');
 const verify = require('../users/verifyToken');
 const { requirePermission, getEffectivePermissions, getEffectiveScopes, Group, requireBranch, assertBranchAccess } = require('../../utils/rbac');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
+const crmContacts = require('../../utils/crmContacts');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -203,7 +204,7 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
     const {
       search = '', type = '', country = '',
       channels = '', channelMode = 'any',
-      status = '', tags = '',
+      status = '', tags = '', kind = '',
       dateFrom = '', dateTo = '',
       sort = 'insertDate', order = 'desc',
       interestedIn = '',
@@ -234,6 +235,7 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
         { 'personalInformation.lastName':    re },
         { 'personalInformation.companyName': re },
         { phoneNumber:                       re },
+        ...crmContacts.HANDLE_CHANNELS.map((ch) => ({ [`commHandles.${ch}`]: re })),
       ]});
     }
 
@@ -266,6 +268,9 @@ router.get('/customers', verify, requirePermission('crm:view'), async (req, res)
 
     // status
     if (status) filters.push({ status });
+
+    // customer kind (cash / regular)
+    if (crmContacts.CUSTOMER_KINDS.includes(kind)) filters.push({ customerKind: kind });
 
     // tags
     if (tags) {
@@ -397,21 +402,59 @@ router.get('/customers/check-phone', verify, requirePermission('crm:view'), asyn
   }
 });
 
+// Is any of these contact details already on another customer? The form asks as the person types, whichever of
+// the phone / WhatsApp / second phone / e-mail / Telegram / Instagram they started with. Query: phoneNumber,
+// whatsApp, phone, email, telegram, instagram (+ excludeId when editing). Same exposure as the POST route's 409:
+// it only confirms that a record exists.
+router.get('/customers/check-contact', verify, requirePermission('crm:view'), async (req, res) => {
+  try {
+    const commHandles = {};
+    crmContacts.HANDLE_CHANNELS.forEach((ch) => { if (req.query[ch] !== undefined) commHandles[ch] = req.query[ch]; });
+    const contacts = crmContacts.contactsOf({ phoneNumber: req.query.phoneNumber, commHandles });
+    if (!crmContacts.hasContact(contacts)) return res.status(200).json({ exists: false, customer: null });
+    const excludeId = req.query.excludeId && mongoose.Types.ObjectId.isValid(req.query.excludeId) ? req.query.excludeId : null;
+    const dup = await crmContacts.findContactDuplicate(Customer, contacts, excludeId);
+    if (!dup) return res.status(200).json({ exists: false, customer: null });
+    return res.status(200).json({
+      exists: true, channel: dup.channel,
+      customer: { _id: dup.customer._id, name: crmContacts.contactLabel(dup.customer) },
+    });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ── POST /crm/customers — create ──────────────────────────────────────────────
 router.post('/customers', verify, requirePermission('crm:customer:create'), async (req, res) => {
   try {
     const userId = req.user.id;
+    const body = { ...req.body };
 
-    // duplicate phone guard
-    if (req.body.phoneNumber) {
-      const dup = await Customer.findOne({ phoneNumber: req.body.phoneNumber, deleteDate: null });
-      if (dup) {
-        return res.status(409).json({ message: 'A customer with this phone number already exists', existingId: dup._id });
-      }
+    // The customer's kind. A cash customer has paid on the spot, so its status is 'won' whatever was sent.
+    const kind = crmContacts.readCustomerKind(body.customerKind);
+    if (kind && kind.error) return res.status(400).json({ message: kind.error, code: 'INVALID_CUSTOMER_KIND' });
+    if (kind) body.customerKind = kind; else delete body.customerKind;
+    if (kind === 'cash') body.status = crmContacts.CASH_STATUS;
+
+    // Reachable at all: a phone number OR another channel - whichever the person has - but not nothing.
+    const contacts = crmContacts.contactsOf(body);
+    if (!crmContacts.hasContact(contacts)) {
+      return res.status(400).json({ message: 'Give a phone number or at least one other way to reach the customer', code: 'CONTACT_REQUIRED' });
+    }
+
+    // duplicate guard: the same phone, WhatsApp, e-mail ... on another customer
+    const dup = await crmContacts.findContactDuplicate(Customer, contacts);
+    if (dup) {
+      return res.status(409).json({
+        message: dup.channel === 'phoneNumber'
+          ? 'A customer with this phone number already exists'
+          : `A customer with this ${dup.channel} contact already exists`,
+        code: 'DUPLICATE_CONTACT', channel: dup.channel, existingId: dup.customer._id,
+      });
     }
 
     const created = await Customer.create({
-      ...req.body,
+      ...body,
       owner:      userId,
       createdBy:  userId,
       insertDate: new Date(),
@@ -610,33 +653,74 @@ router.put('/customers/:id', verify, requirePermission('crm:customer:edit'), asy
     if (!existing) return res.status(404).json({ message: 'Customer not found' });
 
     const actorName = await getActorName(userId);
+    const body = { ...req.body };
+
+    // The customer's kind: set, changed or cleared. A cash customer's status is always 'won' - also the moment a
+    // customer BECOMES a cash one, and whatever status a client sends for one.
+    const kind = crmContacts.readCustomerKind(body.customerKind);
+    if (kind && kind.error) return res.status(400).json({ message: kind.error, code: 'INVALID_CUSTOMER_KIND' });
+    let unset = null;
+    if (kind === '') { delete body.customerKind; unset = { customerKind: '' }; }
+    else if (kind) body.customerKind = kind;
+    else delete body.customerKind;
+    const effectiveKind = kind === undefined ? existing.customerKind : kind;
+    if (effectiveKind === 'cash') body.status = crmContacts.CASH_STATUS;
+
+    // Contact details: a customer that HAD a way to be reached keeps one, and a number / handle that is being
+    // changed to one another customer already has is refused (an unchanged one never blocks an unrelated edit).
+    if (body.phoneNumber !== undefined || body.commHandles !== undefined) {
+      const before = crmContacts.contactsOf(existing);
+      const after = crmContacts.contactsOf({
+        phoneNumber: body.phoneNumber !== undefined ? body.phoneNumber : existing.phoneNumber,
+        commHandles: body.commHandles !== undefined ? body.commHandles : existing.commHandles,
+      });
+      if (!crmContacts.hasContact(after) && crmContacts.hasContact(before)) {
+        return res.status(400).json({ message: 'A customer needs a phone number or at least one other way to be reached', code: 'CONTACT_REQUIRED' });
+      }
+      const changed = { phoneNumber: after.phoneNumber !== before.phoneNumber ? after.phoneNumber : '', handles: {} };
+      Object.entries(after.handles).forEach(([ch, v]) => { if (v !== before.handles[ch]) changed.handles[ch] = v; });
+      const dup = await crmContacts.findContactDuplicate(Customer, changed, existing._id);
+      if (dup) {
+        return res.status(409).json({
+          message: dup.channel === 'phoneNumber'
+            ? 'A customer with this phone number already exists'
+            : `A customer with this ${dup.channel} contact already exists`,
+          code: 'DUPLICATE_CONTACT', channel: dup.channel, existingId: dup.customer._id,
+        });
+      }
+    }
 
     // track meaningful changes for the activity log
-    if (req.body.status && req.body.status !== existing.status) {
+    if (body.status && body.status !== existing.status) {
       await writeActivity(existing._id, 'status_changed', {
-        field: 'status', oldValue: existing.status, newValue: req.body.status,
+        field: 'status', oldValue: existing.status, newValue: body.status,
+      }, userId, actorName);
+    }
+    if (kind !== undefined && (kind || '') !== (existing.customerKind || '')) {
+      await writeActivity(existing._id, 'updated', {
+        field: 'customerKind', oldValue: existing.customerKind || '', newValue: kind || '',
       }, userId, actorName);
     }
 
-    if (req.body.assignedTo !== undefined) {
+    if (body.assignedTo !== undefined) {
       const oldIds = (existing.assignedTo || []).map(String).sort().join(',');
-      const newIds = (req.body.assignedTo  || []).map(String).sort().join(',');
+      const newIds = (body.assignedTo  || []).map(String).sort().join(',');
       if (oldIds !== newIds) {
         await writeActivity(existing._id, 'assigned', {
-          oldValue: existing.assignedTo, newValue: req.body.assignedTo,
+          oldValue: existing.assignedTo, newValue: body.assignedTo,
         }, userId, actorName);
       }
     }
 
-    if (req.body.interestedProducts !== undefined) {
+    if (body.interestedProducts !== undefined) {
       await writeActivity(existing._id, 'interest', {
-        newValue: req.body.interestedProducts,
+        newValue: body.interestedProducts,
       }, userId, actorName);
     }
 
     const updated = await Customer.findOneAndUpdate(
       { _id: req.params.id },
-      { $set: { ...req.body, updatedBy: userId, updateDate: new Date() } },
+      { $set: { ...body, updatedBy: userId, updateDate: new Date() }, ...(unset ? { $unset: unset } : {}) },
       { new: true }
     ).lean();
 

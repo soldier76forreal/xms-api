@@ -92,6 +92,8 @@ var personalInformationSchema = new mongoose.Schema({
       commChannels: [{ type: String }],
       commHandles: { type: mongoose.Schema.Types.Mixed, default: {} },
       status: { type: String, enum: ['new','active','follow_up','won','lost'], default: 'new' },
+      // 'cash' (pays on the spot - its status is always 'won') or 'regular'. Not set on records made before this existed.
+      customerKind: { type: String, enum: ['cash', 'regular'] },
       tags: [{ type: String }],
       lastCallAt: { type: Date },
       nextFollowUpAt: { type: Date },

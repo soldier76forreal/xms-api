@@ -34,6 +34,7 @@ const verify              = require('./verifyToken');
 const { requirePermission, getEffectivePermissions, getEffectiveScopes, clearPermissionCache, isSuperAdmin, assertBranchAccess, getUserBranches, resolveUserJobReportTemplate, UserAccess, Role, Group, Branch } = require('../../utils/rbac');
 const { listJobReportTemplates, resolveJobReportTemplate, isKnownTemplate, DEFAULT_TEMPLATE, SOCIAL_CHANNELS } = require('../../utils/jobReportTemplates');
 const { resolveJobReportSections, DM_KINDS, customerLabel, crmScopeFilter, dmScopeFilter, inventoryProductScopeFilter } = require('../../utils/jobReportSections');
+const { syncReportInterest } = require('../../utils/customerInterest');
 const { renderJobReportHtml } = require('../../utils/jobReportTemplate');
 const { sendNotificationToUser } = require('../socket/xmsNotifications');
 
@@ -1030,6 +1031,8 @@ router.post('/me/jobReports/:reportId/submit', verify, async (req, res) => {
 
     const actorName = await getJobReportActorName(req.user.id);
     notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupCreated');
+    // the stones tied to customers in the report become those customers' interests (CRM)
+    await syncReportInterest(report, req.user.id, actorName);
 
     return res.status(200).json(report);
   } catch (err) {
@@ -1110,6 +1113,7 @@ router.post('/me/jobReports', verify, notesUpload.array('files', MAX_BATCH_FILES
 
     const actorName = await getJobReportActorName(req.user.id);
     notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupCreated');
+    await syncReportInterest(report, req.user.id, actorName);
 
     return res.status(201).json(report);
   } catch (err) {
@@ -1150,6 +1154,7 @@ router.put('/me/jobReports/:reportId', verify, notesUpload.array('files', MAX_BA
     if (report.status !== 'draft') {
       const actorName = await getJobReportActorName(req.user.id);
       notifyGroupAdminsOfJobReport(req.user.id, actorName, report, 'jobReportGroupUpdated');
+      await syncReportInterest(report, req.user.id, actorName);
     }
 
     return res.status(200).json(report);

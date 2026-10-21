@@ -28,6 +28,11 @@
 //                WhatsApp share or external link page)
 //   recipient  → who/what something went to: one of SOCIAL_CHANNELS, a CRM
 //                customer, or plain text. Stored as {mode, …}.
+//   lines      → (a table column only) a LIST inside one row, each entry a small
+//                row of its own `columns` — a customer's purchase of several
+//                stones, each with its own quantity and price. Stored as an
+//                array of objects. A column may be computed from it:
+//                `computed: 'sum:<list key>.<column key>'`.
 // The three reference types are never trusted from the client: every one is
 // re-fetched and re-snapshotted server-side (see resolveSections in
 // utils/jobReportSections.js), the same discipline as an MIS line item.
@@ -170,11 +175,24 @@ const salesperson = {
       label: { en: 'Confirmed orders', ar: 'الطلبات المؤكدة', fa: 'سفارش‌های قطعی' },
       columns: [
         { key: 'customer', type: 'customer', width: 2, label: { en: 'Customer', ar: 'العميل', fa: 'مشتری' } },
-        { key: 'variety', type: 'variety', width: 2, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
-        { key: 'quantity', type: 'number', min: 0, label: { en: 'Quantity (m³)', ar: 'الكمية (م3)', fa: 'مقدار (م۳)' } },
-        { key: 'unitPrice', type: 'money', label: { en: 'Price per metre', ar: 'سعر المتر', fa: 'قیمت هر متر' } },
         {
-          key: 'total', type: 'money', computed: 'quantity*unitPrice',
+          // One purchase can be several kinds of stone, each with its own quantity and price, so the stones are
+          // a LIST inside the order (not one stone per order). Orders filed before this existed have the stone's
+          // fields on the order itself; liftLegacyRow() reads those as a one-stone list.
+          key: 'items', type: 'lines', width: 7,
+          label: { en: 'Stone types bought', ar: 'أنواع الرخام المشتراة', fa: 'سنگ‌های خریداری‌شده' },
+          columns: [
+            { key: 'variety', type: 'variety', width: 3, label: { en: 'Stone type', ar: 'نوع الرخام', fa: 'نوع سنگ' }, allowText: true },
+            { key: 'quantity', type: 'number', min: 0, label: { en: 'Quantity (m³)', ar: 'الكمية (م3)', fa: 'مقدار (م۳)' } },
+            { key: 'unitPrice', type: 'money', label: { en: 'Price per metre', ar: 'سعر المتر', fa: 'قیمت هر متر' } },
+            {
+              key: 'total', type: 'money', computed: 'quantity*unitPrice',
+              label: { en: 'Stone total', ar: 'اجمالي الصنف', fa: 'جمع این سنگ' },
+            },
+          ],
+        },
+        {
+          key: 'total', type: 'money', computed: 'sum:items.total',
           label: { en: 'Order total', ar: 'اجمالي الطلب', fa: 'جمع سفارش' },
         },
       ],
@@ -378,6 +396,31 @@ function listJobReportTemplates() {
   }));
 }
 
+// The `lines` column of a table section, if it has one (at most one per section).
+const linesColumnOf = (section) => (section.columns || []).find((c) => c.type === 'lines') || null;
+
+// A row filed BEFORE a column became a list holds that list's fields on the row itself ({variety, quantity,
+// unitPrice} instead of {items: [{variety, quantity, unitPrice}]}). Read as the one-entry list it always was, so an
+// old report prints and opens exactly as it did and a stale form posting the old shape is not lost.
+function liftLegacyRow(section, row) {
+  if (!row || typeof row !== 'object') return row;
+  const lines = linesColumnOf(section);
+  if (!lines || Array.isArray(row[lines.key])) return row;
+  const item = {};
+  let any = false;
+  const next = { ...row };
+  (lines.columns || []).forEach((c) => {
+    if (c.computed) return;
+    const v = row[c.key];
+    item[c.key] = v === undefined ? null : v;
+    delete next[c.key];
+    const filled = v != null && v !== '' && !(typeof v === 'object' && !Object.values(v).some((x) => x != null && x !== ''));
+    if (filled) any = true;
+  });
+  next[lines.key] = any ? [item] : [];
+  return next;
+}
+
 // Flat walk over every field in a template, whichever kind of section holds
 // it — used by the save path and the printer so neither has to know the
 // difference between a fields section and a table's columns.
@@ -400,5 +443,5 @@ module.exports = {
   TEMPLATES, LANGS, DEFAULT_TEMPLATE,
   SOCIAL_CHANNELS, CHANNEL_VALUES, channelByValue,
   resolveJobReportTemplate, isKnownTemplate, listJobReportTemplates,
-  eachField, pickLabel,
+  eachField, pickLabel, linesColumnOf, liftLegacyRow,
 };

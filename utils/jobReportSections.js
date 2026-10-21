@@ -25,7 +25,8 @@ const readyToUploadSchema  = require('../models/readyToUploadModel');
 const whatsappShareSchema  = require('../models/whatsappShareModel');
 const externalLinkPageSchema = require('../models/externalLinkPageModel');
 const { isSuperAdmin, getUserBranches, getEffectiveScopes, getEffectivePermissions, Group } = require('./rbac');
-const { resolveJobReportTemplate, CHANNEL_VALUES } = require('./jobReportTemplates');
+const { resolveJobReportTemplate, CHANNEL_VALUES, liftLegacyRow } = require('./jobReportTemplates');
+const { contactLabel } = require('./crmContacts');
 
 const Customer   = dbConnection.models.customer         || dbConnection.model('customer', customerSchema);
 const InvProduct = dbConnection.models.inventoryProduct || dbConnection.model('inventoryProduct', inventoryProductSchema);
@@ -39,6 +40,7 @@ const ExternalLinkPage = dbConnection.models.externalLinkPage || dbConnection.mo
 // nobody meets them in practice and low enough that a runaway client cannot
 // push an unbounded document into Mongo.
 const MAX_ROWS_PER_TABLE = 100;
+const MAX_LINES_PER_ROW = 30;      // stones in ONE purchase
 const MAX_TEXT = 500;
 const MAX_TEXTAREA = 8000;
 
@@ -68,10 +70,11 @@ const toDate = (v) => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+// A customer reached only through a handle has no phone number: its first handle names it.
 const customerLabel = (c) => {
   const p = (c && c.personalInformation) || {};
   const name = p.companyName || [p.firstName, p.lastName].filter(Boolean).join(' ').trim();
-  return name || c.phoneNumber || '';
+  return name || contactLabel(c);
 };
 
 // ── Row-level scope, one definition per module ──────────────────────────────
@@ -143,21 +146,28 @@ function collectRefs(tpl, raw) {
     if (isId(id)) refs[type].add(id);
   };
 
+  // The cells of one row (or one entry of a `lines` list), whatever they hold.
+  const collectFromColumns = (columns, obj) => {
+    (columns || []).forEach((col) => {
+      const v = obj && obj[col.key];
+      if (col.type === 'lines') {
+        (Array.isArray(v) ? v.slice(0, MAX_LINES_PER_ROW) : []).forEach((item) => collectFromColumns(col.columns, item));
+        return;
+      }
+      // A recipient only has something to resolve in its customer mode.
+      if (col.type === 'recipient') {
+        if (v && v.mode === 'customer') takeRef('customer', v);
+        return;
+      }
+      if (refs[col.type] || col.type === 'dmContent') takeRef(col.type, v);
+    });
+  };
+
   (tpl.sections || []).forEach((section) => {
     const given = raw && raw[section.key];
     if (section.kind === 'table') {
       if (!Array.isArray(given)) return;
-      given.slice(0, MAX_ROWS_PER_TABLE).forEach((row) => {
-        (section.columns || []).forEach((col) => {
-          // A recipient only has something to resolve in its customer mode.
-          if (col.type === 'recipient') {
-            const v = row && row[col.key];
-            if (v && v.mode === 'customer') takeRef('customer', v);
-            return;
-          }
-          if (refs[col.type] || col.type === 'dmContent') takeRef(col.type, row && row[col.key]);
-        });
-      });
+      given.slice(0, MAX_ROWS_PER_TABLE).forEach((row) => collectFromColumns(section.columns, liftLegacyRow(section, row)));
     } else {
       if (!given || typeof given !== 'object') return;
       (section.fields || []).forEach((field) => {
@@ -182,7 +192,7 @@ async function loadCustomers(ids, userId, perms) {
   const query = { _id: { $in: Array.from(ids) }, deleteDate: null };
   const scope = await crmScopeFilter(userId);
   if (scope) Object.assign(query, scope);
-  const rows = await Customer.find(query).select('_id personalInformation phoneNumber').lean();
+  const rows = await Customer.find(query).select('_id personalInformation phoneNumber commHandles').lean();
   return new Map(rows.map((c) => [String(c._id), {
     customerId: c._id, name: customerLabel(c), phone: c.phoneNumber || '',
   }]));
@@ -288,6 +298,7 @@ function resolveValue(field, value, resolved) {
       const key = `${String(value.kind || '')}:${String(value.id || value.recordId || '')}`;
       return resolved.dmContents.get(key) || null;
     }
+    case 'lines':    return resolveLines(field, value, resolved);
     case 'date':     return toDate(value);
     case 'time':     return toTime(value);
     case 'number':
@@ -305,25 +316,50 @@ function resolveValue(field, value, resolved) {
 // A computed column is ALWAYS recalculated here — the browser shows a live
 // total for the person typing, but what gets stored and printed is the
 // server's own arithmetic.
-function applyComputed(section, row) {
-  (section.columns || []).forEach((col) => {
+// Two shapes: 'a*b' (a product of two cells of the row) and 'sum:list.cell' (the total of one cell over a `lines` list).
+function applyComputedColumns(columns, row) {
+  (columns || []).forEach((col) => {
     if (!col.computed) return;
-    const [a, b] = String(col.computed).split('*');
+    const spec = String(col.computed);
+    if (spec.startsWith('sum:')) {
+      const [listKey, cellKey] = spec.slice(4).split('.');
+      const values = (Array.isArray(row[listKey]) ? row[listKey] : [])
+        .map((item) => toNumber(item && item[cellKey])).filter((v) => v != null);
+      row[col.key] = values.length ? Math.round(values.reduce((a, b) => a + b, 0) * 100) / 100 : null;
+      return;
+    }
+    const [a, b] = spec.split('*');
     const x = toNumber(row[a]);
     const y = toNumber(row[b]);
     row[col.key] = (x == null || y == null) ? null : Math.round(x * y * 100) / 100;
   });
 }
+const applyComputed = (section, row) => applyComputedColumns(section.columns, row);
 
 // A row the user started and abandoned is noise on a printed sheet — dropped
 // rather than stored as a blank line. A reference cell is an OBJECT, so a
 // shallow truthiness test would call {text:''} filled; this looks inside.
 const cellIsEmpty = (v) => {
   if (v == null || v === '') return true;
+  if (Array.isArray(v)) return v.length === 0;        // a `lines` list is cleaned of blank entries before this is asked
   if (typeof v !== 'object') return false;
   return Object.values(v).every((inner) => inner == null || inner === '');
 };
 const rowIsEmpty = (row) => Object.values(row).every(cellIsEmpty);
+
+// One `lines` cell: its entries rebuilt from the template's own nested columns (a key the template does not declare
+// does not survive), every reference re-snapshotted, computed cells recalculated, blank entries dropped.
+function resolveLines(field, value, resolved) {
+  const out = [];
+  (Array.isArray(value) ? value.slice(0, MAX_LINES_PER_ROW) : []).forEach((rawItem) => {
+    if (!rawItem || typeof rawItem !== 'object') return;
+    const item = {};
+    (field.columns || []).forEach((col) => { item[col.key] = resolveValue(col, rawItem[col.key], resolved); });
+    applyComputedColumns(field.columns, item);
+    if (!rowIsEmpty(item)) out.push(item);
+  });
+  return out;
+}
 
 /**
  * @returns {{ sections: Object, links: Object, bound: Object }}
@@ -353,6 +389,11 @@ async function resolveJobReportSections(userId, templateKey, rawSections) {
   const links = { customers: [], varieties: [], dmContents: [] };
   const seen = { customers: new Set(), varieties: new Set(), dmContents: new Set() };
 
+  // A cell that is a LIST (a purchase's stones) holds references of its own.
+  const noteAll = (value) => {
+    if (Array.isArray(value)) value.forEach((item) => Object.values(item || {}).forEach(noteLinks));
+    else noteLinks(value);
+  };
   const noteLinks = (value) => {
     if (!value) return;
     if (value.customerId && !seen.customers.has(String(value.customerId))) {
@@ -370,12 +411,13 @@ async function resolveJobReportSections(userId, templateKey, rawSections) {
     if (section.kind === 'table') {
       const rows = Array.isArray(given) ? given.slice(0, MAX_ROWS_PER_TABLE) : [];
       const clean = [];
-      rows.forEach((rawRow) => {
-        if (!rawRow || typeof rawRow !== 'object') return;
+      rows.forEach((rawRowIn) => {
+        if (!rawRowIn || typeof rawRowIn !== 'object') return;
+        const rawRow = liftLegacyRow(section, rawRowIn);
         const row = {};
         (section.columns || []).forEach((col) => {
           row[col.key] = resolveValue(col, rawRow[col.key], resolved);
-          noteLinks(row[col.key]);
+          noteAll(row[col.key]);
         });
         applyComputed(section, row);
         if (!rowIsEmpty(row)) clean.push(row);

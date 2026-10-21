@@ -18,7 +18,7 @@
 
 'use strict';
 
-const { resolveJobReportTemplate, pickLabel, channelByValue } = require('./jobReportTemplates');
+const { resolveJobReportTemplate, pickLabel, channelByValue, linesColumnOf, liftLegacyRow } = require('./jobReportTemplates');
 const { documentFontCss } = require('./documentFonts');
 
 const esc = (s) => String(s == null ? '' : s)
@@ -65,6 +65,7 @@ const num = (n) => (n == null || n === '' ? '' : Number(n).toLocaleString('en-US
 // would call {text:''} filled.
 const cellIsEmpty = (v) => {
   if (v == null || v === '') return true;
+  if (Array.isArray(v)) return v.length === 0;
   if (typeof v !== 'object') return false;
   return Object.values(v).every((inner) => inner == null || inner === '');
 };
@@ -141,19 +142,46 @@ function fieldsSection(section, data, lang) {
 }
 
 function tableSection(section, rows, lang) {
-  const list = (Array.isArray(rows) ? rows : []).filter((r) => !Object.values(r || {}).every(cellIsEmpty));
+  const list = (Array.isArray(rows) ? rows : []).map((r) => liftLegacyRow(section, r))
+    .filter((r) => !Object.values(r || {}).every(cellIsEmpty));
   if (!list.length) return null;
 
   const cols = section.columns || [];
-  const head = cols.map((c) => `<th>${esc(pickLabel(c.label, lang))}</th>`).join('');
-  const body = list.map((row, i) => `<tr><td class="idx">${i + 1}</td>${cols.map((c) =>
-    `<td class="${cellClass(c)}">${esc(cellText(c, row[c.key], lang))}</td>`).join('')}</tr>`).join('');
+  const linesCol = linesColumnOf(section);
+  // A `lines` column (a purchase's several stones) stands for its own columns, side by side.
+  const head = cols.map((c) => (c.type === 'lines'
+    ? (c.columns || []).map((n) => `<th>${esc(pickLabel(n.label, lang))}</th>`).join('')
+    : `<th>${esc(pickLabel(c.label, lang))}</th>`)).join('');
+  const flatCount = cols.reduce((n, c) => n + (c.type === 'lines' ? (c.columns || []).length : 1), 0);
+
+  // One row per entry of the list: the cells that belong to the whole order (number, customer, order total) span
+  // them, as the entries of one purchase read together on paper. A section without a list prints as it always did.
+  const body = list.map((row, i) => {
+    const items = linesCol && Array.isArray(row[linesCol.key]) ? row[linesCol.key] : [];
+    const n = linesCol ? Math.max(1, items.length) : 1;
+    const span = n > 1 ? ` rowspan="${n}"` : '';
+    const trs = [];
+    for (let k = 0; k < n; k += 1) {
+      const cells = [];
+      if (k === 0) cells.push(`<td class="idx"${span}>${i + 1}</td>`);
+      cols.forEach((c) => {
+        if (c.type === 'lines') {
+          const item = items[k] || {};
+          (c.columns || []).forEach((nc) => cells.push(`<td class="${cellClass(nc)}">${esc(cellText(nc, item[nc.key], lang))}</td>`));
+        } else if (k === 0) {
+          cells.push(`<td${span} class="${cellClass(c)}">${esc(cellText(c, row[c.key], lang))}</td>`);
+        }
+      });
+      trs.push(`<tr${linesCol && k === 0 ? ' class="first"' : ''}>${cells.join('')}</tr>`);
+    }
+    return trs.join('');
+  }).join('');
 
   // The paper form carries its summary cells under the table; so does this.
   let totals = '';
   if (section.totals && section.totals.length) {
     totals = `<tr class="grand">
-      <td colspan="${cols.length + 1}">${section.totals.map((tot) => {
+      <td colspan="${flatCount + 1}">${section.totals.map((tot) => {
     const value = tot.of
       ? list.reduce((sum, r) => sum + (Number(r[tot.of]) || 0), 0)
       : list.length;
@@ -265,6 +293,8 @@ function renderJobReportHtml(report, options = {}) {
   table.lines td.idx, table.lines th.idx { width: 20px; text-align: center; color: #888; }
   table.lines td.numcell { direction: ltr; text-align: ${dir === 'rtl' ? 'right' : 'left'}; }
   table.lines tr.grand td { background: ${BRAND.blueTint}; padding: 2px 6px; }
+  /* the first row of a purchase made of several stones opens a new group */
+  table.lines tr.first td { border-top: 1.5px solid ${BRAND.blue}; }
   .tot { margin-inline-end: 16px; }
 
   .thread { border-inline-start: 3px solid ${BRAND.blueTint2};
