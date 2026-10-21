@@ -638,8 +638,8 @@ router.get('/packing-lists/:id/pallets/:palletId/label/pdf', verify, requirePerm
 
 // ── up to five short-pallet labels on one A4 sheet ────────────────────────────
 // ?palletId=P1&palletId=P2 ... (repeated, in the order wanted - a pallet ID may contain a comma, so it is not a
-// comma list) and &duplex=1 for the same sheet again on the back ("back to back"). Strips go top to bottom in the
-// order given. At most SHORT_LABELS_PER_SHEET pallets: the sheet is five strips tall.
+// comma list). Strips go top to bottom in the order given, on one side of the page. At most SHORT_LABELS_PER_SHEET
+// pallets: the sheet is five strips tall.
 
 function requestedPalletIds(query) {
   const raw = query.palletId;
@@ -652,8 +652,6 @@ function requestedPalletIds(query) {
   }
   return out;
 }
-
-const wantsDuplex = (query) => ['1', 'true', 'yes'].includes(String(query.duplex || '').toLowerCase());
 
 /** -> { pallets } on success, { status, body } for the refusal to send. */
 function pickSheetPallets(doc, query) {
@@ -679,9 +677,8 @@ async function renderShortSheet(req) {
     Branch.findById(doc.branchId).lean(),
     loadCompanyProfileWithLogo(doc.branchId),
   ]);
-  const duplex = wantsDuplex(req.query);
-  const html = renderShortLabelSheetHtml(doc.toObject(), picked.pallets, branch, profile, { duplex });
-  return { html, pallets: picked.pallets, duplex };
+  const html = renderShortLabelSheetHtml(doc.toObject(), picked.pallets, branch, profile);
+  return { html, pallets: picked.pallets };
 }
 
 router.get('/packing-lists/:id/labels/short/html', verify, requirePermission('mis:view'), loadPackingList, async (req, res) => {
@@ -705,7 +702,7 @@ router.get('/packing-lists/:id/labels/short/pdf', verify, requirePermission('mis
     const userId = req.user.id;
     const actorName = await getActorName(userId);
     await logActivity(doc._id, 'label_generated', {
-      body: `Short labels on A4${sheet.duplex ? ' (both sides)' : ''}: ${sheet.pallets.map((p) => p.palletId).join(', ')}`,
+      body: `Short labels on A4: ${sheet.pallets.map((p) => p.palletId).join(', ')}`,
     }, userId, actorName);
 
     return sendPdf(req, res, pdf, `labels-short-${doc.docNumber}.pdf`);

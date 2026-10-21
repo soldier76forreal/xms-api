@@ -648,14 +648,12 @@ function renderShortPalletLabelHtml(doc, pallet, branch, profile = {}) {
 // Up to five strips go on one sheet of A4, one under the other, each with a dashed cut line under it, so a whole
 // shipment's labels come out of the printer together instead of one page at a time. A pallet with several sizes has a
 // taller strip; when the next strip does not fit under the ones already on the sheet it starts a new sheet.
-//
-// "Back to back": with `duplex` every sheet is followed by an identical page, so a printer set to print on both sides
-// puts the same labels on the front and the back of each strip. The strips are centred side to side, so the back
-// page's strips sit exactly behind the front page's (a sheet turned over on its long edge keeps the top at the top).
+// One side of the paper only: a sheet is one page, and a second sheet is a second page - never a page for the back
+// (a "back to back" duplex option was built first and withdrawn at the owner's request, 2026-10-21).
 const SHEET = { w: 210, h: 297, padX: 14, padY: 8 };
 const SHORT_LABELS_PER_SHEET = 5;
 
-function renderShortLabelSheetHtml(doc, pallets, branch, profile = {}, { duplex = true } = {}) {
+function renderShortLabelSheetHtml(doc, pallets, branch, profile = {}) {
   const logo = logoFor(profile);
   const strips = (pallets || []).slice(0, SHORT_LABELS_PER_SHEET).map((p) => shortStrip(p, logo));
   const usable = SHEET.h - 2 * SHEET.padY - 1;
@@ -667,11 +665,10 @@ function renderShortLabelSheetHtml(doc, pallets, branch, profile = {}, { duplex 
   }
   if (current.length) sheets.push(current);
 
-  const sheetHtml = (list, back) => `
-  <section class="sheet${back ? ' back' : ''}">${list.map((s, i) => `
+  const pages = sheets.map((list) => `
+  <section class="sheet">${list.map((s, i) => `
     <div class="cell${i < list.length - 1 ? ' cut' : ''}">${s.html}</div>`).join('')}
-  </section>`;
-  const pages = sheets.map((list) => (duplex ? sheetHtml(list, false) + sheetHtml(list, true) : sheetHtml(list, false))).join('');
+  </section>`).join('');
 
   return `<!doctype html>
 <html dir="ltr" lang="en">
